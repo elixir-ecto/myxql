@@ -18,6 +18,8 @@ defmodule Myxql.MixProject do
   end
 
   defp deps() do
-    []
+    [
+      {:binpp, ">= 0.0.0", only: [:dev, :test]}
+    ]
   end
 end

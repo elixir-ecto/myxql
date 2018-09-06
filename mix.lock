@@ -1,0 +1,3 @@
+%{
+  "binpp": {:hex, :binpp, "1.1.1", "a01060124841ed3a22ed98ddeafc10d14166d2991683d5ce907a3a410559c9ee", [:rebar3], [], "hexpm"},
+}
