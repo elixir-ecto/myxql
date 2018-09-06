@@ -1,6 +1,14 @@
 defmodule Myxql.Messages do
   @moduledoc false
   import Record
+  use Bitwise
+
+  @max_packet_size 65536
+
+  # https://dev.mysql.com/doc/internals/en/capability-flags.html
+  @client_connect_with_db 0x00000008
+  @client_protocol_41 0x00000200
+  @client_deprecate_eof 0x01000000
 
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
   defrecord :packet, [:payload_length, :sequence_id, :payload]
@@ -8,6 +16,36 @@ defmodule Myxql.Messages do
   def decode_packet(data) do
     <<payload_length::size(24), sequence_id::size(8), payload::binary>> = data
     packet(payload_length: payload_length, sequence_id: sequence_id, payload: payload)
+  end
+
+  def encode_packet(payload, sequence_id) do
+    payload_length = byte_size(payload)
+    <<payload_length::little-size(24), sequence_id::little-size(8), payload::binary>>
+  end
+
+  # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
+  # TODO:
+  # - handle lenenc integers for last_insert_id and last_insert_id
+  # - investigate using CLIENT_SESSION_TRACK & SERVER_SESSION_STATE_CHANGED capabilities
+  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warnings]
+
+  def decode_ok_packet(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    <<
+      0,
+      affected_rows::size(8),
+      last_insert_id::size(8),
+      status_flags::size(16),
+      warnings::size(16)
+    >> = payload
+
+    ok_packet(
+      affected_rows: affected_rows,
+      last_insert_id: last_insert_id,
+      status_flags: status_flags,
+      warnings: warnings
+    )
   end
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
@@ -61,5 +99,35 @@ defmodule Myxql.Messages do
       auth_plugin_data2: auth_plugin_data2,
       auth_plugin_name: auth_plugin_name
     )
+  end
+
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse
+  defrecord :handshake_response_41, [
+    :capability_flags,
+    :max_packet_size,
+    :character_set,
+    :username,
+    :auth_response,
+    :database
+  ]
+
+  def encode_handshake_response_41(user, auth_response, database) do
+    capability_flags = @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof
+    charset = 8
+
+    payload = <<
+      capability_flags::little-integer-size(32),
+      @max_packet_size::little-integer-size(32),
+      <<charset::integer>>,
+      String.duplicate(<<0>>, 23)::binary,
+      user::binary,
+      0,
+      <<20>>,
+      auth_response::binary,
+      database::binary,
+      0
+    >>
+
+    encode_packet(payload, 1)
   end
 end
