@@ -28,10 +28,18 @@ defmodule MyxqlTest do
 
     data = Myxql.Messages.encode_handshake_response_41(user, auth_response, database)
     :binpp.pprint(data)
-    :gen_tcp.send(sock, data)
+    :ok = :gen_tcp.send(sock, data)
 
     {:ok, data} = :gen_tcp.recv(sock, 0)
     :binpp.pprint(data)
     ok_packet(warnings: 0) = decode_ok_packet(data)
+
+    data = encode_com_query("SELECT 2*3")
+    :binpp.pprint(data)
+    :ok = :gen_tcp.send(sock, data)
+
+    {:ok, data} = :gen_tcp.recv(sock, 0)
+    :binpp.pprint(data)
+    {"2*3", "6"} = decode_com_query_response(data)
   end
 end

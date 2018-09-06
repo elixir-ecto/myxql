@@ -130,4 +130,72 @@ defmodule Myxql.Messages do
 
     encode_packet(payload, 1)
   end
+
+  # https://dev.mysql.com/doc/internals/en/com-query.html
+  def encode_com_query(query) do
+    com_query = 0x03
+    length = String.length(query) + 1
+    <<length::integer, 0, 0, 0, com_query::integer, query::binary>>
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
+  def decode_com_query_response(data) do
+    <<
+      # sequence_id 01
+      _length01::size(24),
+      0x01,
+      _column_count::size(8),
+
+      # sequence_id 02
+      _length02::size(24),
+      0x02,
+      _catalog::4-bytes,
+      # schema
+      0,
+      # table
+      0,
+      # org_table
+      0,
+      column_name_size::size(8),
+      rest::binary
+    >> = data
+
+    <<
+      column_name::bytes-size(column_name_size),
+      # org_name
+      0,
+      # filler_1
+      0x0C,
+      _character_set::2-bytes,
+      _column_length::size(32),
+      column_type::1-bytes,
+      _flags::2-bytes,
+      _decimals::1-bytes,
+      # fillers
+      0,
+      0,
+
+      # sequence 03
+      _length03::size(24),
+      0x03,
+      value_size::size(8),
+      rest::binary
+    >> = rest
+
+    <<
+      value::bytes-size(value_size),
+
+      # sequence 04
+      _length04::size(24),
+      0x04,
+      # EOF indicator
+      0xFE,
+      _warning_count::size(16),
+      _status_flags::size(16),
+      0,
+      0
+    >> = rest
+
+    {column_name, value}
+  end
 end
