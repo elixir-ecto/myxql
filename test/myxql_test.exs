@@ -34,12 +34,12 @@ defmodule MyxqlTest do
     :binpp.pprint(data)
     ok_packet(warnings: 0) = decode_ok_packet(data)
 
-    data = encode_com_query("SELECT 2*3")
+    data = encode_com_query("SELECT 2*3, 4*5")
     :binpp.pprint(data)
     :ok = :gen_tcp.send(sock, data)
 
     {:ok, data} = :gen_tcp.recv(sock, 0)
     :binpp.pprint(data)
-    {"2*3", "6"} = decode_com_query_response(data)
+    {["2*3", "4*5"], ["6", "20"]} = decode_com_query_response(data)
   end
 end

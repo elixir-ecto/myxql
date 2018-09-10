@@ -141,21 +141,21 @@ defmodule Myxql.Messages do
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(data) do
-    packet(sequence_id: 1, payload: <<_column_count::size(8), rest::binary>>) = decode_packet(data)
+    packet(payload: <<column_count::size(8), rest::binary>>) = decode_packet(data)
 
-    {column_name, rest} = decode_column_definition41(rest)
-    {value, rest} = decode_resultset_row(rest)
+    {column_names, rest} = decode_column_definitions(rest, column_count, [])
+    {values, rest} = decode_resultset_row(rest, column_count)
 
     eof_indicator = 0xFE
 
-    packet(sequence_id: 4, payload: <<
+    packet(payload: <<
       ^eof_indicator,
       _warning_count::size(16),
       _status_flags::size(16),
       0::size(16)
     >>) = decode_packet(rest)
 
-    {column_name, value}
+    {column_names, values}
   end
 
   defp decode_column_definition41(data) do
@@ -183,15 +183,31 @@ defmodule Myxql.Messages do
     {column_name, rest}
   end
 
-  defp decode_resultset_row(data) do
-    packet(payload: payload) = decode_packet(data)
+  defp decode_column_definitions(data, column_count, acc) when column_count > 0 do
+    {column_name, rest} = decode_column_definition41(data)
+    decode_column_definitions(rest, column_count - 1, [column_name | acc])
+  end
 
+  defp decode_column_definitions(rest, 0, acc) do
+    {Enum.reverse(acc), rest}
+  end
+
+  defp decode_resultset_row(rest, column_count) do
+    packet(payload: payload) = decode_packet(rest)
+    decode_resultset_row(payload, column_count, [])
+  end
+
+  defp decode_resultset_row(data, column_count, acc) when column_count > 0 do
     <<
       value_size::size(8),
       value::bytes-size(value_size),
       rest::binary
-    >> = payload
+    >> = data
 
-    {value, rest}
+    decode_resultset_row(rest, column_count - 1, [value | acc])
+  end
+
+  defp decode_resultset_row(rest, 0, acc) do
+    {Enum.reverse(acc), rest}
   end
 end
