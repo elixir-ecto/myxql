@@ -157,12 +157,14 @@ defmodule Myxql.Messages do
 
     eof_indicator = 0xFE
 
-    packet(payload: <<
-      ^eof_indicator,
-      _warning_count::size(16),
-      _status_flags::size(16),
-      0::size(16)
-    >>) = decode_packet(rest)
+    packet(
+      payload: <<
+        ^eof_indicator,
+        _warning_count::size(16),
+        _status_flags::size(16),
+        0::size(16)
+      >>
+    ) = decode_packet(rest)
 
     {column_names, values}
   end
