@@ -3,6 +3,11 @@ defmodule Myxql.Messages do
   import Record
   use Bitwise
 
+  # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
+  # OK packets are indicating EOF (instead of separate EOF packet)
+  # from this version.
+  @min_server_version Version.parse!("5.7.5")
+
   @max_packet_size 65536
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
@@ -68,6 +73,10 @@ defmodule Myxql.Messages do
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
     [server_version, rest] = :binary.split(rest, <<0>>)
+
+    if Version.compare(server_version, @min_server_version) == :lt do
+      raise "minimum supported server version is #{@min_server_version}, got: #{server_version}"
+    end
 
     <<
       conn_id::size(32),
