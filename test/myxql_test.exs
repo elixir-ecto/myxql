@@ -28,11 +28,16 @@ defmodule MyxqlTest do
     :ok = :gen_tcp.send(sock, data)
 
     {:ok, data} = :gen_tcp.recv(sock, 0)
-    ok_packet(warnings: 0) = decode_ok_packet(data)
+    ok_packet(warnings: 0) = decode_response_packet(data)
 
     data = encode_com_query("SELECT 2*3, 4*5")
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
     {["2*3", "4*5"], ["6", "20"]} = decode_com_query_response(data)
+
+    data = encode_com_query("bad")
+    :ok = :gen_tcp.send(sock, data)
+    {:ok, data} = :gen_tcp.recv(sock, 0)
+    err_packet(error_message: "You have an error in your SQL syntax" <> _) = decode_response_packet(data)
   end
 end

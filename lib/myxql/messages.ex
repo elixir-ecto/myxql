@@ -28,6 +28,16 @@ defmodule Myxql.Messages do
     <<payload_length::little-size(24), sequence_id::little-size(8), payload::binary>>
   end
 
+  # https://dev.mysql.com/doc/internals/en/generic-response-packets.html
+  def decode_response_packet(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    case payload do
+      <<0x00, _::binary>> -> decode_ok_packet(payload)
+      <<0xFF, _::binary>> -> decode_err_packet(payload)
+    end
+  end
+
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # TODO:
   # - handle lenenc integers for last_insert_id and last_insert_id
@@ -35,21 +45,40 @@ defmodule Myxql.Messages do
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warnings]
 
   def decode_ok_packet(data) do
-    packet(payload: payload) = decode_packet(data)
-
     <<
       0,
       affected_rows::size(8),
       last_insert_id::size(8),
       status_flags::size(16),
-      warnings::size(16)
-    >> = payload
+      warnings::size(16),
+      _::binary
+    >> = data
 
     ok_packet(
       affected_rows: affected_rows,
       last_insert_id: last_insert_id,
       status_flags: status_flags,
       warnings: warnings
+    )
+  end
+
+  # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
+  defrecord :err_packet, [:error_code, :sql_state_marker, :sql_state, :error_message]
+
+  def decode_err_packet(data) do
+    <<
+      0xFF,
+      error_code::size(16),
+      sql_state_marker::bytes-size(1),
+      sql_state::bytes-size(5),
+      error_message::binary
+    >> = data
+
+    err_packet(
+      error_code: error_code,
+      sql_state_marker: sql_state_marker,
+      sql_state: sql_state,
+      error_message: error_message
     )
   end
 
