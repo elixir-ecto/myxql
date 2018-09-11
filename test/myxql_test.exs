@@ -38,6 +38,8 @@ defmodule MyxqlTest do
     data = encode_com_query("bad")
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
-    err_packet(error_message: "You have an error in your SQL syntax" <> _) = decode_response_packet(data)
+
+    err_packet(error_message: "You have an error in your SQL syntax" <> _) =
+      decode_response_packet(data)
   end
 end

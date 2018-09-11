@@ -15,6 +15,30 @@ defmodule Myxql.Messages do
   @client_protocol_41 0x00000200
   @client_deprecate_eof 0x01000000
 
+  # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
+  # TODO: check notes above
+  def decode_length_encoded_integer(binary) do
+    {integer, ""} = take_length_encoded_integer(binary)
+    integer
+  end
+
+  def take_length_encoded_integer(<<int::size(8), rest::binary>>) when int < 251, do: {int, rest}
+  def take_length_encoded_integer(<<0xFC, int::size(16), rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFD, int::size(24), rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFE, int::size(64), rest::binary>>), do: {int, rest}
+
+  # https://dev.mysql.com/doc/internals/en/string.html
+  def decode_length_encoded_string(binary) do
+    {_size, rest} = take_length_encoded_integer(binary)
+    rest
+  end
+
+  def take_length_encoded_string(binary) do
+    {size, rest} = take_length_encoded_integer(binary)
+    <<string::bytes-size(size), rest::binary>> = rest
+    {string, rest}
+  end
+
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
   defrecord :packet, [:payload_length, :sequence_id, :payload]
 
