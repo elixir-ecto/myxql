@@ -225,15 +225,21 @@ defmodule Myxql.Messages do
   defp decode_column_definition41(data) do
     packet(payload: payload) = decode_packet(data)
 
+    :binpp.pprint(payload)
+
     <<
       3,
       "def",
-      _schema::size(8),
-      _table::size(8),
-      _org_table::size(8),
-      column_name_size::size(8),
-      column_name::bytes-size(column_name_size),
-      _org_name::size(8),
+      rest::binary
+    >> = payload
+
+    {_schema, rest} = take_length_encoded_string(rest)
+    {_table, rest} = take_length_encoded_string(rest)
+    {_org_table, rest} = take_length_encoded_string(rest)
+    {name, rest} = take_length_encoded_string(rest)
+    {_org_name, rest} = take_length_encoded_string(rest)
+
+    <<
       0x0C,
       _character_set::2-bytes,
       _column_length::size(32),
@@ -242,9 +248,9 @@ defmodule Myxql.Messages do
       _decimals::1-bytes,
       0::size(16),
       rest::binary
-    >> = payload
+    >> = rest
 
-    {column_name, rest}
+    {name, rest}
   end
 
   defp decode_column_definitions(data, column_count, acc) when column_count > 0 do
