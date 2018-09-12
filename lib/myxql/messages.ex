@@ -206,26 +206,12 @@ defmodule Myxql.Messages do
     packet(payload: <<column_count::size(8), rest::binary>>) = decode_packet(data)
 
     {column_names, rest} = decode_column_definitions(rest, column_count, [])
-    {values, rest} = decode_resultset_row(rest, column_count)
-
-    eof_indicator = 0xFE
-
-    packet(
-      payload: <<
-        ^eof_indicator,
-        _warning_count::size(16),
-        _status_flags::size(16),
-        0::size(16)
-      >>
-    ) = decode_packet(rest)
-
-    {column_names, values}
+    rows = decode_resultset_rows(rest, column_count, [])
+    {column_names, rows}
   end
 
   defp decode_column_definition41(data) do
     packet(payload: payload) = decode_packet(data)
-
-    :binpp.pprint(payload)
 
     <<
       3,
@@ -262,9 +248,17 @@ defmodule Myxql.Messages do
     {Enum.reverse(acc), rest}
   end
 
-  defp decode_resultset_row(rest, column_count) do
-    packet(payload: payload) = decode_packet(rest)
-    decode_resultset_row(payload, column_count, [])
+  defp decode_resultset_rows(data, column_count, acc) do
+    packet(payload: payload) = decode_packet(data)
+
+    case payload do
+      <<0xFE, _warning_count::size(16), _status_flags::size(16), 0::size(16)>> ->
+        Enum.reverse(acc)
+
+      _ ->
+        {row, rest} = decode_resultset_row(payload, column_count, [])
+        decode_resultset_rows(rest, column_count, [row | acc])
+    end
   end
 
   defp decode_resultset_row(data, column_count, acc) when column_count > 0 do

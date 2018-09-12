@@ -33,7 +33,12 @@ defmodule MyxqlTest do
     data = encode_com_query("SELECT 2*3, 4*5")
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
-    {["2*3", "4*5"], ["6", "20"]} = decode_com_query_response(data)
+    {["2*3", "4*5"], [["6", "20"]]} = decode_com_query_response(data)
+
+    data = encode_com_query("SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'AUTHENTICATION'")
+    :ok = :gen_tcp.send(sock, data)
+    {:ok, data} = :gen_tcp.recv(sock, 0)
+    assert {["plugin_name"], [["mysql_native_password"], ["sha256_password"]]} = decode_com_query_response(data)
 
     data = encode_com_query("bad")
     :ok = :gen_tcp.send(sock, data)
