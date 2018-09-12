@@ -201,13 +201,26 @@ defmodule Myxql.Messages do
     encode_packet(<<com_query::integer, query::binary>>, sequence_id)
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
+  # TODO: change columns to column_definitions
+  defrecord :resultset, [:column_count, :columns, :rows]
+
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(data) do
-    packet(payload: <<column_count::size(8), rest::binary>>) = decode_packet(data)
+    packet(payload: payload) = decode_packet(data)
 
-    {column_names, rest} = decode_column_definitions(rest, column_count, [])
-    rows = decode_resultset_rows(rest, column_count, [])
-    {column_names, rows}
+    case payload do
+      <<0x00, _::binary>> ->
+        decode_ok_packet(payload)
+
+      <<0xFF, _::binary>> ->
+        decode_err_packet(payload)
+
+      <<column_count::size(8), rest::binary>> ->
+        {columns, rest} = decode_column_definitions(rest, column_count, [])
+        rows = decode_resultset_rows(rest, column_count, [])
+        resultset(column_count: column_count, columns: columns, rows: rows)
+    end
   end
 
   defp decode_column_definition41(data) do

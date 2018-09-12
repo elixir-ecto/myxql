@@ -26,25 +26,23 @@ defmodule MyxqlTest do
 
     data = Myxql.Messages.encode_handshake_response_41(user, auth_response, database)
     :ok = :gen_tcp.send(sock, data)
-
     {:ok, data} = :gen_tcp.recv(sock, 0)
     ok_packet(warnings: 0) = decode_response_packet(data)
 
-    data = encode_com_query("SELECT 2*3, 4*5")
+    assert resultset(columns: ["2*3", "4*5"], rows: [["6", "20"]]) = query(sock, "SELECT 2*3, 4*5")
+
+    statement = "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'AUTHENTICATION'"
+    assert resultset(columns: ["plugin_name"], rows: [["mysql_native_password"], ["sha256_password"]]) = query(sock, statement)
+
+    assert ok_packet() = query(sock, "SET CHARSET 'UTF8'")
+
+    assert err_packet(error_message: "You have an error in your SQL syntax" <> _) = query(sock, "bad")
+  end
+
+  defp query(sock, statement) do
+    data = encode_com_query(statement)
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
-    {["2*3", "4*5"], [["6", "20"]]} = decode_com_query_response(data)
-
-    data = encode_com_query("SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'AUTHENTICATION'")
-    :ok = :gen_tcp.send(sock, data)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
-    assert {["plugin_name"], [["mysql_native_password"], ["sha256_password"]]} = decode_com_query_response(data)
-
-    data = encode_com_query("bad")
-    :ok = :gen_tcp.send(sock, data)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
-
-    err_packet(error_message: "You have an error in your SQL syntax" <> _) =
-      decode_response_packet(data)
+    decode_com_query_response(data)
   end
 end
