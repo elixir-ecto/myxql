@@ -29,7 +29,7 @@ defmodule MyxqlTest do
     {:ok, data} = :gen_tcp.recv(sock, 0)
     ok_packet(warnings: 0) = decode_response_packet(data)
 
-    assert resultset(columns: ["2*3", "4*5"], rows: [["6", "20"]]) =
+    assert resultset(column_definitions: [{"2*3", _}, {"4*5", _}], rows: [[6, 20]]) =
              query(sock, "SELECT 2*3, 4*5")
 
     assert ok_packet() = query(sock, "CREATE TABLE IF NOT EXISTS integers (x int)")
@@ -37,7 +37,7 @@ defmodule MyxqlTest do
     assert ok_packet() = query(sock, "INSERT INTO integers VALUES (10)")
     assert ok_packet() = query(sock, "INSERT INTO integers VALUES (20)")
 
-    assert resultset(columns: ["x"], rows: [["10"], ["20"]]) =
+    assert resultset(column_definitions: [{"x", _}], rows: [[10], [20]]) =
              query(sock, "SELECT * FROM integers")
 
     assert err_packet(error_message: "You have an error in your SQL syntax" <> _) =

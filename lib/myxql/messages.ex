@@ -202,8 +202,7 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
-  # TODO: change columns to column_definitions
-  defrecord :resultset, [:column_count, :columns, :rows]
+  defrecord :resultset, [:column_count, :column_definitions, :rows]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(data) do
@@ -217,9 +216,9 @@ defmodule Myxql.Messages do
         decode_err_packet(payload)
 
       <<column_count::size(8), rest::binary>> ->
-        {columns, rest} = decode_column_definitions(rest, column_count, [])
-        rows = decode_resultset_rows(rest, column_count, [])
-        resultset(column_count: column_count, columns: columns, rows: rows)
+        {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
+        rows = decode_resultset_rows(rest, column_definitions, [])
+        resultset(column_count: column_count, column_definitions: column_definitions, rows: rows)
     end
   end
 
@@ -242,14 +241,14 @@ defmodule Myxql.Messages do
       0x0C,
       _character_set::2-bytes,
       _column_length::size(32),
-      _column_type::1-bytes,
+      column_type::1-bytes,
       _flags::2-bytes,
       _decimals::1-bytes,
       0::size(16),
       rest::binary
     >> = rest
 
-    {name, rest}
+    {{name, column_type}, rest}
   end
 
   defp decode_column_definitions(data, column_count, acc) when column_count > 0 do
@@ -261,7 +260,7 @@ defmodule Myxql.Messages do
     {Enum.reverse(acc), rest}
   end
 
-  defp decode_resultset_rows(data, column_count, acc) do
+  defp decode_resultset_rows(data, column_definitions, acc) do
     packet(payload: payload) = decode_packet(data)
 
     case payload do
@@ -269,22 +268,31 @@ defmodule Myxql.Messages do
         Enum.reverse(acc)
 
       _ ->
-        {row, rest} = decode_resultset_row(payload, column_count, [])
-        decode_resultset_rows(rest, column_count, [row | acc])
+        {row, rest} = decode_resultset_row(payload, column_definitions, [])
+        decode_resultset_rows(rest, column_definitions, [row | acc])
     end
   end
 
-  defp decode_resultset_row(data, column_count, acc) when column_count > 0 do
+  defp decode_resultset_row(data, [{_name, type} | tail], acc) do
     <<
       value_size::size(8),
       value::bytes-size(value_size),
       rest::binary
     >> = data
 
-    decode_resultset_row(rest, column_count - 1, [value | acc])
+    decode_resultset_row(rest, tail, [decode_value(value, type) | acc])
   end
 
-  defp decode_resultset_row(rest, 0, acc) do
+  defp decode_resultset_row(rest, [], acc) do
     {Enum.reverse(acc), rest}
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
+  # TODO: handle remaining types
+  defp decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08] do
+    String.to_integer(value)
+  end
+  defp decode_value(value, _type) do
+    value
   end
 end
