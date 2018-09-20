@@ -28,10 +28,15 @@ defmodule Myxql.Protocol do
     {:ok, data} = :gen_tcp.recv(sock, 0)
 
     handshake_v10(
-      auth_plugin_name: "mysql_native_password",
+      auth_plugin_name: auth_plugin_name,
       auth_plugin_data1: auth_plugin_data1,
       auth_plugin_data2: auth_plugin_data2
     ) = Myxql.Messages.decode_handshake_v10(data)
+
+    # TODO: MySQL 8.0 defaults to "caching_sha2_password", which we don't support yet,
+    #       and will send AuthSwitchRequest which we'll need to handle.
+    #       https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
+    "mysql_native_password" = auth_plugin_name
 
     auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
     auth_response = Myxql.Utils.mysql_native_password(password, auth_plugin_data)
