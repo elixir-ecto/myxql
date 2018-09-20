@@ -196,9 +196,17 @@ defmodule Myxql.Messages do
 
   # https://dev.mysql.com/doc/internals/en/com-query.html
   def encode_com_query(query) do
-    com_query = 0x03
+    encode_com(0x03, query)
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html#packet-COM_STMT_PREPARE
+  def encode_com_stmt_prepare(query) do
+    encode_com(0x16, query)
+  end
+
+  defp encode_com(command, binary) do
     sequence_id = 0
-    encode_packet(<<com_query::integer, query::binary>>, sequence_id)
+    encode_packet(<<command::integer, binary::binary>>, sequence_id)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
@@ -215,13 +223,77 @@ defmodule Myxql.Messages do
       <<0xFF, _::binary>> ->
         decode_err_packet(payload)
 
+      # TODO: column_count is lenenc_int, not just int
       <<column_count::size(8), rest::binary>> ->
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
-        rows = decode_resultset_rows(rest, column_definitions, [])
+        rows = decode_text_resultset_rows(rest, column_definitions, [])
         resultset(column_count: column_count, column_definitions: column_definitions, rows: rows)
     end
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html
+  defrecord :stmt_prepare_response, [:statement_id]
+
+  def decode_com_stmt_prepare_response(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    <<
+      0,
+      statement_id::little-integer-size(32),
+      _num_columns::little-integer-size(16),
+      _num_params::little-integer-size(16),
+      0,
+      _warning_count::little-integer-size(16),
+      _rest::binary
+    >> = payload
+
+    stmt_prepare_response(statement_id: statement_id)
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
+  def encode_com_stmt_execute(statement_id) do
+    command = 0x17
+
+    # CURSOR_TYPE_NO_CURSOR  0x00
+    # CURSOR_TYPE_READ_ONLY  0x01
+    # CURSOR_TYPE_FOR_UPDATE 0x02
+    # CURSOR_TYPE_SCROLLABLE 0x04
+    flags = 0x00
+
+    iteration_count = 1
+
+    payload = <<
+      command,
+      statement_id::little-integer-size(32),
+      flags::size(8),
+      iteration_count::little-integer-size(32)
+    >>
+
+    sequence_id = 0
+    encode_packet(payload, sequence_id)
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
+  # TODO: similar to decode_com_query_response, except for decode_binary_resultset_rows
+  def decode_com_stmt_execute_response(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    case payload do
+      <<0x00, _::binary>> ->
+        decode_ok_packet(payload)
+
+      <<0xFF, _::binary>> ->
+        decode_err_packet(payload)
+
+      # TODO: column_count is lenenc_int, not int
+      <<column_count::size(8), rest::binary>> ->
+        {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
+        rows = decode_binary_resultset_rows(rest, column_definitions, [])
+        resultset(column_count: column_count, column_definitions: column_definitions, rows: rows)
+    end
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
   defp decode_column_definition41(data) do
     packet(payload: payload) = decode_packet(data)
 
@@ -260,7 +332,7 @@ defmodule Myxql.Messages do
     {Enum.reverse(acc), rest}
   end
 
-  defp decode_resultset_rows(data, column_definitions, acc) do
+  defp decode_text_resultset_rows(data, column_definitions, acc) do
     packet(payload: payload) = decode_packet(data)
 
     case payload do
@@ -268,22 +340,22 @@ defmodule Myxql.Messages do
         Enum.reverse(acc)
 
       _ ->
-        {row, rest} = decode_resultset_row(payload, column_definitions, [])
-        decode_resultset_rows(rest, column_definitions, [row | acc])
+        {row, rest} = decode_text_resultset_row(payload, column_definitions, [])
+        decode_text_resultset_rows(rest, column_definitions, [row | acc])
     end
   end
 
-  defp decode_resultset_row(data, [{_name, type} | tail], acc) do
+  defp decode_text_resultset_row(data, [{_name, type} | tail], acc) do
     <<
       value_size::size(8),
       value::bytes-size(value_size),
       rest::binary
     >> = data
 
-    decode_resultset_row(rest, tail, [decode_value(value, type) | acc])
+    decode_text_resultset_row(rest, tail, [decode_value(value, type) | acc])
   end
 
-  defp decode_resultset_row(rest, [], acc) do
+  defp decode_text_resultset_row(rest, [], acc) do
     {Enum.reverse(acc), rest}
   end
 
@@ -295,5 +367,9 @@ defmodule Myxql.Messages do
 
   defp decode_value(value, _type) do
     value
+  end
+
+  defp decode_binary_resultset_rows(_data, _column_definitions, _acc) do
+    []
   end
 end

@@ -24,6 +24,20 @@ defmodule Myxql.Protocol do
     decode_com_query_response(data)
   end
 
+  def prepare(conn, statement) do
+    data = encode_com_stmt_prepare(statement)
+    :ok = :gen_tcp.send(conn.sock, data)
+    {:ok, data} = :gen_tcp.recv(conn.sock, 0)
+    decode_com_stmt_prepare_response(data)
+  end
+
+  def execute(conn, statement) do
+    data = encode_com_stmt_execute(statement)
+    :ok = :gen_tcp.send(conn.sock, data)
+    {:ok, data} = :gen_tcp.recv(conn.sock, 0)
+    decode_com_stmt_execute_response(data)
+  end
+
   defp handshake(sock, user, password, database) do
     {:ok, data} = :gen_tcp.recv(sock, 0)
 
