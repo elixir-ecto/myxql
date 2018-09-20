@@ -17,7 +17,7 @@ defmodule Myxql.Protocol do
     end
   end
 
-  def execute(conn, statement) do
+  def query(conn, statement) do
     data = encode_com_query(statement)
     :ok = :gen_tcp.send(conn.sock, data)
     {:ok, data} = :gen_tcp.recv(conn.sock, 0)
