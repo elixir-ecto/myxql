@@ -15,6 +15,12 @@ defmodule Myxql.Messages do
   @client_protocol_41 0x00000200
   @client_deprecate_eof 0x01000000
 
+  #########################################################
+  # Data types
+  #
+  # https://dev.mysql.com/doc/internals/en/basic-types.html
+  #########################################################
+
   # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
   # TODO: check notes above
   def decode_length_encoded_integer(binary) do
@@ -38,6 +44,12 @@ defmodule Myxql.Messages do
     <<string::bytes-size(size), rest::binary>> = rest
     {string, rest}
   end
+
+  ###########################################################
+  # Basic packets
+  #
+  # https://dev.mysql.com/doc/internals/en/mysql-packet.html
+  ###########################################################
 
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
   defrecord :packet, [:payload_length, :sequence_id, :payload]
@@ -105,6 +117,12 @@ defmodule Myxql.Messages do
       error_message: error_message
     )
   end
+
+  ##############################################################
+  # Connection Phase
+  #
+  # https://dev.mysql.com/doc/internals/en/connection-phase.html
+  ##############################################################
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
   defrecord :handshake_v10, [
@@ -194,6 +212,13 @@ defmodule Myxql.Messages do
     encode_packet(payload, sequence_id)
   end
 
+  #################################################################
+  # Text & Binary Protocol
+  #
+  # https://dev.mysql.com/doc/internals/en/text-protocol.html
+  # https://dev.mysql.com/doc/internals/en/prepared-statements.html
+  #################################################################
+
   # https://dev.mysql.com/doc/internals/en/com-query.html
   def encode_com_query(query) do
     encode_com(0x03, query)
@@ -210,6 +235,9 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
+  # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
+  #
+  # both text & binary resultset have the same columns shape, but different rows
   defrecord :resultset, [:column_count, :column_definitions, :rows]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
