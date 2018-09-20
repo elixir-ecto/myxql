@@ -3,51 +3,29 @@ defmodule MyxqlTest do
   import Myxql.Messages
 
   test "myxql" do
-    host = "127.0.0.1"
-    port = 5706
-    user = "root"
-    password = "secret"
-    database = "myxql_test"
-    timeout = 5000
+    opts = [
+      host: "127.0.0.1",
+      port: 8006,
+      user: "root",
+      password: "secret",
+      database: "myxql_test",
+      timeout: 5000
+    ]
 
-    socket_opts = [:binary, active: false]
-    {:ok, sock} = :gen_tcp.connect(String.to_charlist(host), port, socket_opts, timeout)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
-
-    handshake_v10(
-      server_version: "5.7.23",
-      auth_plugin_name: "mysql_native_password",
-      auth_plugin_data1: auth_plugin_data1,
-      auth_plugin_data2: auth_plugin_data2
-    ) = Myxql.Messages.decode_handshake_v10(data)
-
-    auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
-    auth_response = Myxql.Utils.mysql_native_password(password, auth_plugin_data)
-
-    data = Myxql.Messages.encode_handshake_response_41(user, auth_response, database)
-    :ok = :gen_tcp.send(sock, data)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
-    ok_packet(warnings: 0) = decode_response_packet(data)
+    {:ok, conn} = Myxql.Protocol.connect(opts)
 
     assert resultset(column_definitions: [{"2*3", _}, {"4*5", _}], rows: [[6, 20]]) =
-             query(sock, "SELECT 2*3, 4*5")
+             Myxql.Protocol.execute(conn, "SELECT 2*3, 4*5")
 
-    assert ok_packet() = query(sock, "CREATE TABLE IF NOT EXISTS integers (x int)")
-    assert ok_packet() = query(sock, "TRUNCATE TABLE integers")
-    assert ok_packet() = query(sock, "INSERT INTO integers VALUES (10)")
-    assert ok_packet() = query(sock, "INSERT INTO integers VALUES (20)")
+    assert ok_packet() = Myxql.Protocol.execute(conn, "CREATE TABLE IF NOT EXISTS integers (x int)")
+    assert ok_packet() = Myxql.Protocol.execute(conn, "TRUNCATE TABLE integers")
+    assert ok_packet() = Myxql.Protocol.execute(conn, "INSERT INTO integers VALUES (10)")
+    assert ok_packet() = Myxql.Protocol.execute(conn, "INSERT INTO integers VALUES (20)")
 
     assert resultset(column_definitions: [{"x", _}], rows: [[10], [20]]) =
-             query(sock, "SELECT * FROM integers")
+             Myxql.Protocol.execute(conn, "SELECT * FROM integers")
 
     assert err_packet(error_message: "You have an error in your SQL syntax" <> _) =
-             query(sock, "bad")
-  end
-
-  defp query(sock, statement) do
-    data = encode_com_query(statement)
-    :ok = :gen_tcp.send(sock, data)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
-    decode_com_query_response(data)
+             Myxql.Protocol.execute(conn, "bad")
   end
 end
