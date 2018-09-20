@@ -292,6 +292,7 @@ defmodule Myxql.Messages do
   defp decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08] do
     String.to_integer(value)
   end
+
   defp decode_value(value, _type) do
     value
   end

@@ -17,7 +17,9 @@ defmodule MyxqlTest do
     assert resultset(column_definitions: [{"2*3", _}, {"4*5", _}], rows: [[6, 20]]) =
              Myxql.Protocol.execute(conn, "SELECT 2*3, 4*5")
 
-    assert ok_packet() = Myxql.Protocol.execute(conn, "CREATE TABLE IF NOT EXISTS integers (x int)")
+    assert ok_packet() =
+             Myxql.Protocol.execute(conn, "CREATE TABLE IF NOT EXISTS integers (x int)")
+
     assert ok_packet() = Myxql.Protocol.execute(conn, "TRUNCATE TABLE integers")
     assert ok_packet() = Myxql.Protocol.execute(conn, "INSERT INTO integers VALUES (10)")
     assert ok_packet() = Myxql.Protocol.execute(conn, "INSERT INTO integers VALUES (20)")
