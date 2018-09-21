@@ -270,6 +270,8 @@ defmodule Myxql.Messages do
     end
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html
+
   def decode_com_stmt_prepare_response(data) do
     packet(payload: payload) = decode_packet(data)
 
@@ -282,7 +284,7 @@ defmodule Myxql.Messages do
     end
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html
+  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
   defrecord :com_stmt_prepare_ok, [:statement_id]
 
   def decode_com_stmt_prepare_ok(data) do
