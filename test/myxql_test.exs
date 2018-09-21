@@ -27,9 +27,10 @@ defmodule MyxqlTest do
              Myxql.Protocol.query(conn, "SELECT * FROM integers")
 
     assert stmt_prepare_response(statement_id: statement_id) =
-             Myxql.Protocol.prepare(conn, "SELECT 2*3 as x")
+             Myxql.Protocol.prepare(conn, "SELECT x, x FROM integers")
 
-    assert resultset(column_definitions: [_]) = Myxql.Protocol.execute(conn, statement_id)
+    assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id)
+    assert rows == [[10, 10], [20, 20]]
 
     assert err_packet(error_message: "You have an error in your SQL syntax" <> _) =
              Myxql.Protocol.query(conn, "bad")

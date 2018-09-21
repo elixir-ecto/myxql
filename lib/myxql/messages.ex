@@ -59,6 +59,17 @@ defmodule Myxql.Messages do
     packet(payload_length: payload_length, sequence_id: sequence_id, payload: payload)
   end
 
+  def take_packet(data) do
+    <<
+      payload_length::little-integer-size(24),
+      _sequence_id::size(8),
+      payload::bytes-size(payload_length),
+      rest::binary
+    >> = data
+
+    {payload, rest}
+  end
+
   def encode_packet(payload, sequence_id) do
     payload_length = byte_size(payload)
     <<payload_length::little-size(24), sequence_id::little-size(8), payload::binary>>
@@ -366,6 +377,7 @@ defmodule Myxql.Messages do
     packet(payload: payload) = decode_packet(data)
 
     case payload do
+      # EOF packet
       <<0xFE, _warning_count::size(16), _status_flags::size(16), 0::size(16)>> ->
         Enum.reverse(acc)
 
@@ -399,7 +411,44 @@ defmodule Myxql.Messages do
     value
   end
 
-  defp decode_binary_resultset_rows(_data, _column_definitions, _acc) do
-    []
+  # https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_LONG
+  defp take_binary_value(data, <<0x03>>) do
+    <<value::little-integer-size(32), rest::binary>> = data
+    {value, rest}
+  end
+
+  def take_binary_resultset_row(data) do
+    <<
+      payload_length::little-integer-24,
+      _sequence_id::8,
+      payload::bytes-size(payload_length),
+      rest::binary
+    >> = data
+
+    {payload, rest}
+  end
+
+  # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
+  defp decode_binary_resultset_rows(data, column_definitions, acc) do
+    case take_packet(data) do
+      # EOF packet
+      {<<0xFE, _warning_count::size(16), _status_flags::size(16), 0::size(16)>>, ""} ->
+        Enum.reverse(acc)
+
+      {payload, rest} ->
+        <<0, _null_bitmap, values::binary>> = payload
+        row = decode_binary_resultset_row(values, column_definitions, [])
+        decode_binary_resultset_rows(rest, column_definitions, [row | acc])
+    end
+  end
+
+  defp decode_binary_resultset_row(values, [column_definition | column_definitions], acc) do
+    column_definition41(type: type) = column_definition
+    {value, rest} = take_binary_value(values, type)
+    decode_binary_resultset_row(rest, column_definitions, [value | acc])
+  end
+
+  defp decode_binary_resultset_row("", [], acc) do
+    Enum.reverse(acc)
   end
 end
