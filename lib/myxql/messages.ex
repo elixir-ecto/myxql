@@ -423,9 +423,14 @@ defmodule Myxql.Messages do
     value
   end
 
-  # https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_LONG
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
   defp take_binary_value(data, <<0x03>>) do
     <<value::little-integer-size(32), rest::binary>> = data
+    {value, rest}
+  end
+
+  defp take_binary_value(data, <<0x08>>) do
+    <<value::little-integer-size(64), rest::binary>> = data
     {value, rest}
   end
 
