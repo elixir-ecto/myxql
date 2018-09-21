@@ -271,9 +271,9 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html
-  defrecord :stmt_prepare_response, [:statement_id]
+  defrecord :com_stmt_prepare_ok, [:statement_id]
 
-  def decode_com_stmt_prepare_response(data) do
+  def decode_com_stmt_prepare_ok(data) do
     packet(payload: payload) = decode_packet(data)
 
     <<
@@ -286,7 +286,7 @@ defmodule Myxql.Messages do
       _rest::binary
     >> = payload
 
-    stmt_prepare_response(statement_id: statement_id)
+    com_stmt_prepare_ok(statement_id: statement_id)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html

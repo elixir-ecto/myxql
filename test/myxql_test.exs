@@ -26,7 +26,7 @@ defmodule MyxqlTest do
     assert resultset(column_definitions: [column_definition41(name: "x")], rows: [[10], [20]]) =
              Myxql.Protocol.query(conn, "SELECT * FROM integers")
 
-    assert stmt_prepare_response(statement_id: statement_id) =
+    assert com_stmt_prepare_ok(statement_id: statement_id) =
              Myxql.Protocol.prepare(conn, "SELECT x, x FROM integers")
 
     assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id)
