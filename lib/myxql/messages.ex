@@ -270,12 +270,22 @@ defmodule Myxql.Messages do
     end
   end
 
+  def decode_com_stmt_prepare_response(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    case payload do
+      <<0x00, _::binary>> ->
+        decode_com_stmt_prepare_ok(payload)
+
+      <<0xFF, _::binary>> ->
+        decode_err_packet(payload)
+    end
+  end
+
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html
   defrecord :com_stmt_prepare_ok, [:statement_id]
 
   def decode_com_stmt_prepare_ok(data) do
-    packet(payload: payload) = decode_packet(data)
-
     <<
       0,
       statement_id::little-integer-size(32),
@@ -284,7 +294,7 @@ defmodule Myxql.Messages do
       0,
       _warning_count::little-integer-size(16),
       _rest::binary
-    >> = payload
+    >> = data
 
     com_stmt_prepare_ok(statement_id: statement_id)
   end

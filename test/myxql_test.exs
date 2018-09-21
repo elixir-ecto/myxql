@@ -32,7 +32,10 @@ defmodule MyxqlTest do
     assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id)
     assert rows == [[10, 10], [20, 20]]
 
-    assert err_packet(error_message: "You have an error in your SQL syntax" <> _) =
-             Myxql.Protocol.query(conn, "bad")
+    assert err_packet(error_message: "Unknown column 'bad' in 'field list'") =
+             Myxql.Protocol.prepare(conn, "SELECT bad")
+
+    assert err_packet(error_message: "Unknown column 'bad' in 'field list'") =
+             Myxql.Protocol.query(conn, "SELECT bad")
   end
 end
