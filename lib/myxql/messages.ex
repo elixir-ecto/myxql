@@ -322,6 +322,8 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
+  defrecord :column_definition41, [:name, :type]
+
   defp decode_column_definition41(data) do
     packet(payload: payload) = decode_packet(data)
 
@@ -341,14 +343,14 @@ defmodule Myxql.Messages do
       0x0C,
       _character_set::2-bytes,
       _column_length::size(32),
-      column_type::1-bytes,
+      type::1-bytes,
       _flags::2-bytes,
       _decimals::1-bytes,
       0::size(16),
       rest::binary
     >> = rest
 
-    {{name, column_type}, rest}
+    {column_definition41(name: name, type: type), rest}
   end
 
   defp decode_column_definitions(data, column_count, acc) when column_count > 0 do
@@ -373,7 +375,7 @@ defmodule Myxql.Messages do
     end
   end
 
-  defp decode_text_resultset_row(data, [{_name, type} | tail], acc) do
+  defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
     <<
       value_size::size(8),
       value::bytes-size(value_size),
