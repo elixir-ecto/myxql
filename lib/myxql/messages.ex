@@ -202,10 +202,10 @@ defmodule Myxql.Messages do
     :database
   ]
 
-  def encode_handshake_response_41(user, auth_response, database) do
+  def encode_handshake_response_41(username, auth_response, database) do
     capability_flags = @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof
     charset = 8
-    user = <<user::binary, 0>>
+    username = <<username::binary, 0>>
     database = <<database::binary, 0>>
 
     payload = <<
@@ -213,7 +213,7 @@ defmodule Myxql.Messages do
       @max_packet_size::little-integer-size(32),
       <<charset::integer>>,
       String.duplicate(<<0>>, 23)::binary,
-      user::binary,
+      username::binary,
       byte_size(auth_response),
       auth_response::binary,
       database::binary

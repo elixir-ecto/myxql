@@ -4,9 +4,9 @@ defmodule MyxqlTest do
 
   test "myxql" do
     opts = [
-      host: "127.0.0.1",
+      hostname: "127.0.0.1",
       port: 8006,
-      user: "root",
+      username: "root",
       password: "secret",
       database: "myxql_test",
       timeout: 5000
