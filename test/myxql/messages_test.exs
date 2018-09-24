@@ -1,6 +1,6 @@
-defmodule Myxql.MessagesTest do
+defmodule MyXQL.MessagesTest do
   use ExUnit.Case, async: true
-  import Myxql.Messages
+  import MyXQL.Messages
 
   test "length_encoded_integer" do
     assert decode_length_encoded_integer(<<100>>) == 100

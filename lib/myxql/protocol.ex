@@ -1,6 +1,6 @@
-defmodule Myxql.Protocol do
+defmodule MyXQL.Protocol do
   @moduledoc false
-  import Myxql.Messages
+  import MyXQL.Messages
 
   def connect(opts) do
     hostname = Keyword.fetch!(opts, :hostname)
@@ -45,7 +45,7 @@ defmodule Myxql.Protocol do
       auth_plugin_name: auth_plugin_name,
       auth_plugin_data1: auth_plugin_data1,
       auth_plugin_data2: auth_plugin_data2
-    ) = Myxql.Messages.decode_handshake_v10(data)
+    ) = MyXQL.Messages.decode_handshake_v10(data)
 
     # TODO: MySQL 8.0 defaults to "caching_sha2_password", which we don't support yet,
     #       and will send AuthSwitchRequest which we'll need to handle.
@@ -53,9 +53,9 @@ defmodule Myxql.Protocol do
     "mysql_native_password" = auth_plugin_name
 
     auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
-    auth_response = Myxql.Utils.mysql_native_password(password, auth_plugin_data)
+    auth_response = MyXQL.Utils.mysql_native_password(password, auth_plugin_data)
 
-    data = Myxql.Messages.encode_handshake_response_41(username, auth_response, database)
+    data = MyXQL.Messages.encode_handshake_response_41(username, auth_response, database)
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
     ok_packet(warnings: 0) = decode_response_packet(data)

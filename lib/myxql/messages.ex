@@ -1,4 +1,4 @@
-defmodule Myxql.Messages do
+defmodule MyXQL.Messages do
   @moduledoc false
   import Record
   use Bitwise

@@ -1,4 +1,4 @@
-defmodule Myxql.MixProject do
+defmodule MyXQL.MixProject do
   use Mix.Project
 
   def project() do

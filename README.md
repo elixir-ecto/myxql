@@ -1,4 +1,4 @@
-# Myxql
+# MyXQL
 
 **TODO: Add description**
 

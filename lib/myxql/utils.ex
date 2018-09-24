@@ -1,4 +1,4 @@
-defmodule Myxql.Utils do
+defmodule MyXQL.Utils do
   @moduledoc false
   use Bitwise
 

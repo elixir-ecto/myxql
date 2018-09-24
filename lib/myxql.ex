@@ -1,2 +1,2 @@
-defmodule Myxql do
+defmodule MyXQL do
 end
