@@ -31,8 +31,8 @@ defmodule Myxql.Protocol do
     decode_com_stmt_prepare_response(data)
   end
 
-  def execute(conn, statement) do
-    data = encode_com_stmt_execute(statement)
+  def execute(conn, statement, parameters) do
+    data = encode_com_stmt_execute(statement, parameters)
     :ok = :gen_tcp.send(conn.sock, data)
     {:ok, data} = :gen_tcp.recv(conn.sock, 0)
     decode_com_stmt_execute_response(data)

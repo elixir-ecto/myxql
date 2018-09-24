@@ -302,7 +302,7 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-  def encode_com_stmt_execute(statement_id) do
+  def encode_com_stmt_execute(statement_id, parameters) do
     command = 0x17
 
     # CURSOR_TYPE_NO_CURSOR  0x00
@@ -311,13 +311,28 @@ defmodule Myxql.Messages do
     # CURSOR_TYPE_SCROLLABLE 0x04
     flags = 0x00
 
-    iteration_count = 1
+    # Always 0x01
+    iteration_count = 0x01
+
+    # TODO: handle null_bitmap
+    null_bitmap = 0
+
+    new_params_bound_flag = 1
+    {types, values} = parameters |> Enum.map(&encode_value/1) |> Enum.unzip()
+
+    # TODO: find out and document why types are null-terminated
+    types = for t <- types, do: <<t, 0>>, into: ""
+    values = for v <- values, do: <<v::binary>>, into: ""
 
     payload = <<
       command,
       statement_id::little-integer-size(32),
       flags::size(8),
-      iteration_count::little-integer-size(32)
+      iteration_count::little-integer-size(32),
+      null_bitmap::8,
+      new_params_bound_flag::8,
+      types::binary,
+      values::binary
     >>
 
     sequence_id = 0
@@ -414,16 +429,23 @@ defmodule Myxql.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # TODO: handle remaining types
+  # MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG, MYSQL_TYPE_LONGLONG
   defp decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08] do
     String.to_integer(value)
   end
 
+  # MYSQL_TYPE_VARCHAR
+  defp decode_value(value, 0x0F) do
+    value
+  end
+
+  # TODO: handle remaining types
   defp decode_value(value, _type) do
     value
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
+  # TODO: try unifying this with decode_value/2
   defp take_binary_value(data, <<0x03>>) do
     <<value::little-integer-size(32), rest::binary>> = data
     {value, rest}
@@ -432,6 +454,10 @@ defmodule Myxql.Messages do
   defp take_binary_value(data, <<0x08>>) do
     <<value::little-integer-size(64), rest::binary>> = data
     {value, rest}
+  end
+
+  defp encode_value(value) when is_integer(value) do
+    {0x08, <<value::little-integer-size(64)>>}
   end
 
   def take_binary_resultset_row(data) do

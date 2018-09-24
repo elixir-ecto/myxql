@@ -29,8 +29,14 @@ defmodule MyxqlTest do
     assert com_stmt_prepare_ok(statement_id: statement_id) =
              Myxql.Protocol.prepare(conn, "SELECT x, x FROM integers")
 
-    assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id)
+    assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id, [])
     assert rows == [[10, 10], [20, 20]]
+
+    assert com_stmt_prepare_ok(statement_id: statement_id) =
+             Myxql.Protocol.prepare(conn, "SELECT ? * ?")
+
+    assert resultset(rows: rows) = Myxql.Protocol.execute(conn, statement_id, [2, 3])
+    assert rows == [[6]]
 
     assert err_packet(error_message: "Unknown column 'bad' in 'field list'") =
              Myxql.Protocol.prepare(conn, "SELECT bad")
