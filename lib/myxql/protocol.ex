@@ -17,6 +17,10 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  def disconnect(conn) do
+    :gen_tcp.close(conn.sock)
+  end
+
   def query(conn, statement) do
     data = encode_com_query(statement)
     :ok = :gen_tcp.send(conn.sock, data)
