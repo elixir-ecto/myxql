@@ -208,13 +208,19 @@ defmodule MyXQL.Messages do
     username = <<username::binary, 0>>
     database = <<database::binary, 0>>
 
+    auth_response =
+      if auth_response do
+        <<byte_size(auth_response), auth_response::binary>>
+      else
+        <<0, 0>>
+      end
+
     payload = <<
       capability_flags::little-integer-size(32),
       @max_packet_size::little-integer-size(32),
       <<charset::integer>>,
       String.duplicate(<<0>>, 23)::binary,
       username::binary,
-      byte_size(auth_response),
       auth_response::binary,
       database::binary
     >>

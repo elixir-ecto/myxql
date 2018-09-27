@@ -2,17 +2,17 @@ defmodule MyXQLTest do
   use ExUnit.Case, async: true
   import MyXQL.Messages
 
-  test "myxql" do
-    opts = [
-      hostname: "127.0.0.1",
-      port: 8006,
-      username: "root",
-      password: "secret",
-      database: "myxql_test",
-      timeout: 5000
-    ]
+  @opts [
+    hostname: "127.0.0.1",
+    port: 8006,
+    username: "root",
+    password: "secret",
+    database: "myxql_test",
+    timeout: 5000
+  ]
 
-    {:ok, conn} = MyXQL.Protocol.connect(opts)
+  test "myxql" do
+    {:ok, conn} = MyXQL.Protocol.connect(@opts)
 
     assert resultset(column_definitions: [_, _], rows: [[6, 20]]) =
              MyXQL.Protocol.query(conn, "SELECT 2*3, 4*5")
@@ -43,5 +43,22 @@ defmodule MyXQLTest do
 
     assert err_packet(error_message: "Unknown column 'bad' in 'field list'") =
              MyXQL.Protocol.query(conn, "SELECT bad")
+  end
+
+  test "connect with no password" do
+    {:ok, conn} = MyXQL.Protocol.connect(@opts)
+    MyXQL.Protocol.query(conn, "CREATE USER IF NOT EXISTS nopassword")
+
+    opts = Keyword.merge(@opts, username: "nopassword", password: nil)
+    {:ok, _} = MyXQL.Protocol.connect(opts)
+  end
+
+  test "connect with invalid password" do
+    assert {:error, err_packet(error_message: "Access denied for user" <> _)} =
+             MyXQL.Protocol.connect(Keyword.put(@opts, :password, "bad"))
+  end
+
+  test "connect with host down" do
+    assert {:error, :econnrefused} = MyXQL.Protocol.connect(Keyword.put(@opts, :port, 9999))
   end
 end

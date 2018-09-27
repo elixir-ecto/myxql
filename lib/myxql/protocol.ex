@@ -53,12 +53,18 @@ defmodule MyXQL.Protocol do
     "mysql_native_password" = auth_plugin_name
 
     auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
-    auth_response = MyXQL.Utils.mysql_native_password(password, auth_plugin_data)
+    auth_response = if password, do: MyXQL.Utils.mysql_native_password(password, auth_plugin_data)
 
     data = MyXQL.Messages.encode_handshake_response_41(username, auth_response, database)
     :ok = :gen_tcp.send(sock, data)
     {:ok, data} = :gen_tcp.recv(sock, 0)
-    ok_packet(warnings: 0) = decode_response_packet(data)
-    {:ok, %{sock: sock}}
+
+    case decode_response_packet(data) do
+      ok_packet(warnings: 0) ->
+        {:ok, %{sock: sock}}
+
+      err_packet() = error ->
+        {:error, error}
+    end
   end
 end
