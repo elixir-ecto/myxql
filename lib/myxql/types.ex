@@ -32,18 +32,58 @@ defmodule MyXQL.Types do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG, MYSQL_TYPE_LONGLONG
-  def decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08] do
+  # https://dev.mysql.com/doc/refman/8.0/en/data-types.html
+  def decode_value(value, type)
+
+  # MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG, MYSQL_TYPE_LONGLONG, MYSQL_TYPE_INT24, MYSQL_TYPE_YEAR
+  def decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08, 0x09, 0x0D] do
     String.to_integer(value)
   end
 
+  # MYSQL_TYPE_FLOAT, MYSQL_TYPE_DOUBLE
+  def decode_value(value, <<type>>) when type in [0x04, 0x05] do
+    String.to_float(value)
+  end
+
+  # MYSQL_TYPE_NEWDECIMAL
+  # Note: MySQL implements `NUMERIC` as `DECIMAL`s
+  def decode_value(value, <<0xF6>>) do
+    Decimal.new(value)
+  end
+
+  # TODO: can we even support bits in *text* protocol?
+  # # MYSQL_TYPE_BIT
+  # def decode_value(value, <<0x10>>) do
+  #   value
+  # end
+
+  # MYSQL_TYPE_DATE
+  def decode_value(value, <<0x0A>>) do
+    Date.from_iso8601!(value)
+  end
+
+  # MYSQL_TYPE_TIME
+  def decode_value(value, <<0x0B>>) do
+    Time.from_iso8601!(value)
+  end
+
+  # MYSQL_TYPE_DATETIME
+  def decode_value(value, <<0x0C>>) do
+    NaiveDateTime.from_iso8601!(value)
+  end
+
   # MYSQL_TYPE_VARCHAR
-  def decode_value(value, 0x0F) do
+  def decode_value(value, <<0x0F>>) do
     value
   end
 
-  # TODO: handle remaining types
-  def decode_value(value, _type) do
+  # MYSQL_TYPE_VAR_STRING
+  def decode_value(value, <<0xFD>>) do
+    value
+  end
+
+  # MYSQL_TYPE_STRING
+  def decode_value(value, <<0xFE>>) do
     value
   end
 
