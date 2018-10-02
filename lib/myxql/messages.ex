@@ -2,6 +2,7 @@ defmodule MyXQL.Messages do
   @moduledoc false
   import Record
   use Bitwise
+  alias MyXQL.Types, as: T
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # OK packets are indicating EOF (instead of separate EOF packet)
@@ -14,36 +15,6 @@ defmodule MyXQL.Messages do
   @client_connect_with_db 0x00000008
   @client_protocol_41 0x00000200
   @client_deprecate_eof 0x01000000
-
-  #########################################################
-  # Data types
-  #
-  # https://dev.mysql.com/doc/internals/en/basic-types.html
-  #########################################################
-
-  # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
-  # TODO: check notes above
-  def decode_length_encoded_integer(binary) do
-    {integer, ""} = take_length_encoded_integer(binary)
-    integer
-  end
-
-  def take_length_encoded_integer(<<int::size(8), rest::binary>>) when int < 251, do: {int, rest}
-  def take_length_encoded_integer(<<0xFC, int::size(16), rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFD, int::size(24), rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFE, int::size(64), rest::binary>>), do: {int, rest}
-
-  # https://dev.mysql.com/doc/internals/en/string.html
-  def decode_length_encoded_string(binary) do
-    {_size, rest} = take_length_encoded_integer(binary)
-    rest
-  end
-
-  def take_length_encoded_string(binary) do
-    {size, rest} = take_length_encoded_integer(binary)
-    <<string::bytes-size(size), rest::binary>> = rest
-    {string, rest}
-  end
 
   ###########################################################
   # Basic packets
@@ -324,7 +295,7 @@ defmodule MyXQL.Messages do
     null_bitmap = 0
 
     new_params_bound_flag = 1
-    {types, values} = parameters |> Enum.map(&encode_value/1) |> Enum.unzip()
+    {types, values} = parameters |> Enum.map(&T.encode_value/1) |> Enum.unzip()
 
     # TODO: find out and document why types are null-terminated
     types = for t <- types, do: <<t, 0>>, into: ""
@@ -377,11 +348,11 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = payload
 
-    {_schema, rest} = take_length_encoded_string(rest)
-    {_table, rest} = take_length_encoded_string(rest)
-    {_org_table, rest} = take_length_encoded_string(rest)
-    {name, rest} = take_length_encoded_string(rest)
-    {_org_name, rest} = take_length_encoded_string(rest)
+    {_schema, rest} = T.take_length_encoded_string(rest)
+    {_table, rest} = T.take_length_encoded_string(rest)
+    {_org_table, rest} = T.take_length_encoded_string(rest)
+    {name, rest} = T.take_length_encoded_string(rest)
+    {_org_name, rest} = T.take_length_encoded_string(rest)
 
     <<
       0x0C,
@@ -427,43 +398,11 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = data
 
-    decode_text_resultset_row(rest, tail, [decode_value(value, type) | acc])
+    decode_text_resultset_row(rest, tail, [T.decode_value(value, type) | acc])
   end
 
   defp decode_text_resultset_row(rest, [], acc) do
     {Enum.reverse(acc), rest}
-  end
-
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG, MYSQL_TYPE_LONGLONG
-  defp decode_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08] do
-    String.to_integer(value)
-  end
-
-  # MYSQL_TYPE_VARCHAR
-  defp decode_value(value, 0x0F) do
-    value
-  end
-
-  # TODO: handle remaining types
-  defp decode_value(value, _type) do
-    value
-  end
-
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # TODO: try unifying this with decode_value/2
-  defp take_binary_value(data, <<0x03>>) do
-    <<value::little-integer-size(32), rest::binary>> = data
-    {value, rest}
-  end
-
-  defp take_binary_value(data, <<0x08>>) do
-    <<value::little-integer-size(64), rest::binary>> = data
-    {value, rest}
-  end
-
-  defp encode_value(value) when is_integer(value) do
-    {0x08, <<value::little-integer-size(64)>>}
   end
 
   def take_binary_resultset_row(data) do
@@ -493,7 +432,7 @@ defmodule MyXQL.Messages do
 
   defp decode_binary_resultset_row(values, [column_definition | column_definitions], acc) do
     column_definition41(type: type) = column_definition
-    {value, rest} = take_binary_value(values, type)
+    {value, rest} = T.take_binary_value(values, type)
     decode_binary_resultset_row(rest, column_definitions, [value | acc])
   end
 
