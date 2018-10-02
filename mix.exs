@@ -19,7 +19,8 @@ defmodule MyXQL.MixProject do
 
   defp deps() do
     [
-      {:binpp, ">= 0.0.0", only: [:dev, :test]}
+      {:binpp, ">= 0.0.0", only: [:dev, :test]},
+      {:decimal, "~> 1.5"}
     ]
   end
 end
