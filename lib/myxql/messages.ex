@@ -7,7 +7,9 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # OK packets are indicating EOF (instead of separate EOF packet)
   # from this version.
-  @min_server_version Version.parse!("5.7.5")
+  #
+  # We support first GA version, 5.7.9, see: https://dev.mysql.com/doc/relnotes/mysql/5.7/en/
+  @min_server_version Version.parse!("5.7.9")
 
   @max_packet_size 65536
 
