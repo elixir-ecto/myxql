@@ -1,7 +1,6 @@
 defmodule MyXQL.TypesTest do
   use ExUnit.Case, async: true
   import MyXQL.Types
-  import MyXQL.Messages
   use Bitwise
 
   test "length_encoded_integer" do
@@ -34,11 +33,11 @@ defmodule MyXQL.TypesTest do
     end
 
     test "MYSQL_TYPE_LONG - SQL MEDIUMINT, SQL INT", c do
-      assert_roundtrip(c, "my_mediumint", -8388608)
-      assert_roundtrip(c, "my_mediumint", 8388607)
+      assert_roundtrip(c, "my_mediumint", -8_388_608)
+      assert_roundtrip(c, "my_mediumint", 8_388_607)
 
-      assert_roundtrip(c, "my_int", -2147483647)
-      assert_roundtrip(c, "my_int", 2147483647)
+      assert_roundtrip(c, "my_int", -2_147_483_647)
+      assert_roundtrip(c, "my_int", 2_147_483_647)
     end
 
     test "MYSQL_TYPE_LONGLONG - SQL BIGINT", c do
@@ -87,11 +86,15 @@ defmodule MyXQL.TypesTest do
 
     test "MYSQL_TYPE_DATETIME", c do
       assert_roundtrip(c, "my_datetime", ~N[1999-12-31 09:10:20])
-      assert insert_and_get(c, "my_datetime", ~N[1999-12-31 09:10:20.123]) == ~N[1999-12-31 09:10:20]
+
+      assert insert_and_get(c, "my_datetime", ~N[1999-12-31 09:10:20.123]) ==
+               ~N[1999-12-31 09:10:20]
 
       assert_roundtrip(c, "my_datetime3", ~N[1999-12-31 09:10:20.000])
       assert_roundtrip(c, "my_datetime3", ~N[1999-12-31 09:10:20.123])
-      assert insert_and_get(c, "my_datetime3", ~N[1999-12-31 09:10:20]) == ~N[1999-12-31 09:10:20.000]
+
+      assert insert_and_get(c, "my_datetime3", ~N[1999-12-31 09:10:20]) ==
+               ~N[1999-12-31 09:10:20.000]
 
       assert_roundtrip(c, "my_datetime6", ~N[1999-12-31 09:10:20.123456])
     end
@@ -119,10 +122,11 @@ defmodule MyXQL.TypesTest do
       timeout: 5000
     ]
 
-    {:ok, conn} = MyXQL.Protocol.connect(opts)
+    {:ok, conn} = MyXQL.connect(opts)
 
-    ok_packet() = MyXQL.Protocol.query(conn, "DROP TABLE IF EXISTS test_types")
-    ok_packet() = MyXQL.Protocol.query(conn, """
+    MyXQL.query!(conn, "DROP TABLE IF EXISTS test_types")
+
+    MyXQL.query!(conn, """
     CREATE TABLE test_types (
       id SERIAL PRIMARY KEY AUTO_INCREMENT,
       my_tinyint TINYINT,
@@ -162,12 +166,16 @@ defmodule MyXQL.TypesTest do
   end
 
   defp insert(c, field, value) do
-    ok_packet(last_insert_id: id) = MyXQL.Protocol.query(c.conn, "INSERT INTO test_types (`#{field}`) VALUES ('#{value}')")
+    %MyXQL.Result{last_insert_id: id} =
+      MyXQL.query!(c.conn, "INSERT INTO test_types (`#{field}`) VALUES ('#{value}')")
+
     id
   end
 
   defp get(c, field, id) do
-    resultset(rows: [[value]]) = MyXQL.Protocol.query(c.conn, "SELECT `#{field}` FROM test_types WHERE id = '#{id}'")
+    %MyXQL.Result{rows: [[value]]} =
+      MyXQL.query!(c.conn, "SELECT `#{field}` FROM test_types WHERE id = '#{id}'")
+
     value
   end
 end

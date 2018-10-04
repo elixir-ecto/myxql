@@ -12,8 +12,12 @@ defmodule MyXQL.Protocol do
     socket_opts = [:binary, active: false]
 
     case :gen_tcp.connect(String.to_charlist(hostname), port, socket_opts, timeout) do
-      {:ok, sock} -> handshake(sock, username, password, database)
-      {:error, _} = error -> error
+      {:ok, sock} ->
+        handshake(sock, username, password, database)
+
+      {:error, reason} ->
+        message = reason |> :inet.format_error() |> List.to_string()
+        {:error, %MyXQL.Error{message: message}}
     end
   end
 
@@ -25,21 +29,50 @@ defmodule MyXQL.Protocol do
     data = encode_com_query(statement)
     :ok = :gen_tcp.send(conn.sock, data)
     {:ok, data} = :gen_tcp.recv(conn.sock, 0)
-    decode_com_query_response(data)
+
+    case decode_com_query_response(data) do
+      ok_packet(last_insert_id: last_insert_id) ->
+        {:ok, %MyXQL.Result{last_insert_id: last_insert_id}}
+
+      resultset(column_definitions: column_definitions, rows: rows) ->
+        columns = Enum.map(column_definitions, &elem(&1, 1))
+        {:ok, %MyXQL.Result{columns: columns, rows: rows}}
+
+      err_packet(error_message: message) ->
+        {:error, %MyXQL.Error{message: message}}
+    end
   end
 
   def prepare(conn, statement) do
     data = encode_com_stmt_prepare(statement)
     :ok = :gen_tcp.send(conn.sock, data)
     {:ok, data} = :gen_tcp.recv(conn.sock, 0)
-    decode_com_stmt_prepare_response(data)
+
+    case decode_com_stmt_prepare_response(data) do
+      com_stmt_prepare_ok(statement_id: statement_id) ->
+        {:ok, statement_id}
+
+      err_packet(error_message: message) ->
+        {:error, %MyXQL.Error{message: message}}
+    end
   end
 
   def execute(conn, statement, parameters) do
     data = encode_com_stmt_execute(statement, parameters)
     :ok = :gen_tcp.send(conn.sock, data)
     {:ok, data} = :gen_tcp.recv(conn.sock, 0)
-    decode_com_stmt_execute_response(data)
+
+    case decode_com_stmt_execute_response(data) do
+      ok_packet(last_insert_id: last_insert_id) ->
+        {:ok, %MyXQL.Result{last_insert_id: last_insert_id}}
+
+      resultset(column_definitions: column_definitions, rows: rows) ->
+        columns = Enum.map(column_definitions, &elem(&1, 1))
+        {:ok, %MyXQL.Result{columns: columns, rows: rows}}
+
+      err_packet(error_message: message) ->
+        {:error, %MyXQL.Error{message: message}}
+    end
   end
 
   defp handshake(sock, username, password, database) do
@@ -67,8 +100,8 @@ defmodule MyXQL.Protocol do
       ok_packet(warnings: 0) ->
         {:ok, %{sock: sock}}
 
-      err_packet() = error ->
-        {:error, error}
+      err_packet(error_message: message) ->
+        {:error, %MyXQL.Error{message: message}}
     end
   end
 end
