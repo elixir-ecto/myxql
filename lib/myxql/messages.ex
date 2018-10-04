@@ -360,7 +360,7 @@ defmodule MyXQL.Messages do
       0x0C,
       _character_set::2-bytes,
       _column_length::size(32),
-      type::1-bytes,
+      <<type>>,
       _flags::2-bytes,
       _decimals::1-bytes,
       0::size(16),

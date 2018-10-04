@@ -2,7 +2,7 @@ defmodule MyXQL.Types do
   @moduledoc false
 
   #########################################################
-  # Data types
+  # Basic types
   #
   # https://dev.mysql.com/doc/internals/en/basic-types.html
   #########################################################
@@ -31,70 +31,90 @@ defmodule MyXQL.Types do
     {string, rest}
   end
 
+  # Text & Binary
+  #
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
   # https://dev.mysql.com/doc/refman/8.0/en/data-types.html
-  def decode_text_value(value, type)
 
-  # MYSQL_TYPE_TINY, MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG, MYSQL_TYPE_LONGLONG, MYSQL_TYPE_INT24, MYSQL_TYPE_YEAR
-  def decode_text_value(value, <<type>>) when type in [0x01, 0x02, 0x03, 0x08, 0x09, 0x0D] do
+  @mysql_type_tiny 0x01
+  @mysql_type_short 0x02
+  @mysql_type_long 0x03
+  @mysql_type_float 0x04
+  @mysql_type_double 0x05
+  # @mysql_type_null 0x06
+  # @mysql_type_timestamp 0x07
+  @mysql_type_longlong 0x08
+  @mysql_type_int24 0x09
+  @mysql_type_date 0x0A
+  @mysql_type_time 0x0B
+  @mysql_type_datetime 0x0C
+  @mysql_type_year 0x0D
+  @mysql_type_varchar 0x0F
+  # @mysql_type_bit 0x10
+  @mysql_type_newdecimal 0xF6
+  # @mysql_type_enum 0xF7
+  # @mysql_type_set 0xF8
+  # @mysql_type_tiny_blob 0xF9
+  # @mysql_type_medium_blob 0xFA
+  # @mysql_type_long_blob 0xFB
+  # @mysql_type_blob 0xFC
+  @mysql_type_var_string 0xFD
+  @mysql_type_string 0xFE
+  # @mysql_type_geometry 0xFF
+
+  # Text values
+
+  def decode_text_value(value, type)
+      when type in [@mysql_type_tiny, @mysql_type_short, @mysql_type_long, @mysql_type_longlong, @mysql_type_int24, @mysql_type_year] do
     String.to_integer(value)
   end
 
-  # MYSQL_TYPE_FLOAT, MYSQL_TYPE_DOUBLE
-  def decode_text_value(value, <<type>>) when type in [0x04, 0x05] do
+  def decode_text_value(value, type) when type in [@mysql_type_float, @mysql_type_double] do
     String.to_float(value)
   end
 
-  # MYSQL_TYPE_NEWDECIMAL
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
-  def decode_text_value(value, <<0xF6>>) do
+  def decode_text_value(value, @mysql_type_newdecimal) do
     Decimal.new(value)
   end
 
   # TODO: can we even support bits in *text* protocol?
-  # # MYSQL_TYPE_BIT
-  # def decode_text_value(value, <<0x10>>) do
+  # def decode_text_value(value, <<@mysql_type_bit>>) do
   #   value
   # end
 
-  # MYSQL_TYPE_DATE
-  def decode_text_value(value, <<0x0A>>) do
+  def decode_text_value(value, @mysql_type_date) do
     Date.from_iso8601!(value)
   end
 
-  # MYSQL_TYPE_TIME
-  def decode_text_value(value, <<0x0B>>) do
+  def decode_text_value(value, @mysql_type_time) do
     Time.from_iso8601!(value)
   end
 
-  # MYSQL_TYPE_DATETIME
-  def decode_text_value(value, <<0x0C>>) do
+  def decode_text_value(value, @mysql_type_datetime) do
     NaiveDateTime.from_iso8601!(value)
   end
 
-  # MYSQL_TYPE_VARCHAR
-  def decode_text_value(value, <<0x0F>>) do
+  def decode_text_value(value, @mysql_type_varchar) do
     value
   end
 
-  # MYSQL_TYPE_VAR_STRING
-  def decode_text_value(value, <<0xFD>>) do
+  def decode_text_value(value, @mysql_type_var_string) do
     value
   end
 
-  # MYSQL_TYPE_STRING
-  def decode_text_value(value, <<0xFE>>) do
+  def decode_text_value(value, @mysql_type_string) do
     value
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # TODO: try unifying this with decode_text_value/2
-  def take_binary_value(data, <<0x03>>) do
+  # Binary values
+
+  def take_binary_value(data, @mysql_type_long) do
     <<value::little-integer-size(32), rest::binary>> = data
     {value, rest}
   end
 
-  def take_binary_value(data, <<0x08>>) do
+  def take_binary_value(data, @mysql_type_longlong) do
     <<value::little-integer-size(64), rest::binary>> = data
     {value, rest}
   end
