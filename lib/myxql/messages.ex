@@ -400,7 +400,7 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = data
 
-    decode_text_resultset_row(rest, tail, [T.decode_value(value, type) | acc])
+    decode_text_resultset_row(rest, tail, [T.decode_text_value(value, type) | acc])
   end
 
   defp decode_text_resultset_row(rest, [], acc) do
