@@ -40,10 +40,9 @@ CREATE TABLE test_types (
 """
 
 argv = ~w(
+  --defaults-file=#{Path.expand("../.my.cnf", __DIR__)}
   --protocol=tcp
   --port=8006
-  --user=root
-  --password=secret
   myxql_test
 ) ++ ["-e", sql]
 
