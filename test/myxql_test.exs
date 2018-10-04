@@ -12,20 +12,12 @@ defmodule MyXQLTest do
 
   describe "connect" do
     test "connect with no password" do
-      {:ok, conn} = MyXQL.connect(@opts)
-      MyXQL.query!(conn, "DROP USER IF EXISTS nopassword")
-      MyXQL.query!(conn, "CREATE USER nopassword")
-
       opts = Keyword.merge(@opts, username: "nopassword", password: nil)
       {:ok, _} = MyXQL.connect(opts)
     end
 
     test "connect with non-default authentication method" do
-      {:ok, conn} = MyXQL.connect(@opts)
-      MyXQL.query!(conn, "DROP USER IF EXISTS sha2user")
-      MyXQL.query!(conn, "CREATE USER sha2user IDENTIFIED WITH caching_sha2_password")
-
-      opts = Keyword.put(@opts, :username, "sha2user")
+      opts = Keyword.put(@opts, :username, "sha2")
 
       assert {:error, %MyXQL.Error{message: "Client does not support authentication" <> _}} =
                MyXQL.connect(opts)
@@ -63,10 +55,8 @@ defmodule MyXQLTest do
     test "query with multiple rows" do
       {:ok, conn} = MyXQL.connect(@opts)
 
-      MyXQL.query!(conn, "CREATE TABLE IF NOT EXISTS integers (x int)")
       MyXQL.query!(conn, "TRUNCATE TABLE integers")
-      MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
-      MyXQL.query!(conn, "INSERT INTO integers VALUES (20)")
+      MyXQL.query!(conn, "INSERT INTO integers VALUES (10), (20)")
 
       assert {:ok, %MyXQL.Result{columns: [_], rows: [[10], [20]]}} =
                MyXQL.query(conn, "SELECT * FROM integers")
@@ -76,6 +66,9 @@ defmodule MyXQLTest do
   describe "prepared statements" do
     test "multiple rows" do
       {:ok, conn} = MyXQL.connect(@opts)
+
+      MyXQL.query!(conn, "TRUNCATE TABLE integers")
+      MyXQL.query!(conn, "INSERT INTO integers VALUES (10), (20)")
 
       {:ok, statement_id} = MyXQL.Protocol.prepare(conn, "SELECT x, x FROM integers")
       {:ok, %MyXQL.Result{columns: columns, rows: rows}} = MyXQL.execute(conn, statement_id, [])

@@ -65,7 +65,14 @@ defmodule MyXQL.Types do
   # Text values
 
   def decode_text_value(value, type)
-      when type in [@mysql_type_tiny, @mysql_type_short, @mysql_type_long, @mysql_type_longlong, @mysql_type_int24, @mysql_type_year] do
+      when type in [
+             @mysql_type_tiny,
+             @mysql_type_short,
+             @mysql_type_long,
+             @mysql_type_longlong,
+             @mysql_type_int24,
+             @mysql_type_year
+           ] do
     String.to_integer(value)
   end
 
