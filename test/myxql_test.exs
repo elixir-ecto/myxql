@@ -46,7 +46,9 @@ defmodule MyXQLTest do
     test "simple query" do
       {:ok, conn} = MyXQL.connect(@opts)
 
-      assert {:ok, %MyXQL.Result{columns: columns, rows: rows}} = MyXQL.query(conn, "SELECT 2*3, 4*5")
+      assert {:ok, %MyXQL.Result{columns: columns, rows: rows}} =
+               MyXQL.query(conn, "SELECT 2*3, 4*5")
+
       assert columns == ["2*3", "4*5"]
       assert rows == [[6, 20]]
     end
