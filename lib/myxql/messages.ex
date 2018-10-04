@@ -14,8 +14,30 @@ defmodule MyXQL.Messages do
   @max_packet_size 65536
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
+  # @client_long_password 0x00000001
+  # @client_found_rows 0x00000002
+  # @client_long_flag 0x00000004
   @client_connect_with_db 0x00000008
+  # @client_no_schema 0x00000010
+  # @client_compress 0x00000020
+  # @client_odbc 0x00000040
+  # @client_local_files 0x00000080
+  # @client_ignore_space 0x00000100
   @client_protocol_41 0x00000200
+  # @client_interactive 0x00000400
+  # @client_ssl 0x00000800
+  # @client_ignore_sigpipe 0x00001000
+  # @client_transactions 0x00002000
+  # @client_reserved 0x00004000
+  # @client_secure_connection 0x00008000
+  # @client_multi_statements 0x00010000
+  # @client_multi_results 0x00020000
+  # @client_ps_multi_results 0x00040000
+  # @client_plugin_auth 0x00080000
+  # @client_connect_attrs 0x00100000
+  # @client_plugin_auth_lenenc_client_data 0x00200000
+  # @client_can_handle_expired_passwords 0x00400000
+  # @client_session_track 0x00800000
   @client_deprecate_eof 0x01000000
 
   ###########################################################
