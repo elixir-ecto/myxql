@@ -14,10 +14,5 @@ defmodule MyXQL.Utils do
     )
   end
 
-  @spec bxor_binary(binary(), binary(), binary()) :: binary()
-  def bxor_binary(left, right, result \\ "")
-  def bxor_binary("", "", result), do: result
-  def bxor_binary(<<l::integer(), left::binary()>>, <<r::integer(), right::binary()>>, result) do
-    bxor_binary(left, right, <<result::binary(), l ^^^ r>>)
-  end
+  defp bxor_binary(<<l::160>>, <<r::160>>), do: <<(l ^^^ r)::160>>
 end
