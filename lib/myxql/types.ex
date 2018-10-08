@@ -19,7 +19,7 @@ defmodule MyXQL.Types do
   def take_length_encoded_integer(<<0xFD, int::size(24), rest::binary>>), do: {int, rest}
   def take_length_encoded_integer(<<0xFE, int::size(64), rest::binary>>), do: {int, rest}
 
-  # https://dev.mysql.com/doc/internals/en/string.html
+  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
   def decode_length_encoded_string(binary) do
     {_size, rest} = take_length_encoded_integer(binary)
     rest
@@ -29,6 +29,17 @@ defmodule MyXQL.Types do
     {size, rest} = take_length_encoded_integer(binary)
     <<string::bytes-size(size), rest::binary>> = rest
     {string, rest}
+  end
+
+  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::NulTerminatedString
+  def take_null_terminated_string(binary) do
+    [string, rest] = :binary.split(binary, <<0>>)
+    {string, rest}
+  end
+
+  def decode_null_terminated_string(binary) do
+    {string, ""} = take_null_terminated_string(binary)
+    string
   end
 
   # Text & Binary

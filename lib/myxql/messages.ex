@@ -149,7 +149,7 @@ defmodule MyXQL.Messages do
     packet(payload: payload) = decode_packet(data)
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
-    [server_version, rest] = :binary.split(rest, <<0>>)
+    {server_version, rest} = T.take_null_terminated_string(rest)
 
     if Version.compare(server_version, @min_server_version) == :lt do
       raise "minimum supported server version is #{@min_server_version}, got: #{server_version}"
@@ -168,9 +168,10 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = rest
 
-    take = auth_plugin_data_length - 8 - 1
-    <<auth_plugin_data2::binary-size(take), 0, auth_plugin_name::binary>> = rest
-    [auth_plugin_name, ""] = :binary.split(auth_plugin_name, <<0>>)
+    take = auth_plugin_data_length - 8
+    <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
+    auth_plugin_data2 = T.decode_null_terminated_string(auth_plugin_data2)
+    auth_plugin_name = T.decode_null_terminated_string(auth_plugin_name)
 
     handshake_v10(
       protocol_version: protocol_version,
