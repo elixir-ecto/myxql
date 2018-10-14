@@ -43,7 +43,6 @@ argv = ~w(
   --defaults-file=#{Path.expand("../.my.cnf", __DIR__)}
   --protocol=tcp
   --port=8006
-  myxql_test
 ) ++ ["-e", sql]
 
 case System.cmd("mysql", argv) do
