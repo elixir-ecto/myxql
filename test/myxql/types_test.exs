@@ -99,6 +99,10 @@ defmodule MyXQL.TypesTest do
       assert_roundtrip(c, "my_datetime6", ~N[1999-12-31 09:10:20.123456])
     end
 
+    test "MYSQL_TYPE_TIMESTAMP", c do
+      assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
+    end
+
     test "MYSQL_TYPE_YEAR", c do
       assert_roundtrip(c, "my_year", 1999)
     end
