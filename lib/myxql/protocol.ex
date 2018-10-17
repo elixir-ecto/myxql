@@ -3,10 +3,12 @@ defmodule MyXQL.Protocol do
   import MyXQL.Messages
 
   def connect(opts) do
+    default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
+
     hostname = Keyword.fetch!(opts, :hostname)
-    port = Keyword.fetch!(opts, :port)
+    port = Keyword.get(opts, :port, default_port)
     username = Keyword.fetch!(opts, :username)
-    password = Keyword.fetch!(opts, :password)
+    password = Keyword.get(opts, :password)
     database = Keyword.fetch!(opts, :database)
     timeout = Keyword.fetch!(opts, :timeout)
     socket_opts = [:binary, active: false]

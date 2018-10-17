@@ -1,0 +1,14 @@
+language: elixir
+elixir:
+  - 1.4.5
+otp_release:
+  - 20.3
+services:
+  - docker
+env:
+  matrix:
+    DB=mysql:5.7
+before_install:
+  - sudo service mysql stop
+  - docker pull $DB || true
+  - docker run --name mysql -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB

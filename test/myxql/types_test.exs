@@ -99,6 +99,10 @@ defmodule MyXQL.TypesTest do
       assert_roundtrip(c, "my_datetime6", ~N[1999-12-31 09:10:20.123456])
     end
 
+    test "MYSQL_TYPE_TIMESTAMP", c do
+      assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
+    end
+
     test "MYSQL_TYPE_YEAR", c do
       assert_roundtrip(c, "my_year", 1999)
     end
@@ -113,16 +117,7 @@ defmodule MyXQL.TypesTest do
   end
 
   defp connect(_) do
-    opts = [
-      hostname: "127.0.0.1",
-      port: 8006,
-      username: "root",
-      password: "secret",
-      database: "myxql_test",
-      timeout: 5000
-    ]
-
-    {:ok, conn} = MyXQL.connect(opts)
+    {:ok, conn} = MyXQL.connect(TestHelpers.opts())
     {:ok, conn: conn}
   end
 

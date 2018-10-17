@@ -208,7 +208,7 @@ defmodule MyXQL.Messages do
       if auth_response do
         <<byte_size(auth_response), auth_response::binary>>
       else
-        <<0, 0>>
+        <<0>>
       end
 
     payload = <<

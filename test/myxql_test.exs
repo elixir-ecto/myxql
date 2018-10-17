@@ -1,14 +1,7 @@
 defmodule MyXQLTest do
   use ExUnit.Case, async: true
 
-  @opts [
-    hostname: "127.0.0.1",
-    port: 8006,
-    username: "root",
-    password: "secret",
-    database: "myxql_test",
-    timeout: 5000
-  ]
+  @opts TestHelpers.opts()
 
   describe "connect" do
     test "connect with no password" do
@@ -17,7 +10,7 @@ defmodule MyXQLTest do
     end
 
     test "connect with non-default authentication method" do
-      opts = Keyword.put(@opts, :username, "sha2")
+      opts = Keyword.put(@opts, :username, "sha256_password")
 
       assert {:error, %MyXQL.Error{message: "Client does not support authentication" <> _}} =
                MyXQL.connect(opts)

@@ -53,7 +53,7 @@ defmodule MyXQL.Types do
   @mysql_type_float 0x04
   @mysql_type_double 0x05
   # @mysql_type_null 0x06
-  # @mysql_type_timestamp 0x07
+  @mysql_type_timestamp 0x07
   @mysql_type_longlong 0x08
   @mysql_type_int24 0x09
   @mysql_type_date 0x0A
@@ -110,6 +110,10 @@ defmodule MyXQL.Types do
   end
 
   def decode_text_value(value, @mysql_type_datetime) do
+    NaiveDateTime.from_iso8601!(value)
+  end
+
+  def decode_text_value(value, @mysql_type_timestamp) do
     NaiveDateTime.from_iso8601!(value)
   end
 
