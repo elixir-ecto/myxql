@@ -14,5 +14,5 @@ defmodule MyXQL.Utils do
     )
   end
 
-  defp bxor_binary(<<l::160>>, <<r::160>>), do: <<(l ^^^ r)::160>>
+  defp bxor_binary(<<l::160>>, <<r::160>>), do: <<l ^^^ r::160>>
 end
