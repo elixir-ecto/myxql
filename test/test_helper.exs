@@ -51,7 +51,6 @@ CREATE TABLE test_types (
   my_datetime3 DATETIME(3),
   my_datetime6 DATETIME(6),
   my_timestamp TIMESTAMP,
-  my_timestamp6 TIMESTAMP(6),
   my_year YEAR,
   my_binary3 BINARY(3),
   my_varbinary3 VARBINARY(3)
