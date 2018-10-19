@@ -9,6 +9,10 @@ defmodule MyXQL.Messages do
   # from this version.
   #
   # We support first GA version, 5.7.9, see: https://dev.mysql.com/doc/relnotes/mysql/5.7/en/
+  #
+  # TODO: consider supporting at least 5.7.10 as prior versions only support TLS v1,
+  # maybe we should require at least v1.1.
+  # https://dev.mysql.com/doc/refman/5.7/en/encrypted-connection-protocols-ciphers.html
   @min_server_version Version.parse!("5.7.9")
 
   @max_packet_size 65536
