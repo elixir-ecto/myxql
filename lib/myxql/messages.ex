@@ -25,7 +25,7 @@ defmodule MyXQL.Messages do
   # @client_ignore_space 0x00000100
   @client_protocol_41 0x00000200
   # @client_interactive 0x00000400
-  # @client_ssl 0x00000800
+  @client_ssl 0x00000800
   # @client_ignore_sigpipe 0x00001000
   # @client_transactions 0x00002000
   # @client_reserved 0x00004000
@@ -198,8 +198,12 @@ defmodule MyXQL.Messages do
     :database
   ]
 
-  def encode_handshake_response_41(username, auth_response, database) do
-    capability_flags = @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof
+  defp capability_flags() do
+    @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof
+  end
+
+  def encode_handshake_response_41(username, auth_response, database, sequence_id) do
+    capability_flags = capability_flags()
     charset = 8
     username = <<username::binary, 0>>
     database = <<database::binary, 0>>
@@ -214,14 +218,27 @@ defmodule MyXQL.Messages do
     payload = <<
       capability_flags::little-integer-size(32),
       @max_packet_size::little-integer-size(32),
-      <<charset::integer>>,
-      String.duplicate(<<0>>, 23)::binary,
+      charset,
+      0::8*23,
       username::binary,
       auth_response::binary,
       database::binary
     >>
 
-    sequence_id = 1
+    encode_packet(payload, sequence_id)
+  end
+
+  def encode_ssl_request(sequence_id) do
+    capability_flags = capability_flags() ||| @client_ssl
+    charset = 8
+
+    payload = <<
+      capability_flags::little-integer-size(32),
+      @max_packet_size::little-integer-size(32),
+      charset,
+      0::8*23
+    >>
+
     encode_packet(payload, sequence_id)
   end
 

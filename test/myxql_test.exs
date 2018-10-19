@@ -6,24 +6,41 @@ defmodule MyXQLTest do
   describe "connect" do
     test "connect with no password" do
       opts = Keyword.merge(@opts, username: "nopassword", password: nil)
-      {:ok, _} = MyXQL.connect(opts)
+      {:ok, conn} = MyXQL.connect(opts)
+
+      MyXQL.query!(conn, "SELECT 1")
+    end
+
+    # TODO: need to force TLS v1.1 as MySQL 5.7 otherwise fails, need to document this.
+    test "connect with SSL" do
+      opts = Keyword.merge(@opts, ssl: true, ssl_opts: [versions: [:"tlsv1.1"]])
+      {:ok, conn} = MyXQL.connect(opts)
+
+      MyXQL.query!(conn, "SELECT 1")
+    end
+
+    test "connect with bad SSL opts" do
+      opts = Keyword.merge(@opts, ssl: true, ssl_opts: [ciphers: [:bad]])
+
+      assert {:error, %MyXQL.Error{message: "Invalid TLS option: {ciphers,[bad]}"}} =
+               MyXQL.connect(opts)
     end
 
     test "connect with non-default authentication method" do
-      opts = Keyword.put(@opts, :username, "sha256_password")
+      opts = Keyword.merge(@opts, username: "sha256_password")
 
       assert {:error, %MyXQL.Error{message: "Client does not support authentication" <> _}} =
                MyXQL.connect(opts)
     end
 
     test "connect with invalid password" do
-      assert {:error, %MyXQL.Error{message: "Access denied for user" <> _}} =
-               MyXQL.connect(Keyword.put(@opts, :password, "bad"))
+      opts = Keyword.merge(@opts, password: "bad")
+      assert {:error, %MyXQL.Error{message: "Access denied for user" <> _}} = MyXQL.connect(opts)
     end
 
     test "connect with host down" do
-      assert {:error, %MyXQL.Error{message: "connection refused"}} =
-               MyXQL.connect(Keyword.put(@opts, :port, 9999))
+      opts = Keyword.merge(@opts, port: 9999)
+      assert {:error, %MyXQL.Error{message: "connection refused"}} = MyXQL.connect(opts)
     end
   end
 
