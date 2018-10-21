@@ -6,7 +6,10 @@ defmodule TestHelpers do
       hostname: "127.0.0.1",
       username: "root",
       database: "myxql_test",
-      timeout: 5000
+      timeout: 5000,
+      ssl: false,
+      # TODO: need to force TLS v1.1 as MySQL 5.7 otherwise fails, need to document this.
+      ssl_opts: [versions: [:"tlsv1.1"]]
     ]
   end
 end
@@ -17,16 +20,20 @@ CREATE DATABASE myxql_test;
 USE myxql_test;
 
 DROP USER IF EXISTS myxql_test;
-CREATE USER myxql_test IDENTIFIED WITH mysql_native_password BY 'secret';
+CREATE USER myxql_test IDENTIFIED BY 'secret';
 GRANT ALL PRIVILEGES ON myxql_test.* TO myxql_test;
 
-DROP USER IF EXISTS nopassword;
-CREATE USER nopassword;
-GRANT ALL PRIVILEGES ON myxql_test.* TO nopassword;
+DROP USER IF EXISTS mysql_native_password;
+CREATE USER mysql_native_password IDENTIFIED WITH mysql_native_password BY 'secret';
+GRANT ALL PRIVILEGES ON myxql_test.* TO mysql_native_password;
 
 DROP USER IF EXISTS sha256_password;
 CREATE USER sha256_password IDENTIFIED WITH sha256_password BY 'secret';
 GRANT ALL PRIVILEGES ON myxql_test.* TO sha256_password;
+
+DROP USER IF EXISTS nopassword;
+CREATE USER nopassword;
+GRANT ALL PRIVILEGES ON myxql_test.* TO nopassword;
 
 CREATE TABLE integers (x int);
 

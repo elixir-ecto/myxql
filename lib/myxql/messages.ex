@@ -33,11 +33,11 @@ defmodule MyXQL.Messages do
   # @client_ignore_sigpipe 0x00001000
   # @client_transactions 0x00002000
   # @client_reserved 0x00004000
-  # @client_secure_connection 0x00008000
+  @client_secure_connection 0x00008000
   # @client_multi_statements 0x00010000
   # @client_multi_results 0x00020000
   # @client_ps_multi_results 0x00040000
-  # @client_plugin_auth 0x00080000
+  @client_plugin_auth 0x00080000
   # @client_connect_attrs 0x00100000
   # @client_plugin_auth_lenenc_client_data 0x00200000
   # @client_can_handle_expired_passwords 0x00400000
@@ -72,16 +72,6 @@ defmodule MyXQL.Messages do
   def encode_packet(payload, sequence_id) do
     payload_length = byte_size(payload)
     <<payload_length::little-size(24), sequence_id::little-size(8), payload::binary>>
-  end
-
-  # https://dev.mysql.com/doc/internals/en/generic-response-packets.html
-  def decode_response_packet(data) do
-    packet(payload: payload) = decode_packet(data)
-
-    case payload do
-      <<0x00, _::binary>> -> decode_ok_packet(payload)
-      <<0xFF, _::binary>> -> decode_err_packet(payload)
-    end
   end
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
@@ -203,14 +193,22 @@ defmodule MyXQL.Messages do
   ]
 
   defp capability_flags() do
-    @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof
+    @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof |||
+      @client_plugin_auth ||| @client_secure_connection
   end
 
-  def encode_handshake_response_41(username, auth_response, database, sequence_id) do
+  def encode_handshake_response_41(
+        username,
+        auth_plugin_name,
+        auth_response,
+        database,
+        sequence_id
+      ) do
     capability_flags = capability_flags()
     charset = 8
     username = <<username::binary, 0>>
     database = <<database::binary, 0>>
+    auth_plugin_name = <<auth_plugin_name::binary, 0>>
 
     auth_response =
       if auth_response do
@@ -226,7 +224,8 @@ defmodule MyXQL.Messages do
       0::8*23,
       username::binary,
       auth_response::binary,
-      database::binary
+      database::binary,
+      auth_plugin_name::binary
     >>
 
     encode_packet(payload, sequence_id)
@@ -244,6 +243,27 @@ defmodule MyXQL.Messages do
     >>
 
     encode_packet(payload, sequence_id)
+  end
+
+  def decode_handshake_response(data) do
+    packet(payload: payload) = decode_packet(data)
+
+    case payload do
+      <<0x00, _::binary>> -> decode_ok_packet(payload)
+      <<0xFF, _::binary>> -> decode_err_packet(payload)
+      <<0xFE, _::binary>> -> decode_auth_switch_request(payload)
+      <<0x01, 0x04>> -> :full_auth
+    end
+  end
+
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
+  defrecord :auth_switch_request, [:plugin_name, :plugin_data]
+
+  def decode_auth_switch_request(<<0xFE, rest::binary>>) do
+    {plugin_name, rest} = T.take_null_terminated_string(rest)
+    {plugin_data, ""} = T.take_null_terminated_string(rest)
+
+    auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)
   end
 
   #################################################################

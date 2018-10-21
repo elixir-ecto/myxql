@@ -101,7 +101,8 @@ defmodule MyXQL.Protocol do
           auth_plugin_name,
           auth_plugin_data,
           database,
-          sequence_id
+          sequence_id,
+          ssl?
         )
 
       {:error, _} = error ->
@@ -116,26 +117,89 @@ defmodule MyXQL.Protocol do
          auth_plugin_name,
          auth_plugin_data,
          database,
-         sequence_id
+         sequence_id,
+         ssl?
        ) do
-    # TODO: MySQL 8.0 defaults to "caching_sha2_password", which we don't support yet,
-    #       and will send AuthSwitchRequest which we'll need to handle.
-    #       https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
-    "mysql_native_password" = auth_plugin_name
-
-    auth_response = if password, do: MyXQL.Utils.mysql_native_password(password, auth_plugin_data)
+    auth_response = auth_response(auth_plugin_name, password, auth_plugin_data)
 
     data =
-      MyXQL.Messages.encode_handshake_response_41(username, auth_response, database, sequence_id)
+      MyXQL.Messages.encode_handshake_response_41(
+        username,
+        auth_plugin_name,
+        auth_response,
+        database,
+        sequence_id
+      )
 
     data = send_and_recv(state, data)
 
-    case decode_response_packet(data) do
+    case decode_handshake_response(data) do
       ok_packet(warnings: 0) ->
         {:ok, state}
 
       err_packet(error_message: message) ->
         {:error, %MyXQL.Error{message: message}}
+
+      auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data) ->
+        with {:ok, auth_response} <-
+               auth_switch_response(plugin_name, password, plugin_data, ssl?) do
+          data = encode_packet(auth_response, sequence_id + 2)
+          data = send_and_recv(state, data)
+
+          case decode_handshake_response(data) do
+            ok_packet(warnings: 0) ->
+              {:ok, state}
+
+            err_packet(error_message: message) ->
+              {:error, %MyXQL.Error{message: message}}
+          end
+        end
+
+      :full_auth ->
+        if ssl? do
+          auth_response = password <> <<0x00>>
+          data = encode_packet(auth_response, sequence_id + 2)
+          data = send_and_recv(state, data)
+
+          case decode_handshake_response(data) do
+            ok_packet(warnings: 0) ->
+              {:ok, state}
+
+            err_packet(error_message: message) ->
+              {:error, %MyXQL.Error{message: message}}
+          end
+        else
+          message =
+            "ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection."
+
+          {:error, %MyXQL.Error{message: message}}
+        end
+    end
+  end
+
+  defp auth_response(_plugin_name, nil, _plugin_data),
+    do: nil
+
+  defp auth_response("mysql_native_password", password, plugin_data),
+    do: MyXQL.Utils.mysql_native_password(password, plugin_data)
+
+  defp auth_response(method, password, plugin_data)
+       when method in ["sha256_password", "caching_sha2_password"],
+       do: MyXQL.Utils.sha256_password(password, plugin_data)
+
+  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
+    do: {:ok, MyXQL.Utils.mysql_native_password(password, plugin_data)}
+
+  defp auth_switch_response(method, password, _plugin_data, ssl?)
+       when method in ["sha256_password", "caching_sha2_password"] do
+    if ssl? do
+      {:ok, password <> <<0x00>>}
+    else
+      # TODO: put error code into separate exception field
+      message =
+        "ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection."
+
+      {:error, %MyXQL.Error{message: message}}
     end
   end
 
