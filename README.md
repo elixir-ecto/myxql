@@ -8,10 +8,6 @@
 
 ```
 brew install mysql
-```
-
-or:
-
-```
+# or:
 docker run --publish=3306:3306 --name mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql:8.0
 ```
