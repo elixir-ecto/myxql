@@ -1,13 +1,15 @@
 language: elixir
-elixir:
-  - 1.4.5
-otp_release:
-  - 20.3
 services:
   - docker
 env:
   matrix:
     DB=mysql:5.7
+matrix:
+  include:
+    - elixir: 1.4.3
+      otp_release: 20.3
+    - elixir: 1.7.3
+      otp_release: 21.1
 before_install:
   - sudo service mysql stop
   - docker pull $DB || true
