@@ -458,13 +458,13 @@ defmodule MyXQL.Messages do
   end
 
   defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
-    <<
-      value_size::size(8),
-      value::bytes-size(value_size),
-      rest::binary
-    >> = data
+    case data do
+      <<value_size::size(8), value::bytes-size(value_size), rest::binary>> ->
+        decode_text_resultset_row(rest, tail, [T.decode_text_value(value, type) | acc])
 
-    decode_text_resultset_row(rest, tail, [T.decode_text_value(value, type) | acc])
+      <<0xFB, rest::binary>> ->
+        decode_text_resultset_row(rest, tail, [nil | acc])
+    end
   end
 
   defp decode_text_resultset_row(rest, [], acc) do

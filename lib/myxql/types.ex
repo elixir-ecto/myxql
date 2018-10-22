@@ -52,6 +52,7 @@ defmodule MyXQL.Types do
   @mysql_type_long 0x03
   @mysql_type_float 0x04
   @mysql_type_double 0x05
+  # https://dev.mysql.com/doc/internals/en/null-bitmap.html
   # @mysql_type_null 0x06
   @mysql_type_timestamp 0x07
   @mysql_type_longlong 0x08

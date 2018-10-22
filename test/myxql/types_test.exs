@@ -114,6 +114,16 @@ defmodule MyXQL.TypesTest do
     test "MYSQL_TYPE_VAR_STRING - SQL VARBINARY", c do
       assert_roundtrip(c, "my_varbinary3", <<1, 2, 3>>)
     end
+
+    test "MYSQL_TYPE_NULL", c do
+      %MyXQL.Result{last_insert_id: id} =
+        MyXQL.query!(c.conn, "INSERT INTO test_types (my_binary3, my_varbinary3) VALUES ('foo', 'bar')")
+
+      %MyXQL.Result{rows: [row]} =
+        MyXQL.query!(c.conn, "SELECT my_tinyint, my_binary3, my_smallint, my_varbinary3, my_int FROM test_types WHERE id = '#{id}'")
+
+      assert row == [nil, "foo", nil, "bar", nil]
+    end
   end
 
   defp connect(_) do
