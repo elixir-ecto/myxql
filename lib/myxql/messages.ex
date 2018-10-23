@@ -19,7 +19,10 @@ defmodule MyXQL.Messages do
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
   # @client_long_password 0x00000001
-  # @client_found_rows 0x00000002
+
+  # TODO: double-check https://github.com/elixir-ecto/ecto/blob/v3.0.0-rc.1/integration_test/cases/type.exs#L336:L337,
+  #       found row vs affected row
+  @client_found_rows 0x00000002
   # @client_long_flag 0x00000004
   @client_connect_with_db 0x00000008
   # @client_no_schema 0x00000010
@@ -193,8 +196,9 @@ defmodule MyXQL.Messages do
   ]
 
   defp capability_flags() do
-    @client_connect_with_db ||| @client_protocol_41 ||| @client_deprecate_eof |||
-      @client_plugin_auth ||| @client_secure_connection
+    @client_protocol_41 ||| @client_deprecate_eof |||
+      @client_plugin_auth ||| @client_secure_connection |||
+      @client_found_rows ||| @client_connect_with_db
   end
 
   def encode_handshake_response_41(
