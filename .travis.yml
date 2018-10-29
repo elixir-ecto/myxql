@@ -3,19 +3,23 @@ services:
   - docker
 elixir: 1.7
 otp_release: 21.1
+addons:
+  apt:
+    sources:
+      - mysql-5.7-trusty
+    packages:
+      - mysql-client
 env:
   matrix:
   - DB=mysql:5.7
-  - DB=mysql:8.0
+  - DB=mysql:8.0.13
 matrix:
   include:
     - elixir: 1.4
       otp_release: 18.3
 before_install:
-  - sudo service mysql stop
   - docker pull $DB || true
-  # TODO: remove --default-authentication-plugin; currently it fails on 8.0 because
-  # it can't load caching_sha2_password which makes no sense
-  - docker run --name mysql -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB --default-authentication-plugin=mysql_native_password
-  # wait for mysql server to start
+  - docker run --name mysql -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB
+  # wait for mysql to start
   - sleep 10
+  - mysql --version
