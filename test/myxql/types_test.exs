@@ -116,13 +116,7 @@ defmodule MyXQL.TypesTest do
     end
 
     test "MYSQL_TYPE_NULL", c do
-      %MyXQL.Result{last_insert_id: id} =
-        MyXQL.query!(c.conn, "INSERT INTO test_types (my_binary3, my_varbinary3) VALUES ('foo', 'bar')")
-
-      %MyXQL.Result{rows: [row]} =
-        MyXQL.query!(c.conn, "SELECT my_tinyint, my_binary3, my_smallint, my_varbinary3, my_int FROM test_types WHERE id = '#{id}'")
-
-      assert row == [nil, "foo", nil, "bar", nil]
+      assert_roundtrip(c, ~w(my_tinyint my_binary3 my_smallint my_varbinary3 my_int), [nil, "foo", nil, "bar", nil])
     end
   end
 
@@ -140,17 +134,36 @@ defmodule MyXQL.TypesTest do
     get(c, field, id)
   end
 
-  defp insert(c, field, value) do
+  defp insert(c, fields, values) when is_list(fields) and is_list(values) do
+    fields = Enum.map_join(fields, ", ", &"`#{&1}`")
+
+    values =
+      Enum.map_join(values, ", ", fn
+        nil -> "NULL"
+        value -> "'#{value}'"
+      end)
+
     %MyXQL.Result{last_insert_id: id} =
-      MyXQL.query!(c.conn, "INSERT INTO test_types (`#{field}`) VALUES ('#{value}')")
+      MyXQL.query!(c.conn, "INSERT INTO test_types (#{fields}) VALUES (#{values})")
 
     id
   end
 
-  defp get(c, field, id) do
-    %MyXQL.Result{rows: [[value]]} =
-      MyXQL.query!(c.conn, "SELECT `#{field}` FROM test_types WHERE id = '#{id}'")
+  defp insert(c, field, value) when is_binary(field) do
+    insert(c, [field], [value])
+  end
 
+  defp get(c, fields, id) when is_list(fields) do
+    fields = Enum.map_join(fields, ", ", &"`#{&1}`")
+
+    %MyXQL.Result{rows: [values]} =
+      MyXQL.query!(c.conn, "SELECT #{fields} FROM test_types WHERE id = '#{id}'")
+
+    values
+  end
+
+  defp get(c, field, id) do
+    [value] = get(c, [field], id)
     value
   end
 end
