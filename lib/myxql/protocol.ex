@@ -90,7 +90,7 @@ defmodule MyXQL.Protocol do
 
     sequence_id = 1
 
-    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, sequence_id) do
+    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, database, sequence_id) do
       {:ok, state, sequence_id} ->
         auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
 
@@ -128,13 +128,14 @@ defmodule MyXQL.Protocol do
         auth_plugin_name,
         auth_response,
         database,
+        ssl?,
         sequence_id
       )
 
     data = send_and_recv(state, data)
 
     case decode_handshake_response(data) do
-      ok_packet(warnings: 0) ->
+      ok_packet(warning_count: 0) ->
         {:ok, state}
 
       err_packet(error_message: message) ->
@@ -147,7 +148,7 @@ defmodule MyXQL.Protocol do
           data = send_and_recv(state, data)
 
           case decode_handshake_response(data) do
-            ok_packet(warnings: 0) ->
+            ok_packet(warning_count: 0) ->
               {:ok, state}
 
             err_packet(error_message: message) ->
@@ -162,7 +163,7 @@ defmodule MyXQL.Protocol do
           data = send_and_recv(state, data)
 
           case decode_handshake_response(data) do
-            ok_packet(warnings: 0) ->
+            ok_packet(warning_count: 0) ->
               {:ok, state}
 
             err_packet(error_message: message) ->
@@ -203,8 +204,8 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp maybe_upgrade_to_ssl(state, true, ssl_opts, sequence_id) do
-    data = encode_ssl_request(sequence_id)
+  defp maybe_upgrade_to_ssl(state, true, ssl_opts, database, sequence_id) do
+    data = encode_ssl_request(sequence_id, database)
     :ok = :gen_tcp.send(state.sock, data)
 
     case :ssl.connect(state.sock, ssl_opts) do
@@ -217,7 +218,7 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp maybe_upgrade_to_ssl(state, false, _ssl_opts, sequence_id) do
+  defp maybe_upgrade_to_ssl(state, false, _ssl_opts, _database, sequence_id) do
     {:ok, state, sequence_id}
   end
 
