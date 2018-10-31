@@ -412,22 +412,15 @@ defmodule MyXQL.Messages do
     # Always 0x01
     iteration_count = 0x01
 
-    # TODO: handle null_bitmap
-    null_bitmap = 0
-
     new_params_bound_flag = 1
-    {types, values} = params |> Enum.map(&T.encode_binary_value/1) |> Enum.unzip()
-
-    # TODO: find out and document why types are null-terminated
-    types = for t <- types, do: <<t, 0>>, into: ""
-    values = for v <- values, do: <<v::binary>>, into: ""
+    {null_bitmap, types, values} = encode_params(params)
 
     payload = <<
       command,
       statement_id::little-integer-size(32),
       flags::size(8),
       iteration_count::little-integer-size(32),
-      null_bitmap::8,
+      null_bitmap::bitstring,
       new_params_bound_flag::8,
       types::binary,
       values::binary
@@ -435,6 +428,31 @@ defmodule MyXQL.Messages do
 
     sequence_id = 0
     encode_packet(payload, sequence_id)
+  end
+
+  defp encode_params(params) do
+    null_type = 0x06
+    # TODO: handle unsigned types
+    unsigned_flag = 0x00
+
+    {count, null_bitmap, types, values} =
+      Enum.reduce(params, {0, 0, <<>>, <<>>}, fn
+        value, {idx, null_bitmap, types, values} ->
+          null_value = if value == nil, do: 1, else: 0
+          null_bitmap = null_bitmap ||| null_value <<< idx
+
+          if value == nil do
+            {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
+          else
+            {type, value} = T.encode_binary_value(value)
+
+            {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag>>,
+             <<values::binary, value::binary>>}
+          end
+      end)
+
+    null_bitmap_size = div(count + 7, 8)
+    {<<null_bitmap::size(null_bitmap_size)-little-unit(8)>>, types, values}
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
@@ -550,23 +568,30 @@ defmodule MyXQL.Messages do
   defp decode_binary_resultset_rows(data, column_definitions, acc) do
     case take_packet(data) do
       # EOF packet
-      {<<0xFE, warning_count::size(16), status_flags::size(16), 0::size(16)>>, ""} ->
+      {<<0xFE, warning_count::16-little, status_flags::16-little, 0::8*2>>, ""} ->
         {Enum.reverse(acc), warning_count, status_flags}
 
       {payload, rest} ->
-        <<0, _null_bitmap, values::binary>> = payload
-        row = decode_binary_resultset_row(values, column_definitions, [])
+        size = div(length(column_definitions) + 7 + 2, 8)
+        <<0x00, null_bitmap::size(size)-little-integer-unit(8), values::binary>> = payload
+        null_bitmap = null_bitmap >>> 2
+        row = decode_binary_resultset_row(values, null_bitmap, column_definitions, [])
         decode_binary_resultset_rows(rest, column_definitions, [row | acc])
     end
   end
 
-  defp decode_binary_resultset_row(values, [column_definition | column_definitions], acc) do
+  defp decode_binary_resultset_row(
+         values,
+         null_bitmap,
+         [column_definition | column_definitions],
+         acc
+       ) do
     column_definition41(type: type) = column_definition
-    {value, rest} = T.take_binary_value(values, type)
-    decode_binary_resultset_row(rest, column_definitions, [value | acc])
+    {value, rest} = T.take_binary_value(values, null_bitmap, type)
+    decode_binary_resultset_row(rest, null_bitmap >>> 1, column_definitions, [value | acc])
   end
 
-  defp decode_binary_resultset_row("", [], acc) do
+  defp decode_binary_resultset_row("", _null_bitmap, [], acc) do
     Enum.reverse(acc)
   end
 end

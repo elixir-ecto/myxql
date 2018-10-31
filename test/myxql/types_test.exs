@@ -147,7 +147,6 @@ defmodule MyXQL.TypesTest do
         assert_roundtrip(c, "my_binary3", <<1, 2, 3>>)
       end
 
-      @tag :skip
       test "MYSQL_TYPE_NULL", c do
         assert_roundtrip(c, ~w(my_tinyint my_binary3 my_smallint my_varbinary3 my_int), [
           nil,
@@ -158,7 +157,6 @@ defmodule MyXQL.TypesTest do
         ])
       end
 
-      @tag :skip
       test "MYSQL_TYPE_NULL - just nulls", c do
         assert_roundtrip(c, ~w(my_smallint my_mediumint my_int), [nil, nil, nil])
       end
