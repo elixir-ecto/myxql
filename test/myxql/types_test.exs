@@ -116,7 +116,13 @@ defmodule MyXQL.TypesTest do
     end
 
     test "MYSQL_TYPE_NULL", c do
-      assert_roundtrip(c, ~w(my_tinyint my_binary3 my_smallint my_varbinary3 my_int), [nil, "foo", nil, "bar", nil])
+      assert_roundtrip(c, ~w(my_tinyint my_binary3 my_smallint my_varbinary3 my_int), [
+        nil,
+        "foo",
+        nil,
+        "bar",
+        nil
+      ])
     end
   end
 

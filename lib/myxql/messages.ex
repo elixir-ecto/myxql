@@ -196,9 +196,8 @@ defmodule MyXQL.Messages do
   ]
 
   defp capability_flags() do
-    @client_protocol_41 ||| @client_deprecate_eof |||
-      @client_plugin_auth ||| @client_secure_connection |||
-      @client_found_rows ||| @client_connect_with_db
+    @client_protocol_41 ||| @client_deprecate_eof ||| @client_plugin_auth |||
+      @client_secure_connection ||| @client_found_rows ||| @client_connect_with_db
   end
 
   def encode_handshake_response_41(
