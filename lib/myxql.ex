@@ -21,4 +21,10 @@ defmodule MyXQL do
   def execute(conn, statement_id, params \\ []) do
     MyXQL.Protocol.execute(conn, statement_id, params)
   end
+
+  def prepare_execute(conn, statement, params \\ []) do
+    with {:ok, statement_id} <- MyXQL.Protocol.prepare(conn, statement) do
+      MyXQL.Protocol.execute(conn, statement_id, params)
+    end
+  end
 end
