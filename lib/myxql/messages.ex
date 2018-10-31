@@ -416,7 +416,7 @@ defmodule MyXQL.Messages do
     null_bitmap = 0
 
     new_params_bound_flag = 1
-    {types, values} = params |> Enum.map(&T.encode_value/1) |> Enum.unzip()
+    {types, values} = params |> Enum.map(&T.encode_binary_value/1) |> Enum.unzip()
 
     # TODO: find out and document why types are null-terminated
     types = for t <- types, do: <<t, 0>>, into: ""
