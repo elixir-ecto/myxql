@@ -24,7 +24,7 @@ defmodule MyXQL.TypesTest do
 
     describe "#{@protocol} protocol" do
       setup do
-        connect([protocol: @protocol])
+        connect(protocol: @protocol)
       end
 
       test "MYSQL_TYPE_TINY", c do
@@ -206,12 +206,17 @@ defmodule MyXQL.TypesTest do
     id
   end
 
-  defp insert(%{protocol: :binary} = c, fields, values) when is_list(fields) and is_list(values) do
+  defp insert(%{protocol: :binary} = c, fields, values)
+       when is_list(fields) and is_list(values) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     placeholders = Enum.map_join(values, ", ", fn _ -> "?" end)
 
     {:ok, %MyXQL.Result{last_insert_id: id}} =
-      MyXQL.prepare_execute(c.conn, "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})", values)
+      MyXQL.prepare_execute(
+        c.conn,
+        "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})",
+        values
+      )
 
     id
   end

@@ -54,13 +54,17 @@ defmodule MyXQL.Messages do
   end
 
   def set_capability_flags(flags \\ 0, names) do
-    Enum.reduce(names, flags, & &2 ||| Map.fetch!(@capability_flags, &1))
+    Enum.reduce(names, flags, &(&2 ||| Map.fetch!(@capability_flags, &1)))
   end
 
   defp capability_flags(database, ssl?) do
     set_capability_flags([
-      :client_protocol_41, :client_deprecate_eof, :client_plugin_auth,
-      :client_secure_connection, :client_found_rows, :client_multi_statements
+      :client_protocol_41,
+      :client_deprecate_eof,
+      :client_plugin_auth,
+      :client_secure_connection,
+      :client_found_rows,
+      :client_multi_statements
     ])
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_connect_with_db), !is_nil(database))
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_ssl), ssl?)
