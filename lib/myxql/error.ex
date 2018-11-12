@@ -1,3 +1,3 @@
 defmodule MyXQL.Error do
-  defexception [:message]
+  defexception [:message, :query, :mysql]
 end

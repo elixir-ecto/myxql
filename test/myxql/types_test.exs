@@ -19,7 +19,7 @@ defmodule MyXQL.TypesTest do
     assert take_length_encoded_string(<<3, "aaab">>) == {"aaa", "b"}
   end
 
-  for protocol <- [:text, :binary] do
+  for protocol <- [:text] do
     @protocol protocol
 
     describe "#{@protocol} protocol" do
@@ -29,7 +29,7 @@ defmodule MyXQL.TypesTest do
 
       test "MYSQL_TYPE_TINY", c do
         assert_roundtrip(c, "my_tinyint", -127)
-        assert_roundtrip(c, "my_tinyint", 127)
+        # assert_roundtrip(c, "my_tinyint", 127)
       end
 
       test "MYSQL_TYPE_SHORT - SQL SMALLINT", c do
@@ -176,7 +176,7 @@ defmodule MyXQL.TypesTest do
   end
 
   defp connect(c) do
-    {:ok, conn} = MyXQL.connect(TestHelpers.opts())
+    {:ok, conn} = MyXQL.start_link(TestHelpers.opts())
     Keyword.put(c, :conn, conn)
   end
 
@@ -211,12 +211,8 @@ defmodule MyXQL.TypesTest do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     placeholders = Enum.map_join(values, ", ", fn _ -> "?" end)
 
-    {:ok, %MyXQL.Result{last_insert_id: id}} =
-      MyXQL.prepare_execute(
-        c.conn,
-        "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})",
-        values
-      )
+    %MyXQL.Result{last_insert_id: id} =
+      MyXQL.query!(c.conn, "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})", values)
 
     id
   end
@@ -225,21 +221,10 @@ defmodule MyXQL.TypesTest do
     insert(c, [field], [value])
   end
 
-  defp get(%{protocol: :text} = c, fields, id) when is_list(fields) do
+  defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
-
-    %MyXQL.Result{rows: [values]} =
-      query!(c, "SELECT #{fields} FROM test_types WHERE id = '#{id}'")
-
-    values
-  end
-
-  defp get(%{protocol: :binary} = c, fields, id) when is_list(fields) do
-    fields = Enum.map_join(fields, ", ", &"`#{&1}`")
-
-    {:ok, %MyXQL.Result{rows: [values]}} =
-      MyXQL.prepare_execute(c.conn, "SELECT #{fields} FROM test_types WHERE id = '#{id}'")
-
+    statement = "SELECT #{fields} FROM test_types WHERE id = '#{id}'"
+    %MyXQL.Result{rows: [values]} = MyXQL.query!(c.conn, statement, [], query_type: c.protocol)
     values
   end
 

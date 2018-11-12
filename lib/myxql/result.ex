@@ -1,3 +1,3 @@
 defmodule MyXQL.Result do
-  defstruct [:columns, :rows, :last_insert_id]
+  defstruct [:columns, :num_rows, :rows, :last_insert_id]
 end

@@ -19,6 +19,7 @@ defmodule MyXQL.MixProject do
 
   defp deps() do
     [
+      {:db_connection, github: "elixir-ecto/db_connection"},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:decimal, "~> 1.5"},
       {:jason, "~> 1.0", optional: true}

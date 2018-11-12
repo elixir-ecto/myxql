@@ -76,6 +76,8 @@ defmodule MyXQL.Types do
   @mysql_type_year 0x0D
   @mysql_type_varchar 0x0F
   # @mysql_type_bit 0x10
+  # TODO: 0xF5 is not documented as JSON but that's what we get on the wire,
+  #       find out more
   @mysql_type_json 0xF5
   @mysql_type_newdecimal 0xF6
   # @mysql_type_enum 0xF7

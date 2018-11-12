@@ -9,7 +9,9 @@ defmodule TestHelpers do
       timeout: 5000,
       ssl: false,
       # TODO: need to force TLS v1.1 as MySQL 5.7 otherwise fails, need to document this.
-      ssl_opts: [versions: [:"tlsv1.1"]]
+      ssl_opts: [versions: [:"tlsv1.1"]],
+      backoff_type: :stop,
+      max_restarts: 0
     ]
   end
 end
@@ -36,6 +38,8 @@ CREATE USER nopassword;
 GRANT ALL PRIVILEGES ON myxql_test.* TO nopassword;
 
 CREATE TABLE integers (x int);
+
+CREATE TABLE uniques (a int UNIQUE);
 
 CREATE TABLE test_types (
   id SERIAL PRIMARY KEY AUTO_INCREMENT,
