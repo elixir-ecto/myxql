@@ -190,10 +190,9 @@ defmodule MyXQLTest do
       MyXQL.transaction(conn, fn conn ->
         assert DBConnection.status(conn) == :transaction
 
-        assert {:error, %MyXQL.Error{mysql: %{code: 1136}}} =
-                 MyXQL.query(conn, "INSERT INTO uniques VALUES (1, 1)")
+        assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
+                 MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
 
-        # TODO
         # assert DBConnection.status(conn) == :error
       end)
 
