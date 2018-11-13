@@ -323,9 +323,8 @@ defmodule MyXQL.Protocol do
        when plugin_name in ["sha256_password", "caching_sha2_password"],
        do: MyXQL.Utils.sha256_password(password, plugin_data)
 
-  # TODO: add test for empty password
   defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
-    do: {:ok, <<0x00>>}
+    do: {:ok, <<>>}
 
   defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
     do: {:ok, MyXQL.Utils.mysql_native_password(password, plugin_data)}
