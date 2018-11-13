@@ -70,6 +70,11 @@ defmodule MyXQL.Messages do
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_ssl), ssl?)
   end
 
+  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
+  @character_sets %{
+    utf8_general_ci: 0x21
+  }
+
   defp maybe_put_flag(flags, flag, true), do: flags ||| flag
   defp maybe_put_flag(flags, _flag, false), do: flags
 
@@ -254,7 +259,7 @@ defmodule MyXQL.Messages do
       ) do
     capability_flags = capability_flags(database, ssl?)
 
-    charset = 8
+    charset = Map.fetch!(@character_sets, :utf8_general_ci)
     username = <<username::binary, 0>>
     database = if database, do: <<database::binary, 0x00>>, else: ""
     auth_plugin_name = <<auth_plugin_name::binary, 0x00>>
