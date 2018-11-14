@@ -89,66 +89,49 @@ defmodule MyXQLTest do
   end
 
   describe "query" do
-    test "simple query" do
-      {:ok, conn} = MyXQL.start_link(@opts)
+    setup [:connect, :truncate]
 
+    test "simple query", c do
       assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], rows: [[6, 20]]}} =
-               MyXQL.query(conn, "SELECT 2*3, 4*5")
+               MyXQL.query(c.conn, "SELECT 2*3, 4*5")
     end
 
-    test "invalid query" do
-      {:ok, conn} = MyXQL.start_link(@opts)
-
+    test "invalid query", c do
       assert {:error, %MyXQL.Error{message: "Unknown column 'bad' in 'field list'"}} =
-               MyXQL.query(conn, "SELECT bad")
+               MyXQL.query(c.conn, "SELECT bad")
     end
 
-    test "query with multiple rows" do
-      {:ok, conn} = MyXQL.start_link(@opts)
+    test "query with multiple rows", c do
+      %MyXQL.Result{num_rows: 2} = MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)")
 
-      try do
-        MyXQL.query!(conn, "TRUNCATE TABLE integers")
-        %MyXQL.Result{num_rows: 2} = MyXQL.query!(conn, "INSERT INTO integers VALUES (10), (20)")
-
-        assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
-                 MyXQL.query(conn, "SELECT * FROM integers")
-      after
-        # TODO: is there a better way? Run in sandbox mode?
-        MyXQL.query!(conn, "TRUNCATE TABLE integers")
-      end
+      assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
+               MyXQL.query(c.conn, "SELECT * FROM integers")
     end
 
-    test "insert many rows" do
-      {:ok, conn} = MyXQL.start_link(@opts)
-
-      try do
-        values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
-        result = MyXQL.query!(conn, "INSERT INTO integers VALUES " <> values)
-        assert result.num_rows == 10_000
-      after
-        MyXQL.query!(conn, "TRUNCATE TABLE integers")
-      end
+    test "insert many rows", c do
+      values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
+      result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
+      assert result.num_rows == 10_000
     end
   end
 
   describe "prepared statements" do
-    test "params" do
-      {:ok, conn} = MyXQL.start_link(@opts)
+    setup [:connect, :truncate]
 
-      assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(conn, "SELECT ? * ?", [2, 3])
+    test "params", c do
+      assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
     end
 
-    test "prepare and then execute" do
-      {:ok, conn} = MyXQL.start_link(@opts)
-
-      {:ok, query} = MyXQL.prepare(conn, "", "SELECT ? * ?")
+    test "prepare and then execute", c do
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
 
       assert {:ok, %MyXQL.Query{}, %MyXQL.Result{rows: [[6]]}} =
-               MyXQL.execute(conn, query, [2, 3])
+               MyXQL.execute(c.conn, query, [2, 3])
     end
 
-    test "prepared statement from different connection is reprepared" do
-      {:ok, conn1} = MyXQL.start_link(@opts)
+    test "prepared statement from different connection is reprepared", c do
+      conn1 = c.conn
+
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 1")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
@@ -158,48 +141,40 @@ defmodule MyXQLTest do
   end
 
   describe "transactions" do
-    test "commit" do
-      {:ok, conn} = MyXQL.start_link(@opts)
+    setup [:connect, :truncate]
 
-      try do
-        assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(conn, "SELECT COUNT(1) FROM integers")
-        result = make_ref()
+    test "commit", c do
+      assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
+      result = make_ref()
 
-        {:ok, ^result} =
-          MyXQL.transaction(conn, fn conn ->
-            MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
-            MyXQL.query!(conn, "INSERT INTO integers VALUES (20)")
-            result
-          end)
+      {:ok, ^result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
+          MyXQL.query!(conn, "INSERT INTO integers VALUES (20)")
+          result
+        end)
 
-        assert %MyXQL.Result{rows: [[2]]} = MyXQL.query!(conn, "SELECT COUNT(1) FROM integers")
-      after
-        MyXQL.query!(conn, "TRUNCATE TABLE integers")
-      end
+      assert %MyXQL.Result{rows: [[2]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
     end
 
-    test "rollback" do
-      {:ok, conn} = MyXQL.start_link(@opts)
-
-      assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(conn, "SELECT COUNT(1) FROM integers")
+    test "rollback", c do
+      assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
       reason = make_ref()
 
       {:error, ^reason} =
-        MyXQL.transaction(conn, fn conn ->
+        MyXQL.transaction(c.conn, fn conn ->
           MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
           MyXQL.rollback(conn, reason)
         end)
 
-      assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(conn, "SELECT COUNT(1) FROM integers")
+      assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
     end
 
-    test "status" do
-      {:ok, conn} = MyXQL.start_link(@opts)
+    test "status", c do
+      MyXQL.query!(c.conn, "SELECT 1")
+      assert DBConnection.status(c.conn) == :idle
 
-      MyXQL.query!(conn, "SELECT 1")
-      assert DBConnection.status(conn) == :idle
-
-      MyXQL.transaction(conn, fn conn ->
+      MyXQL.transaction(c.conn, fn conn ->
         assert DBConnection.status(conn) == :transaction
 
         assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
@@ -208,8 +183,8 @@ defmodule MyXQLTest do
         # assert DBConnection.status(conn) == :error
       end)
 
-      assert DBConnection.status(conn) == :idle
-      MyXQL.query!(conn, "SELECT 1")
+      assert DBConnection.status(c.conn) == :idle
+      MyXQL.query!(c.conn, "SELECT 1")
     end
   end
 
@@ -221,5 +196,16 @@ defmodule MyXQLTest do
       {:ok, pid} -> assert_receive {:EXIT, ^pid, :killed}, 500
       {:error, :killed} -> :ok
     end
+  end
+
+  defp connect(c) do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    Map.put(c, :conn, conn)
+  end
+
+  defp truncate(c) do
+    # TODO: is there a better way? Run in sandbox mode?
+    MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
+    c
   end
 end
