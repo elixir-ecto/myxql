@@ -51,14 +51,8 @@ defmodule MyXQL.TypesTest do
       end
 
       test "MYSQL_TYPE_FLOAT", c do
-        # TODO:
-        # assert_roundtrip(c, "my_float", -13.37)
-
         assert Float.round(insert_and_get(c, "my_float", -13.37), 2) == -13.37
         assert Float.round(insert_and_get(c, "my_float", 13.37), 2) == 13.37
-
-        # TODO:
-        # assert_roundtrip(c, "my_float", 13.37)
       end
 
       test "MYSQL_TYPE_DOUBLE", c do
@@ -73,15 +67,6 @@ defmodule MyXQL.TypesTest do
       test "MYSQL_TYPE_TIME", c do
         assert_roundtrip(c, "my_time", ~T[09:10:20])
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
-
-        # TODO:
-        # assert_roundtrip(c, "my_time3", ~T[00:00:00])
-
-        # TODO:
-        # assert_roundtrip(c, "my_time3", ~T[09:10:20.000])
-        # assert_roundtrip(c, "my_time3", ~T[09:10:20.123])
-        # assert insert_and_get(c, "my_time3", ~T[09:10:20]) == ~T[09:10:20.000]
-
         assert_roundtrip(c, "my_time6", ~T[09:10:20.123456])
       end
 
@@ -90,13 +75,6 @@ defmodule MyXQL.TypesTest do
 
         assert insert_and_get(c, "my_datetime", ~N[1999-12-31 09:10:20.123]) ==
                  ~N[1999-12-31 09:10:20]
-
-        # TODO:
-        # assert_roundtrip(c, "my_datetime3", ~N[1999-12-31 09:10:20.000])
-        # assert_roundtrip(c, "my_datetime3", ~N[1999-12-31 09:10:20.123])
-
-        # assert insert_and_get(c, "my_datetime3", ~N[1999-12-31 09:10:20]) ==
-        #          ~N[1999-12-31 09:10:20.000]
 
         assert_roundtrip(c, "my_datetime6", ~N[1999-12-31 09:10:20.123456])
       end
@@ -175,6 +153,35 @@ defmodule MyXQL.TypesTest do
     end
   end
 
+  test "text & binary discrepancies" do
+    # 13.37 is returned as 13.3699... in binary protocol and conversely
+    # 13.3699 is returned as 13.37 in text protocol.
+    assert_discrepancy("my_float",
+      text: 13.37,
+      binary: 13.369999885559082
+    )
+
+    assert_discrepancy("my_time3",
+      text: ~T[09:10:20.000],
+      binary: ~T[09:10:20]
+    )
+
+    assert_discrepancy("my_time3",
+      text: ~T[09:10:20.123],
+      binary: ~T[09:10:20.123000]
+    )
+
+    assert_discrepancy("my_datetime3",
+      text: ~N[1999-12-31 09:10:20.000],
+      binary: ~N[1999-12-31 09:10:20]
+    )
+
+    assert_discrepancy("my_datetime3",
+      text: ~N[1999-12-31 09:10:20.123],
+      binary: ~N[1999-12-31 09:10:20.123000]
+    )
+  end
+
   defp connect(c) do
     {:ok, conn} = MyXQL.start_link(TestHelpers.opts())
     Keyword.put(c, :conn, conn)
@@ -182,11 +189,22 @@ defmodule MyXQL.TypesTest do
 
   defp assert_roundtrip(c, field, value) do
     assert insert_and_get(c, field, value) == value
+    value
   end
 
   defp insert_and_get(c, field, value) do
     id = insert(c, field, value)
     get(c, field, id)
+  end
+
+  defp assert_discrepancy(field, [text: expected_text, binary: expected_binary]) when is_binary(field) do
+    c = [protocol: :text] |> connect() |> Map.new()
+    assert_roundtrip(c, field, expected_text)
+    assert insert_and_get(c, field, expected_binary) == expected_text
+
+    c = [protocol: :binary] |> connect() |> Map.new()
+    assert_roundtrip(c, field, expected_binary)
+    assert insert_and_get(c, field, expected_text) == expected_binary
   end
 
   defp insert(%{protocol: :text} = c, fields, values) when is_list(fields) and is_list(values) do
