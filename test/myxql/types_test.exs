@@ -197,7 +197,8 @@ defmodule MyXQL.TypesTest do
     get(c, field, id)
   end
 
-  defp assert_discrepancy(field, [text: expected_text, binary: expected_binary]) when is_binary(field) do
+  defp assert_discrepancy(field, text: expected_text, binary: expected_binary)
+       when is_binary(field) do
     c = [protocol: :text] |> connect() |> Map.new()
     assert_roundtrip(c, field, expected_text)
     assert insert_and_get(c, field, expected_binary) == expected_text
