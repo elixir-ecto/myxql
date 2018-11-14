@@ -19,7 +19,7 @@ defmodule MyXQL.TypesTest do
     assert take_length_encoded_string(<<3, "aaab">>) == {"aaa", "b"}
   end
 
-  for protocol <- [:text] do
+  for protocol <- [:text, :binary] do
     @protocol protocol
 
     describe "#{@protocol} protocol" do
