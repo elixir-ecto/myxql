@@ -133,19 +133,20 @@ defmodule MyXQL.Messages do
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # TODO:
-  # - handle lenenc integers for last_insert_id and last_insert_id
   # - investigate using CLIENT_SESSION_TRACK & SERVER_SESSION_STATE_CHANGED capabilities
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count]
 
   def decode_ok_packet(data) do
+    <<0x00, rest::binary>> = data
+
+    {affected_rows, rest} = T.take_length_encoded_integer(rest)
+    {last_insert_id, rest} = T.take_length_encoded_integer(rest)
+
     <<
-      0,
-      affected_rows::little-8,
-      last_insert_id::little-8,
       status_flags::little-16,
       warning_count::little-16,
       _::binary
-    >> = data
+    >> = rest
 
     ok_packet(
       affected_rows: affected_rows,

@@ -5,9 +5,9 @@ defmodule MyXQL.TypesTest do
 
   test "length_encoded_integer" do
     assert decode_length_encoded_integer(<<100>>) == 100
-    assert decode_length_encoded_integer(<<0xFC, 0, 252>>) == 252
-    assert decode_length_encoded_integer(<<0xFD, 1, 0, 0>>) == 65536
-    assert decode_length_encoded_integer(<<0xFE, 0, 0, 0, 0, 1, 0, 0, 0>>) == 16_777_216
+    assert decode_length_encoded_integer(<<0xFC, 0x10, 0x27>>) == 10_000
+    assert decode_length_encoded_integer(<<0xFD, 0, 0, 1>>) == 65536
+    assert decode_length_encoded_integer(<<0xFE, 0, 0, 0, 0, 1, 0, 0, 0>>) == 4_294_967_296
   end
 
   test "length_encoded_string" do

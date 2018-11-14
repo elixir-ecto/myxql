@@ -117,6 +117,18 @@ defmodule MyXQLTest do
         MyXQL.query!(conn, "TRUNCATE TABLE integers")
       end
     end
+
+    test "insert many rows" do
+      {:ok, conn} = MyXQL.start_link(@opts)
+
+      try do
+        values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
+        result = MyXQL.query!(conn, "INSERT INTO integers VALUES " <> values)
+        assert result.num_rows == 10_000
+      after
+        MyXQL.query!(conn, "TRUNCATE TABLE integers")
+      end
+    end
   end
 
   describe "prepared statements" do

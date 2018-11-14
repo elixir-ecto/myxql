@@ -15,18 +15,18 @@ defmodule MyXQL.Types do
     integer
   end
 
-  def take_length_encoded_integer(<<int::size(8), rest::binary>>) when int < 251, do: {int, rest}
-  def take_length_encoded_integer(<<0xFC, int::size(16), rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFD, int::size(24), rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFE, int::size(64), rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<int::8, rest::binary>>) when int < 251, do: {int, rest}
+  def take_length_encoded_integer(<<0xFC, int::16-little, rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFD, int::24-little, rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFE, int::64-little, rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
   def encode_length_encode_integer(int) when int < 251, do: int
-  def encode_length_encoded_integer(int) when int < 0xFFFF, do: <<0xFC, int::little-signed-16>>
-  def encode_length_encoded_integer(int) when int < 0xFFFFFF, do: <<0xFD, int::little-signed-24>>
+  def encode_length_encoded_integer(int) when int < 0xFFFF, do: <<0xFC, int::16-little>>
+  def encode_length_encoded_integer(int) when int < 0xFFFFFF, do: <<0xFD, int::24-little>>
 
   def encode_length_encoded_integer(int) when int < 0xFFFFFFFFFFFFFFFF,
-    do: <<0xFE, int::little-signed-64>>
+    do: <<0xFE, int::64-little>>
 
   def encode_length_encode_string(binary) when is_binary(binary) do
     size = encode_length_encoded_integer(byte_size(binary))
