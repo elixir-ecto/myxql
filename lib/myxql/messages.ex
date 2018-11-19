@@ -2,7 +2,7 @@ defmodule MyXQL.Messages do
   @moduledoc false
   import Record
   use Bitwise
-  alias MyXQL.Types, as: T
+  import MyXQL.Types
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # OK packets are indicating EOF (instead of separate EOF packet)
@@ -117,8 +117,8 @@ defmodule MyXQL.Messages do
 
   def take_packet(data) do
     <<
-      payload_length::little-integer-size(24),
-      _sequence_id::size(8),
+      payload_length::int(3),
+      _sequence_id::int(1),
       payload::bytes-size(payload_length),
       rest::binary
     >> = data
@@ -128,7 +128,7 @@ defmodule MyXQL.Messages do
 
   def encode_packet(payload, sequence_id) do
     payload_length = byte_size(payload)
-    <<payload_length::little-size(24), sequence_id::little-size(8), payload::binary>>
+    <<payload_length::int(3), sequence_id::int(1), payload::binary>>
   end
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
@@ -139,12 +139,12 @@ defmodule MyXQL.Messages do
   def decode_ok_packet(data) do
     <<0x00, rest::binary>> = data
 
-    {affected_rows, rest} = T.take_length_encoded_integer(rest)
-    {last_insert_id, rest} = T.take_length_encoded_integer(rest)
+    {affected_rows, rest} = take_length_encoded_integer(rest)
+    {last_insert_id, rest} = take_length_encoded_integer(rest)
 
     <<
-      status_flags::little-16,
-      warning_count::little-16,
+      status_flags::int(2),
+      warning_count::int(2),
       _::binary
     >> = rest
 
@@ -162,7 +162,7 @@ defmodule MyXQL.Messages do
   def decode_err_packet(data) do
     <<
       0xFF,
-      error_code::16-little,
+      error_code::int(2),
       sql_state_marker::bytes-size(1),
       sql_state::bytes-size(5),
       error_message::binary
@@ -201,29 +201,29 @@ defmodule MyXQL.Messages do
     packet(payload: payload) = decode_packet(data)
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
-    {server_version, rest} = T.take_null_terminated_string(rest)
+    {server_version, rest} = take_null_terminated_string(rest)
 
     if Version.compare(server_version, @min_server_version) == :lt do
       raise "minimum supported server version is #{@min_server_version}, got: #{server_version}"
     end
 
     <<
-      conn_id::32-little,
+      conn_id::int(4),
       auth_plugin_data1::8-bytes,
       0,
-      capability_flags1::16-little,
+      capability_flags1::int(2),
       character_set::8,
-      status_flags::16-little,
-      capability_flags2::16-little,
+      status_flags::int(2),
+      capability_flags2::int(2),
       auth_plugin_data_length::8,
-      0::8*10,
+      0::int(10),
       rest::binary
     >> = rest
 
     take = auth_plugin_data_length - 8
     <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
-    auth_plugin_data2 = T.decode_null_terminated_string(auth_plugin_data2)
-    auth_plugin_name = T.decode_null_terminated_string(auth_plugin_name)
+    auth_plugin_data2 = decode_null_terminated_string(auth_plugin_data2)
+    auth_plugin_name = decode_null_terminated_string(auth_plugin_name)
 
     handshake_v10(
       protocol_version: protocol_version,
@@ -273,8 +273,8 @@ defmodule MyXQL.Messages do
       end
 
     payload = <<
-      capability_flags::32-little,
-      @max_packet_size::32-little,
+      capability_flags::int(4),
+      @max_packet_size::int(4),
       charset,
       0::8*23,
       username::binary,
@@ -291,8 +291,8 @@ defmodule MyXQL.Messages do
     charset = 8
 
     payload = <<
-      capability_flags::32-little,
-      @max_packet_size::32-little,
+      capability_flags::int(4),
+      @max_packet_size::int(4),
       charset,
       0::8*23
     >>
@@ -315,8 +315,8 @@ defmodule MyXQL.Messages do
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
   def decode_auth_switch_request(<<0xFE, rest::binary>>) do
-    {plugin_name, rest} = T.take_null_terminated_string(rest)
-    {plugin_data, ""} = T.take_null_terminated_string(rest)
+    {plugin_name, rest} = take_null_terminated_string(rest)
+    {plugin_data, ""} = take_null_terminated_string(rest)
 
     auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)
   end
@@ -397,11 +397,11 @@ defmodule MyXQL.Messages do
   def decode_com_stmt_prepare_ok(data) do
     <<
       0,
-      statement_id::32-little,
-      _num_columns::16-little,
-      _num_params::16-little,
+      statement_id::int(4),
+      _num_columns::int(2),
+      _num_params::int(2),
       0,
-      _warning_count::16-little,
+      _warning_count::int(2),
       _rest::binary
     >> = data
 
@@ -427,9 +427,9 @@ defmodule MyXQL.Messages do
 
     payload = <<
       command,
-      statement_id::little-integer-size(32),
+      statement_id::int(4),
       flags::size(8),
-      iteration_count::little-integer-size(32),
+      iteration_count::int(4),
       null_bitmap::bitstring,
       new_params_bound_flag::8,
       types::binary,
@@ -454,7 +454,7 @@ defmodule MyXQL.Messages do
           if value == nil do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
           else
-            {type, value} = T.encode_binary_value(value)
+            {type, value} = encode_binary_value(value)
 
             {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag>>,
              <<values::binary, value::binary>>}
@@ -462,7 +462,7 @@ defmodule MyXQL.Messages do
       end)
 
     null_bitmap_size = div(count + 7, 8)
-    {<<null_bitmap::size(null_bitmap_size)-little-unit(8)>>, types, values}
+    {<<null_bitmap::int(null_bitmap_size)>>, types, values}
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
@@ -506,16 +506,16 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = payload
 
-    {_schema, rest} = T.take_length_encoded_string(rest)
-    {_table, rest} = T.take_length_encoded_string(rest)
-    {_org_table, rest} = T.take_length_encoded_string(rest)
-    {name, rest} = T.take_length_encoded_string(rest)
-    {_org_name, rest} = T.take_length_encoded_string(rest)
+    {_schema, rest} = take_length_encoded_string(rest)
+    {_table, rest} = take_length_encoded_string(rest)
+    {_org_table, rest} = take_length_encoded_string(rest)
+    {name, rest} = take_length_encoded_string(rest)
+    {_org_name, rest} = take_length_encoded_string(rest)
 
     <<
       0x0C,
       _character_set::2-bytes,
-      _column_length::32-little,
+      _column_length::int(4),
       <<type>>,
       _flags::2-bytes,
       _decimals::1-bytes,
@@ -540,7 +540,7 @@ defmodule MyXQL.Messages do
 
     case payload do
       # EOF packet
-      <<0xFE, warning_count::16-little, status_flags::16-little, 0::8*2>> ->
+      <<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>> ->
         {Enum.reverse(acc), warning_count, status_flags}
 
       _ ->
@@ -552,7 +552,7 @@ defmodule MyXQL.Messages do
   defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
     case data do
       <<value_size::size(8), value::bytes-size(value_size), rest::binary>> ->
-        decode_text_resultset_row(rest, tail, [T.decode_text_value(value, type) | acc])
+        decode_text_resultset_row(rest, tail, [decode_text_value(value, type) | acc])
 
       <<0xFB, rest::binary>> ->
         decode_text_resultset_row(rest, tail, [nil | acc])
@@ -565,8 +565,8 @@ defmodule MyXQL.Messages do
 
   def take_binary_resultset_row(data) do
     <<
-      payload_length::little-integer-24,
-      _sequence_id::8,
+      payload_length::int(3),
+      _sequence_id::int(1),
       payload::bytes-size(payload_length),
       rest::binary
     >> = data
@@ -578,12 +578,12 @@ defmodule MyXQL.Messages do
   defp decode_binary_resultset_rows(data, column_definitions, acc) do
     case take_packet(data) do
       # EOF packet
-      {<<0xFE, warning_count::16-little, status_flags::16-little, 0::8*2>>, ""} ->
+      {<<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>>, ""} ->
         {Enum.reverse(acc), warning_count, status_flags}
 
       {payload, rest} ->
         size = div(length(column_definitions) + 7 + 2, 8)
-        <<0x00, null_bitmap::size(size)-little-integer-unit(8), values::binary>> = payload
+        <<0x00, null_bitmap::int(size), values::binary>> = payload
         null_bitmap = null_bitmap >>> 2
         row = decode_binary_resultset_row(values, null_bitmap, column_definitions, [])
         decode_binary_resultset_rows(rest, column_definitions, [row | acc])
@@ -597,7 +597,7 @@ defmodule MyXQL.Messages do
          acc
        ) do
     column_definition41(type: type) = column_definition
-    {value, rest} = T.take_binary_value(values, null_bitmap, type)
+    {value, rest} = take_binary_value(values, null_bitmap, type)
     decode_binary_resultset_row(rest, null_bitmap >>> 1, column_definitions, [value | acc])
   end
 

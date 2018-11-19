@@ -8,6 +8,13 @@ defmodule MyXQL.Types do
   # https://dev.mysql.com/doc/internals/en/basic-types.html
   #########################################################
 
+  # https://dev.mysql.com/doc/internals/en/integer.html#fixed-length-integer
+  defmacro int(size) do
+    quote do
+      little - integer - size(unquote(size)) - unit(8)
+    end
+  end
+
   # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
   # TODO: check notes above
   def decode_length_encoded_integer(binary) do
@@ -16,17 +23,17 @@ defmodule MyXQL.Types do
   end
 
   def take_length_encoded_integer(<<int::8, rest::binary>>) when int < 251, do: {int, rest}
-  def take_length_encoded_integer(<<0xFC, int::16-little, rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFD, int::24-little, rest::binary>>), do: {int, rest}
-  def take_length_encoded_integer(<<0xFE, int::64-little, rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFC, int::int(2), rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFD, int::int(3), rest::binary>>), do: {int, rest}
+  def take_length_encoded_integer(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
   def encode_length_encode_integer(int) when int < 251, do: int
-  def encode_length_encoded_integer(int) when int < 0xFFFF, do: <<0xFC, int::16-little>>
-  def encode_length_encoded_integer(int) when int < 0xFFFFFF, do: <<0xFD, int::24-little>>
+  def encode_length_encoded_integer(int) when int < 0xFFFF, do: <<0xFC, int::int(2)>>
+  def encode_length_encoded_integer(int) when int < 0xFFFFFF, do: <<0xFD, int::int(3)>>
 
   def encode_length_encoded_integer(int) when int < 0xFFFFFFFFFFFFFFFF,
-    do: <<0xFE, int::64-little>>
+    do: <<0xFE, int::int(8)>>
 
   def encode_length_encode_string(binary) when is_binary(binary) do
     size = encode_length_encoded_integer(byte_size(binary))
@@ -164,30 +171,24 @@ defmodule MyXQL.Types do
     end
   end
 
-  def take_binary_value(<<value::little-signed-integer-size(8), rest::binary>>, @mysql_type_tiny) do
+  def take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny) do
     {value, rest}
   end
 
-  def take_binary_value(<<value::little-signed-integer-size(16), rest::binary>>, type)
+  def take_binary_value(<<value::signed-int(2), rest::binary>>, type)
       when type in [@mysql_type_short, @mysql_type_year] do
     {value, rest}
   end
 
-  def take_binary_value(<<value::little-signed-integer-size(32), rest::binary>>, @mysql_type_long) do
+  def take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long) do
     {value, rest}
   end
 
-  def take_binary_value(
-        <<value::little-signed-integer-size(64), rest::binary>>,
-        @mysql_type_longlong
-      ) do
+  def take_binary_value(<<value::signed-int(8), rest::binary>>, @mysql_type_longlong) do
     {value, rest}
   end
 
-  def take_binary_value(
-        <<value::little-signed-integer-size(32), rest::binary>>,
-        @mysql_type_int24
-      ) do
+  def take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24) do
     {value, rest}
   end
 
@@ -206,7 +207,7 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(
-        <<4, year::little-signed-integer-size(16), month::8, day::8, rest::binary>>,
+        <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
         @mysql_type_date
       ) do
     {:ok, date} = Date.new(year, month, day)
@@ -216,7 +217,7 @@ defmodule MyXQL.Types do
   # MySQL supports negative time and days, we don't.
   # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
   def take_binary_value(
-        <<8, 0::8, 0::32, hour::8, minute::8, second::8, rest::binary>>,
+        <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>,
         @mysql_type_time
       ) do
     {:ok, time} = Time.new(hour, minute, second)
@@ -224,7 +225,8 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(
-        <<12, 0::8, 0::32, hour::8, minute::8, second::8, microsecond::little-32, rest::binary>>,
+        <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
+          microsecond::int(4), rest::binary>>,
         @mysql_type_time
       ) do
     {:ok, time} = Time.new(hour, minute, second, {microsecond, 6})
@@ -236,7 +238,7 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(
-        <<4, year::little-16, month::8, day::8, rest::binary>>,
+        <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
         @mysql_type_datetime
       ) do
     {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, 0, 0, 0)
@@ -244,7 +246,8 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(
-        <<7, year::little-16, month::8, day::8, hour::8, minute::8, second::8, rest::binary>>,
+        <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+          second::int(1), rest::binary>>,
         type
       )
       when type in [@mysql_type_datetime, @mysql_type_timestamp] do
@@ -253,8 +256,8 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(
-        <<11, year::little-16, month::8, day::8, hour::8, minute::8, second::8,
-          microsecond::little-32, rest::binary>>,
+        <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+          second::int(1), microsecond::int(4), rest::binary>>,
         type
       )
       when type in [@mysql_type_datetime, @mysql_type_timestamp] do
@@ -276,7 +279,7 @@ defmodule MyXQL.Types do
   end
 
   def encode_binary_value(value) when is_integer(value) do
-    {@mysql_type_longlong, <<value::little-signed-integer-size(64)>>}
+    {@mysql_type_longlong, <<value::signed-int(8)>>}
   end
 
   def encode_binary_value(value) when is_float(value) do
@@ -289,7 +292,7 @@ defmodule MyXQL.Types do
   end
 
   def encode_binary_value(%Date{year: year, month: month, day: day}) do
-    {@mysql_type_date, <<4, year::little-signed-integer-size(16), month::8, day::8>>}
+    {@mysql_type_date, <<4, year::int(2), month::int(1), day::int(1)>>}
   end
 
   def encode_binary_value(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
@@ -297,7 +300,7 @@ defmodule MyXQL.Types do
   end
 
   def encode_binary_value(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
-    {@mysql_type_time, <<8, 0::8, 0::32, hour::8, minute::8, second::8>>}
+    {@mysql_type_time, <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1)>>}
   end
 
   def encode_binary_value(%Time{
@@ -306,7 +309,9 @@ defmodule MyXQL.Types do
         second: second,
         microsecond: {microsecond, _}
       }) do
-    {@mysql_type_time, <<12, 0::8, 0::32, hour::8, minute::8, second::8, microsecond::little-32>>}
+    {@mysql_type_time,
+     <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
+       microsecond::int(4)>>}
   end
 
   def encode_binary_value(%NaiveDateTime{
@@ -319,7 +324,7 @@ defmodule MyXQL.Types do
         microsecond: {0, 0}
       }) do
     {@mysql_type_datetime,
-     <<7, year::little-16, month::8, day::8, hour::8, minute::8, second::8>>}
+     <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1)>>}
   end
 
   def encode_binary_value(%NaiveDateTime{
@@ -332,8 +337,8 @@ defmodule MyXQL.Types do
         microsecond: {microsecond, _}
       }) do
     {@mysql_type_datetime,
-     <<11, year::little-16, month::8, day::8, hour::8, minute::8, second::8,
-       microsecond::little-32>>}
+     <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1),
+       microsecond::int(4)>>}
   end
 
   def encode_binary_value(binary) when is_binary(binary) do
