@@ -214,58 +214,10 @@ defmodule MyXQL.Types do
     {date, rest}
   end
 
-  # MySQL supports negative time and days, we don't.
-  # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
-  def take_binary_value(
-        <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>,
-        @mysql_type_time
-      ) do
-    {:ok, time} = Time.new(hour, minute, second)
-    {time, rest}
-  end
+  def take_binary_value(binary, @mysql_type_time), do: take_binary_time(binary)
 
-  def take_binary_value(
-        <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
-          microsecond::int(4), rest::binary>>,
-        @mysql_type_time
-      ) do
-    {:ok, time} = Time.new(hour, minute, second, {microsecond, 6})
-    {time, rest}
-  end
-
-  def take_binary_value(<<0, rest::binary>>, @mysql_type_time) do
-    {~T[00:00:00], rest}
-  end
-
-  def take_binary_value(
-        <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
-        @mysql_type_datetime
-      ) do
-    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, 0, 0, 0)
-    {naive_datetime, rest}
-  end
-
-  def take_binary_value(
-        <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-          second::int(1), rest::binary>>,
-        type
-      )
-      when type in [@mysql_type_datetime, @mysql_type_timestamp] do
-    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, hour, minute, second)
-    {naive_datetime, rest}
-  end
-
-  def take_binary_value(
-        <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-          second::int(1), microsecond::int(4), rest::binary>>,
-        type
-      )
-      when type in [@mysql_type_datetime, @mysql_type_timestamp] do
-    {:ok, naive_datetime} =
-      NaiveDateTime.new(year, month, day, hour, minute, second, {microsecond, 6})
-
-    {naive_datetime, rest}
-  end
+  def take_binary_value(binary, type) when type in [@mysql_type_datetime, @mysql_type_timestamp],
+    do: take_binary_datetime(binary)
 
   def take_binary_value(data, type)
       when type in [@mysql_type_var_string, @mysql_type_string, @mysql_type_blob] do
@@ -295,15 +247,77 @@ defmodule MyXQL.Types do
     {@mysql_type_date, <<4, year::int(2), month::int(1), day::int(1)>>}
   end
 
-  def encode_binary_value(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
+  def encode_binary_value(%Time{} = time), do: encode_binary_time(time)
+
+  def encode_binary_value(%NaiveDateTime{} = datetime), do: encode_binary_datetime(datetime)
+
+  def encode_binary_value(binary) when is_binary(binary) do
+    {@mysql_type_var_string, encode_length_encode_string(binary)}
+  end
+
+  def encode_binary_value(true) do
+    {@mysql_type_tiny, <<1>>}
+  end
+
+  def encode_binary_value(false) do
+    {@mysql_type_tiny, <<0>>}
+  end
+
+  ## Time/DateTime
+
+  # MySQL supports negative time and days, we don't.
+  # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
+  defp take_binary_time(
+         <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>
+       ) do
+    {:ok, time} = Time.new(hour, minute, second)
+    {time, rest}
+  end
+
+  defp take_binary_time(
+         <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
+           microsecond::int(4), rest::binary>>
+       ) do
+    {:ok, time} = Time.new(hour, minute, second, {microsecond, 6})
+    {time, rest}
+  end
+
+  defp take_binary_time(<<0, rest::binary>>) do
+    {~T[00:00:00], rest}
+  end
+
+  defp take_binary_datetime(<<4, year::int(2), month::int(1), day::int(1), rest::binary>>) do
+    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, 0, 0, 0)
+    {naive_datetime, rest}
+  end
+
+  defp take_binary_datetime(
+        <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+          second::int(1), rest::binary>>
+      ) do
+    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, hour, minute, second)
+    {naive_datetime, rest}
+  end
+
+  defp take_binary_datetime(
+        <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+          second::int(1), microsecond::int(4), rest::binary>>
+      ) do
+    {:ok, naive_datetime} =
+      NaiveDateTime.new(year, month, day, hour, minute, second, {microsecond, 6})
+
+    {naive_datetime, rest}
+  end
+
+  defp encode_binary_time(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
     {@mysql_type_time, <<0>>}
   end
 
-  def encode_binary_value(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
+  defp encode_binary_time(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
     {@mysql_type_time, <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1)>>}
   end
 
-  def encode_binary_value(%Time{
+  defp encode_binary_time(%Time{
         hour: hour,
         minute: minute,
         second: second,
@@ -314,7 +328,7 @@ defmodule MyXQL.Types do
        microsecond::int(4)>>}
   end
 
-  def encode_binary_value(%NaiveDateTime{
+  defp encode_binary_datetime(%NaiveDateTime{
         year: year,
         month: month,
         day: day,
@@ -327,7 +341,7 @@ defmodule MyXQL.Types do
      <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1)>>}
   end
 
-  def encode_binary_value(%NaiveDateTime{
+  defp encode_binary_datetime(%NaiveDateTime{
         year: year,
         month: month,
         day: day,
@@ -339,17 +353,5 @@ defmodule MyXQL.Types do
     {@mysql_type_datetime,
      <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1),
        microsecond::int(4)>>}
-  end
-
-  def encode_binary_value(binary) when is_binary(binary) do
-    {@mysql_type_var_string, encode_length_encode_string(binary)}
-  end
-
-  def encode_binary_value(true) do
-    {@mysql_type_tiny, <<1>>}
-  end
-
-  def encode_binary_value(false) do
-    {@mysql_type_tiny, <<0>>}
   end
 end
