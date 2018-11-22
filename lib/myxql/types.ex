@@ -28,14 +28,14 @@ defmodule MyXQL.Types do
   def take_length_encoded_integer(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
-  def encode_length_encode_integer(int) when int < 251, do: int
+  def encode_length_encoded_integer(int) when int < 251, do: int
   def encode_length_encoded_integer(int) when int < 0xFFFF, do: <<0xFC, int::int(2)>>
   def encode_length_encoded_integer(int) when int < 0xFFFFFF, do: <<0xFD, int::int(3)>>
 
   def encode_length_encoded_integer(int) when int < 0xFFFFFFFFFFFFFFFF,
     do: <<0xFE, int::int(8)>>
 
-  def encode_length_encode_string(binary) when is_binary(binary) do
+  def encode_length_encoded_string(binary) when is_binary(binary) do
     size = encode_length_encoded_integer(byte_size(binary))
     <<size::binary, binary::binary>>
   end
