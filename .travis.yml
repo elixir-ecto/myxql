@@ -11,15 +11,15 @@ addons:
       - mysql-client
 env:
   matrix:
-  - DB=mysql:5.7
-  - DB=mysql:8.0.13
+    - DB=mysql:5.7
+    - DB=mysql:8.0
 matrix:
   include:
     - elixir: 1.4
       otp_release: 18.3
 before_install:
   - docker pull $DB || true
-  - docker run --name mysql -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB
-  # wait for mysql to start
-  - sleep 10
+  - sudo chmod 777 -R /var/run/mysqld
+  - docker run --name mysql -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB
   - mysql --version
+  - until mysql -u root -e "SELECT @@version;"; do sleep 1; done
