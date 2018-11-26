@@ -21,7 +21,7 @@ defmodule MyXQL.MixProject do
     [
       {:db_connection, "~> 2.0"},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
-      {:decimal, "~> 1.5"},
+      {:decimal, "~> 1.6"},
       {:jason, "~> 1.0", optional: true}
     ]
   end
