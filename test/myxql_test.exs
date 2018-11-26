@@ -113,6 +113,11 @@ defmodule MyXQLTest do
       result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
       assert result.num_rows == 10_000
     end
+
+    # TODO:
+    # test "multiple results", c do
+    #   assert [%{rows: [[1]]}, %{rows: [[2]]}] = MyXQL.query!(c.conn, "SELECT 1; SELECT 2", [], query_type: :text)
+    # end
   end
 
   describe "prepared statements" do
