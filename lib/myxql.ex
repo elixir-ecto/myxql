@@ -3,20 +3,18 @@ defmodule MyXQL do
     DBConnection.start_link(MyXQL.Protocol, opts)
   end
 
-  def query(conn, statement, params \\ [], opts \\ []) do
+  def query(conn, statement, params \\ [], opts \\ [])
+      when is_binary(statement) or is_list(statement) do
     query_type = Keyword.get(opts, :query_type, :binary)
     query = %MyXQL.Query{name: "", ref: make_ref(), statement: statement, type: query_type}
+    fun = if query_type == :binary, do: :prepare_execute, else: :execute
 
-    case query_type do
-      :binary ->
-        with {:ok, _query, result} <- DBConnection.prepare_execute(conn, query, params, opts) do
-          {:ok, result}
-        end
+    case apply(DBConnection, fun, [conn, query, params, opts]) do
+      {:ok, _query, result} ->
+        {:ok, result}
 
-      :text ->
-        with {:ok, _query, result} <- DBConnection.execute(conn, query, params, opts) do
-          {:ok, result}
-        end
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -40,8 +38,8 @@ defmodule MyXQL do
       {:ok, query, result} ->
         {:ok, query, result}
 
-      {:error, exception} ->
-        {:error, exception}
+      {:error, _} = error ->
+        error
     end
   end
 
