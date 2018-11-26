@@ -210,6 +210,85 @@ defmodule MyXQLTest do
     end
   end
 
+  describe "stream" do
+    setup [:connect, :truncate]
+
+    test "empty", c do
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT * FROM integers")
+          Enum.to_list(stream)
+        end)
+
+      assert [%{rows: [], num_rows: 0}] = result
+
+      # try again for the same query
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT * FROM integers")
+          Enum.to_list(stream)
+        end)
+
+      assert [%{rows: [], num_rows: 0}] = result
+    end
+
+    test "few rows", c do
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
+
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT * FROM integers", [], max_rows: 2)
+          Enum.to_list(stream)
+        end)
+
+      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
+    end
+
+    test "many rows", c do
+      values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
+
+      {:ok, _result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT * FROM integers")
+          Enum.to_list(stream)
+        end)
+    end
+
+    test "multiple streams", c do
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
+
+      {:ok, _} =
+        MyXQL.transaction(c.conn, fn conn ->
+          odd = MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 != 0", [], max_rows: 2) |> Stream.flat_map(& &1.rows)
+          even = MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 = 0", [], max_rows: 2) |> Stream.flat_map(& &1.rows)
+
+          assert Enum.zip(odd, even) == [{[1], [2]}, {[3], [4]}]
+        end)
+    end
+
+    test "bad query" do
+      {:ok, conn} = MyXQL.start_link(@opts)
+
+      assert_raise MyXQL.Error, "Unknown column 'bad' in 'field list'", fn ->
+        MyXQL.transaction(conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT bad")
+          Enum.to_list(stream)
+        end)
+      end
+    end
+  end
+
+  # TODO:
+  # describe "stored procedures" do
+  #   setup [:connect, :truncate]
+
+  #   test "multi-resultset", c do
+  #     MyXQL.query!(c.conn, "CALL multi();", [], query_type: :text)
+  #     |> IO.inspect()
+  #   end
+  # end
+
   defp assert_start_and_killed(opts) do
     Process.flag(:trap_exit, true)
 

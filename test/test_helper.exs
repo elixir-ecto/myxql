@@ -68,7 +68,16 @@ CREATE TABLE test_types (
   my_boolean BOOLEAN,
   my_blob BLOB,
   my_json JSON
-)
+);
+
+DROP PROCEDURE IF EXISTS multi;
+DELIMITER $$
+CREATE PROCEDURE multi()
+BEGIN
+  SELECT 1;
+  SELECT 2;
+END$$
+DELIMITER ;
 """
 
 argv = ~w(

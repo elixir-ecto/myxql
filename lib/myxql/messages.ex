@@ -64,7 +64,10 @@ defmodule MyXQL.Messages do
       :client_plugin_auth,
       :client_secure_connection,
       :client_found_rows,
-      :client_multi_statements
+      :client_multi_statements,
+      :client_multi_results,
+      :client_transactions,
+      :client_session_track
     ])
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_connect_with_db), !is_nil(database))
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_ssl), ssl?)
@@ -73,6 +76,14 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
   @character_sets %{
     utf8_general_ci: 0x21
+  }
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
+  @cursor_types %{
+    cursor_type_no_cursor: 0x00,
+    cursor_type_read_only: 0x01,
+    cursor_type_for_update: 0x02,
+    cursor_type_scrollable: 0x04
   }
 
   defp maybe_put_flag(flags, flag, true), do: flags ||| flag
@@ -140,7 +151,7 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   # TODO:
   # - investigate using CLIENT_SESSION_TRACK & SERVER_SESSION_STATE_CHANGED capabilities
-  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count]
+  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
 
   def decode_ok_packet(data) do
     <<0x00, rest::binary>> = data
@@ -151,14 +162,15 @@ defmodule MyXQL.Messages do
     <<
       status_flags::int(2),
       warning_count::int(2),
-      _::binary
+      info::binary
     >> = rest
 
     ok_packet(
       affected_rows: affected_rows,
       last_insert_id: last_insert_id,
       status_flags: status_flags,
-      warning_count: warning_count
+      warning_count: warning_count,
+      info: info
     )
   end
 
@@ -398,32 +410,31 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
-  defrecord :com_stmt_prepare_ok, [:statement_id]
+  defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
 
   def decode_com_stmt_prepare_ok(data) do
     <<
       0,
       statement_id::int(4),
-      _num_columns::int(2),
-      _num_params::int(2),
+      num_columns::int(2),
+      num_params::int(2),
       0,
-      _warning_count::int(2),
+      warning_count::int(2),
       _rest::binary
     >> = data
 
-    com_stmt_prepare_ok(statement_id: statement_id)
+    com_stmt_prepare_ok(
+      statement_id: statement_id,
+      num_columns: num_columns,
+      num_params: num_params,
+      warning_count: warning_count
+    )
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-  def encode_com_stmt_execute(statement_id, params) do
+  def encode_com_stmt_execute(statement_id, params, cursor_type) do
     command = 0x17
-
-    # TODO: cursors
-    # CURSOR_TYPE_NO_CURSOR  0x00
-    # CURSOR_TYPE_READ_ONLY  0x01
-    # CURSOR_TYPE_FOR_UPDATE 0x02
-    # CURSOR_TYPE_SCROLLABLE 0x04
-    flags = 0x00
+    flags = Map.fetch!(@cursor_types, cursor_type)
 
     # Always 0x01
     iteration_count = 0x01
@@ -498,6 +509,17 @@ defmodule MyXQL.Messages do
           status_flags: status_flags
         )
     end
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
+  def encode_com_stmt_fetch(statement_id, num_rows, sequence_id) do
+    payload = <<
+      0x1C,
+      statement_id::32-little,
+      num_rows::32-little
+    >>
+
+    encode_packet(payload, sequence_id)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
@@ -581,7 +603,7 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
-  defp decode_binary_resultset_rows(data, column_definitions, acc) do
+  def decode_binary_resultset_rows(data, column_definitions, acc) do
     case take_packet(data) do
       # EOF packet
       {<<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>>, ""} ->
