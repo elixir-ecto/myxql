@@ -101,6 +101,12 @@ defmodule MyXQL.Messages do
     (flags &&& value) == value
   end
 
+  def list_status_flags(flags) do
+    @status_flags
+    |> Map.keys()
+    |> Enum.filter(&has_status_flag?(flags, &1))
+  end
+
   ###########################################################
   # Basic packets
   #

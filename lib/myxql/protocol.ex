@@ -97,7 +97,7 @@ defmodule MyXQL.Protocol do
       resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
         columns = Enum.map(column_definitions, &elem(&1, 1))
         result = %Result{columns: columns, num_rows: length(rows), rows: rows}
-        {:ok, query, result, update_status(s, status_flags)}
+        {:ok, query, result, put_status(s, status_flags)}
 
       ok_packet(
         status_flags: status_flags,
@@ -111,7 +111,10 @@ defmodule MyXQL.Protocol do
           last_insert_id: last_insert_id
         }
 
-        {:ok, query, result, update_status(s, status_flags)}
+        {:ok, query, result, put_status(s, status_flags)}
+        # Logger.debug("info: #{inspect(info)}")
+
+        {:ok, query, result, put_status(s, status_flags)}
 
       err_packet(error_code: code, error_message: message) ->
         mysql = %{code: code, message: message}
@@ -125,12 +128,12 @@ defmodule MyXQL.Protocol do
     data = send_and_recv(s, data)
 
     case decode_com_query_response(data) do
-      ok_packet(last_insert_id: last_insert_id) ->
-        {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id}, s}
+      ok_packet(last_insert_id: last_insert_id, status_flags: status_flags) ->
+        {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id}, put_status(s, status_flags)}
 
-      resultset(column_definitions: column_definitions, rows: rows) ->
+      resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
         columns = Enum.map(column_definitions, &elem(&1, 1))
-        {:ok, query, %MyXQL.Result{columns: columns, rows: rows}, s}
+        {:ok, query, %MyXQL.Result{columns: columns, rows: rows}, put_status(s, status_flags)}
 
       err_packet(error_message: message) ->
         {:error, %MyXQL.Error{message: message}, s}
@@ -267,7 +270,7 @@ defmodule MyXQL.Protocol do
         sequence_id
       )
 
-    data = send_and_recv(state, data)
+    data = connect_send_and_recv(state, data)
 
     case decode_handshake_response(data) do
       ok_packet(warning_count: 0) ->
@@ -280,7 +283,7 @@ defmodule MyXQL.Protocol do
         with {:ok, auth_response} <-
                auth_switch_response(plugin_name, password, plugin_data, ssl?) do
           data = encode_packet(auth_response, sequence_id + 2)
-          data = send_and_recv(state, data)
+          data = connect_send_and_recv(state, data)
 
           case decode_handshake_response(data) do
             ok_packet(warning_count: 0) ->
@@ -295,7 +298,7 @@ defmodule MyXQL.Protocol do
         if ssl? do
           auth_response = password <> <<0x00>>
           data = encode_packet(auth_response, sequence_id + 2)
-          data = send_and_recv(state, data)
+          data = connect_send_and_recv(state, data)
 
           case decode_handshake_response(data) do
             ok_packet(warning_count: 0) ->
@@ -361,23 +364,42 @@ defmodule MyXQL.Protocol do
     {:ok, state, sequence_id}
   end
 
-  defp send_and_recv(%{sock: sock}, data) when is_port(sock) do
-    :ok = :gen_tcp.send(sock, data)
-    {:ok, data} = :gen_tcp.recv(sock, 0)
+  # inside connect/1 callback we need to handle timeout ourselves
+  defp connect_send_and_recv(state, data) do
+    :ok = msg_send(state, data)
+    {:ok, data} = msg_recv(state, 5000)
     data
   end
 
-  defp send_and_recv(%{sock: ssl_sock}, data) do
-    :ok = :ssl.send(ssl_sock, data)
-    {:ok, data} = :ssl.recv(ssl_sock, 0)
+  defp send_and_recv(state, data) do
+    :ok = msg_send(state, data)
+    {:ok, data} = msg_recv(state)
     data
   end
+
+  defp msg_send(%{sock: sock}, data) when is_port(sock), do: :gen_tcp.send(sock, data)
+  defp msg_send(%{sock: ssl_sock}, data), do: :ssl.send(ssl_sock, data)
+
+  defp msg_recv(state, timeout \\ :infinity)
+  defp msg_recv(%{sock: sock}, timeout) when is_port(sock), do: :gen_tcp.recv(sock, 0, timeout)
+  defp msg_recv(%{sock: ssl_sock}, timeout), do: :ssl.recv(ssl_sock, 0, timeout)
 
   defp handle_transaction(statement, s) do
-    case send_text_query(s, statement) do
+    :ok = send_text_query(s, statement)
+    transaction_recv(s)
+  end
+
+  defp transaction_recv(s) do
+    {:ok, data} = msg_recv(s)
+
+    case decode_com_query_response(data) do
       ok_packet(status_flags: status_flags) ->
-        result = :todo
-        {:ok, result, update_status(s, status_flags)}
+        if has_status_flag?(status_flags, :server_more_results_exists) do
+          transaction_recv(s)
+        else
+          result = :todo
+          {:ok, result, put_status(s, status_flags)}
+        end
 
       err_packet(error_code: code, error_message: message) ->
         # TODO: do we need query here?
@@ -388,8 +410,7 @@ defmodule MyXQL.Protocol do
 
   defp send_text_query(s, statement) do
     data = encode_com_query(statement)
-    data = send_and_recv(s, data)
-    decode_com_query_response(data)
+    msg_send(s, data)
   end
 
   defp transaction_status(status_flags) do
@@ -400,7 +421,7 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp update_status(s, status_flags) do
+  defp put_status(s, status_flags) do
     %{s | transaction_status: transaction_status(status_flags)}
   end
 

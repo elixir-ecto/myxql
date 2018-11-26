@@ -129,9 +129,30 @@ defmodule MyXQLTest do
                MyXQL.execute(c.conn, query, [2, 3])
     end
 
+    # TODO:
+    # test "prepare and close", c do
+    #   {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
+    #   :ok = MyXQL.close(c.conn, query)
+
+    #   assert {:erorr, %MyXQL.Error{message: "closed statement etc" <> _}} = MyXQL.execute(c.conn, query, [2, 3])
+    # end
+
+    # TODO:
+    # test "execute with invalid number of arguments", c do
+    #   assert {:error, %MyXQL.Error{message: message}} = MyXQL.query(c.conn, "SELECT ? * ?", [1])
+    #   assert message == "Wrong number of params etc"
+
+    #   assert {:error, %MyXQL.Error{message: message}} = MyXQL.query(c.conn, "SELECT ? * ?", [1, 2, 3])
+    #   assert message == "Wrong number of params etc"
+    # end
+
+    test "unprepared query is prepared on execute", c do
+      query = %MyXQL.Query{statement: "SELECT ? * ?", ref: make_ref()}
+      assert {:ok, _query, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+    end
+
     test "prepared statement from different connection is reprepared", c do
       conn1 = c.conn
-
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 1")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
@@ -180,6 +201,7 @@ defmodule MyXQLTest do
         assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
                  MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
 
+        # TODO:
         # assert DBConnection.status(conn) == :error
       end)
 
