@@ -194,16 +194,17 @@ defmodule MyXQLTest do
     test "status", c do
       MyXQL.query!(c.conn, "SELECT 1")
       assert DBConnection.status(c.conn) == :idle
+      reason = make_ref()
 
-      MyXQL.transaction(c.conn, fn conn ->
-        assert DBConnection.status(conn) == :transaction
+      {:error, ^reason} =
+        MyXQL.transaction(c.conn, fn conn ->
+          assert DBConnection.status(conn) == :transaction
 
-        assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
-                 MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
+          assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
+                   MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
 
-        # TODO:
-        # assert DBConnection.status(conn) == :error
-      end)
+          MyXQL.rollback(conn, reason)
+        end)
 
       assert DBConnection.status(c.conn) == :idle
       MyXQL.query!(c.conn, "SELECT 1")
