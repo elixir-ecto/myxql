@@ -6,24 +6,25 @@ defmodule MyXQLTest do
 
   describe "connect" do
     test "connect with default auth method and SSL" do
-      opts = Keyword.merge(@opts, username: "myxql_test", password: "secret", ssl: true)
+      opts = Keyword.merge(@opts, username: "default_auth", password: "secret", ssl: true)
       {:ok, conn} = MyXQL.start_link(opts)
 
       MyXQL.query!(conn, "SELECT 1")
     end
 
-    @tag :skip
     test "connect with default auth method and no SSL" do
-      opts = Keyword.merge(@opts, username: "myxql_test", password: "secret", ssl: false)
+      opts = Keyword.merge(@opts, username: "default_auth", password: "secret", ssl: false)
 
-      case MyXQL.start_link(opts) do
-        {:ok, conn} ->
+      case default_auth_plugin() do
+        "mysql_native_password" ->
+          {:ok, conn} = MyXQL.start_link(opts)
           MyXQL.query!(conn, "SELECT 1")
 
-        # if default auth method is e.g. sha256_password then we require SSL
-        # so this will never succeed
-        {:error, %MyXQL.Error{message: "ERROR 2061 (HY000)" <> _}} ->
-          :ok
+        # requires SSL so this will never succeed
+        "caching_sha2_password" ->
+          assert capture_log(fn ->
+                   assert_start_and_killed(opts)
+                 end) =~ "** (MyXQL.Error) ERROR 2061 (HY000)"
       end
     end
 
@@ -340,5 +341,14 @@ defmodule MyXQLTest do
     # TODO: is there a better way? Run in sandbox mode?
     MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
     c
+  end
+
+  defp default_auth_plugin() do
+    {:ok, pid} = MyXQL.start_link(@opts)
+
+    %MyXQL.Result{rows: [[_, plugin_name]]} =
+      MyXQL.query!(pid, "SHOW VARIABLES WHERE variable_name = 'default_authentication_plugin'")
+
+    plugin_name
   end
 end

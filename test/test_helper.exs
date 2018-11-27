@@ -21,9 +21,9 @@ DROP DATABASE IF EXISTS myxql_test;
 CREATE DATABASE myxql_test;
 USE myxql_test;
 
-DROP USER IF EXISTS myxql_test;
-CREATE USER myxql_test IDENTIFIED BY 'secret';
-GRANT ALL PRIVILEGES ON myxql_test.* TO myxql_test;
+DROP USER IF EXISTS default_auth;
+CREATE USER default_auth IDENTIFIED BY 'secret';
+GRANT ALL PRIVILEGES ON myxql_test.* TO default_auth;
 
 DROP USER IF EXISTS mysql_native_password;
 CREATE USER mysql_native_password IDENTIFIED WITH mysql_native_password BY 'secret';
