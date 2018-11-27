@@ -356,6 +356,11 @@ defmodule MyXQL.Messages do
     encode_com(0x16, query)
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-stmt-close.html
+  def encode_com_stmt_close(statement_id) do
+    encode_com(0x19, <<statement_id::int(4)>>)
+  end
+
   defp encode_com(command, binary) do
     sequence_id = 0
     encode_packet(<<command::integer, binary::binary>>, sequence_id)

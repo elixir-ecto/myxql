@@ -147,11 +147,16 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_close(_query, _opts, state) do
-    # TODO: https://dev.mysql.com/doc/internals/en/com-stmt-close.html
-    # TODO: return %MyXQL.Result{}
-    result = nil
-    {:ok, result, state}
+  def handle_close(query, _opts, state) do
+    case get_statement_id(query, state) do
+      {:ok, statement_id} ->
+        data = encode_com_stmt_close(statement_id)
+        :ok = msg_send(state, data)
+        {:ok, nil, state}
+
+      :error ->
+        {:ok, nil, state}
+    end
   end
 
   @impl true

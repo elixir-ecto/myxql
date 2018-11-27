@@ -134,13 +134,22 @@ defmodule MyXQLTest do
                MyXQL.execute(c.conn, query, [2, 3])
     end
 
-    # TODO:
-    # test "prepare and close", c do
-    #   {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
-    #   :ok = MyXQL.close(c.conn, query)
+    test "prepare and close", c do
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
+      :ok = MyXQL.close(c.conn, query)
 
-    #   assert {:erorr, %MyXQL.Error{message: "closed statement etc" <> _}} = MyXQL.execute(c.conn, query, [2, 3])
-    # end
+      assert {:error, %MyXQL.Error{message: "Unknown prepared statement handler" <> _}} = MyXQL.execute(c.conn, query, [2, 3])
+    end
+
+    test "prepare from different connection and close", c do
+      conn1 = c.conn
+      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT ? * ?")
+
+      {:ok, conn2} = MyXQL.start_link(@opts)
+      :ok = MyXQL.close(conn2, query1)
+
+      assert {:ok, _, %{rows: [[6]]}} = MyXQL.execute(conn1, query1, [2, 3])
+    end
 
     # TODO:
     # test "execute with invalid number of arguments", c do
