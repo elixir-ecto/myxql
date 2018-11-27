@@ -149,7 +149,8 @@ defmodule MyXQLTest do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
       :ok = MyXQL.close(c.conn, query)
 
-      assert {:error, %MyXQL.Error{message: "Unknown prepared statement handler" <> _}} = MyXQL.execute(c.conn, query, [2, 3])
+      assert {:error, %MyXQL.Error{message: "Unknown prepared statement handler" <> _}} =
+               MyXQL.execute(c.conn, query, [2, 3])
     end
 
     test "prepare from different connection and close", c do
@@ -286,8 +287,13 @@ defmodule MyXQLTest do
 
       {:ok, _} =
         MyXQL.transaction(c.conn, fn conn ->
-          odd = MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 != 0", [], max_rows: 2) |> Stream.flat_map(& &1.rows)
-          even = MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 = 0", [], max_rows: 2) |> Stream.flat_map(& &1.rows)
+          odd =
+            MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 != 0", [], max_rows: 2)
+            |> Stream.flat_map(& &1.rows)
+
+          even =
+            MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 = 0", [], max_rows: 2)
+            |> Stream.flat_map(& &1.rows)
 
           assert Enum.zip(odd, even) == [{[1], [2]}, {[3], [4]}]
         end)
