@@ -346,6 +346,11 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/prepared-statements.html
   #################################################################
 
+  # https://dev.mysql.com/doc/internals/en/com-ping.html
+  def encode_com_ping() do
+    encode_com(0x0E, <<>>)
+  end
+
   # https://dev.mysql.com/doc/internals/en/com-query.html
   def encode_com_query(query) do
     encode_com(0x03, query)

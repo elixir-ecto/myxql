@@ -69,7 +69,7 @@ defmodule MyXQL.Protocol do
   @impl true
   def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, s) when is_reference(ref) do
     data = encode_com_stmt_prepare(query.statement)
-    data = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_prepare_response(data) do
       com_stmt_prepare_ok(statement_id: statement_id) ->
@@ -96,7 +96,7 @@ defmodule MyXQL.Protocol do
   def handle_execute(%Query{type: :binary} = query, params, _opts, s) do
     {query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
-    data = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_execute_response(data) do
       resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
@@ -131,7 +131,7 @@ defmodule MyXQL.Protocol do
 
   def handle_execute(%Query{type: :text, statement: statement} = query, [], _opts, s) do
     data = encode_com_query(statement)
-    data = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(s, data)
 
     case decode_com_query_response(data) do
       ok_packet(last_insert_id: last_insert_id, status_flags: status_flags) ->
@@ -161,8 +161,17 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def ping(state) do
-    # TODO: https://dev.mysql.com/doc/internals/en/com-ping.html
-    {:ok, state}
+    case send_and_recv(state, encode_com_ping()) do
+      {:ok, data} ->
+        packet(payload: payload) = decode_packet(data)
+        ok_packet(status_flags: status_flags) = decode_ok_packet(payload)
+        {:ok, put_status(state, status_flags)}
+
+      {:error, reason} ->
+        message = reason |> :ssl.format_error() |> List.to_string()
+        error = %MyXQL.Error{message: message}
+        {:disconnect, error, state}
+    end
   end
 
   @impl true
@@ -219,7 +228,7 @@ defmodule MyXQL.Protocol do
   def handle_declare(query, params, _opts, s) do
     {_query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
-    data = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_execute_response(data) do
       resultset(column_definitions: column_definitions, rows: [], status_flags: status_flags) ->
@@ -234,7 +243,7 @@ defmodule MyXQL.Protocol do
     max_rows = Keyword.fetch!(opts, :max_rows)
     {_query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_fetch(statement_id, max_rows, 0)
-    data = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(s, data)
 
     case data do
       <<_size::24-little, _seq, 0xFF, rest::binary>> ->
@@ -320,7 +329,7 @@ defmodule MyXQL.Protocol do
         sequence_id
       )
 
-    data = connect_send_and_recv(state, data)
+    {:ok, data} = connect_send_and_recv(state, data)
 
     case decode_handshake_response(data) do
       ok_packet(warning_count: 0) ->
@@ -333,7 +342,7 @@ defmodule MyXQL.Protocol do
         with {:ok, auth_response} <-
                auth_switch_response(plugin_name, password, plugin_data, ssl?) do
           data = encode_packet(auth_response, sequence_id + 2)
-          data = connect_send_and_recv(state, data)
+          {:ok, data} = connect_send_and_recv(state, data)
 
           case decode_handshake_response(data) do
             ok_packet(warning_count: 0) ->
@@ -348,7 +357,7 @@ defmodule MyXQL.Protocol do
         if ssl? do
           auth_response = password <> <<0x00>>
           data = encode_packet(auth_response, sequence_id + 2)
-          data = connect_send_and_recv(state, data)
+          {:ok, data} = connect_send_and_recv(state, data)
 
           case decode_handshake_response(data) do
             ok_packet(warning_count: 0) ->
@@ -417,14 +426,12 @@ defmodule MyXQL.Protocol do
   # inside connect/1 callback we need to handle timeout ourselves
   defp connect_send_and_recv(state, data) do
     :ok = msg_send(state, data)
-    {:ok, data} = msg_recv(state, 5000)
-    data
+    msg_recv(state, 5000)
   end
 
   defp send_and_recv(state, data) do
     :ok = msg_send(state, data)
-    {:ok, data} = msg_recv(state)
-    data
+    msg_recv(state)
   end
 
   defp msg_send(%{sock: sock}, data) when is_port(sock), do: :gen_tcp.send(sock, data)

@@ -118,6 +118,17 @@ defmodule MyXQLTest do
     # test "multiple results", c do
     #   assert [%{rows: [[1]]}, %{rows: [[2]]}] = MyXQL.query!(c.conn, "SELECT 1; SELECT 2", [], query_type: :text)
     # end
+
+    test "query before and after idle ping" do
+      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
+      {:ok, pid} = MyXQL.start_link(opts)
+
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
+      :timer.sleep(20)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
+      :timer.sleep(20)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
+    end
   end
 
   describe "prepared statements" do
