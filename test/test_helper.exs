@@ -86,6 +86,9 @@ argv = ~w(
 ) ++ ["-e", sql]
 
 case System.cmd("mysql", argv) do
+  {"", 0} ->
+    :ok
+
   {result, 0} ->
     IO.puts(result)
 
