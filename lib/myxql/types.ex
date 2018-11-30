@@ -67,6 +67,17 @@ defmodule MyXQL.Types do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
   # https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 
+  # TIMESTAMP vs DATETIME
+  #
+  # https://dev.mysql.com/doc/refman/8.0/en/datetime.html
+  # MySQL converts TIMESTAMP values from the current time zone to UTC for
+  # storage, and back from UTC to the current time zone for retrieval. (This
+  # does not occur for other types such as DATETIME.)
+  #
+  # Comparing to Postgres we have:
+  # MySQL TIMESTAMP is equal to Postgres TIMESTAMP WITH TIME ZONE
+  # MySQL DATETIME  is equal to Postgres TIMESTAMP [WITHOUT TIME ZONE]
+
   @mysql_type_tiny 0x01
   @mysql_type_short 0x02
   @mysql_type_long 0x03
