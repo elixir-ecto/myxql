@@ -18,8 +18,6 @@ defmodule MyXQL.Messages do
   @max_packet_size 65536
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
-  # TODO: double-check https://github.com/elixir-ecto/ecto/blob/v3.0.0-rc.1/integration_test/cases/type.exs#L336:L337,
-  #       found row vs affected row
   @capability_flags %{
     client_long_password: 0x00000001,
     client_found_rows: 0x00000002,
