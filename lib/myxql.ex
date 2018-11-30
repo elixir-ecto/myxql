@@ -1,6 +1,19 @@
 defmodule MyXQL do
   def start_link(opts) do
-    DBConnection.start_link(MyXQL.Protocol, opts)
+    DBConnection.start_link(MyXQL.Protocol, default_opts(opts))
+  end
+
+  defp default_opts(opts) do
+    opts
+    |> Keyword.put_new(:hostname, System.get_env("MYSQL_HOST") || "localhost")
+    |> Keyword.put_new(:port, String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306"))
+    |> Keyword.put_new(:username, System.get_env("USER"))
+    |> Keyword.put_new(:password, nil)
+    |> Keyword.put_new(:database, nil)
+    |> Keyword.put_new(:skip_database, false)
+    |> Keyword.put_new(:ssl, false)
+    |> Keyword.put_new(:ssl_opts, [])
+    |> Keyword.put_new(:timeout, 5000)
   end
 
   def query(conn, statement, params \\ [], opts \\ [])
