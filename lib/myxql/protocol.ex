@@ -16,17 +16,16 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def connect(opts) do
-    %{
-      hostname: hostname,
-      port: port,
-      username: username,
-      password: password,
-      database: database,
-      timeout: timeout,
-      ssl: ssl?,
-      ssl_opts: ssl_opts,
-      skip_database: skip_database?
-    } = Map.new(opts)
+    default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
+
+    hostname = Keyword.fetch!(opts, :hostname)
+    port = Keyword.get(opts, :port, default_port)
+    username = Keyword.fetch!(opts, :username)
+    password = Keyword.get(opts, :password)
+    database = Keyword.get(opts, :database)
+    timeout = Keyword.get(opts, :timeout, 5000)
+    ssl? = Keyword.get(opts, :ssl, false)
+    ssl_opts = Keyword.get(opts, :ssl_opts, [])
 
     # TODO: figure out best recbuf and/or support multiple recvs when they don't fit
     socket_opts = [
@@ -35,6 +34,8 @@ defmodule MyXQL.Protocol do
       recbuf: 65535
     ]
 
+    # TODO: skip_database comes from Ecto.Adapters.MySQL, rethink this.
+    skip_database? = Keyword.get(opts, :skip_database, false)
     database = if skip_database?, do: nil, else: database
 
     case :gen_tcp.connect(String.to_charlist(hostname), port, socket_opts, timeout) do

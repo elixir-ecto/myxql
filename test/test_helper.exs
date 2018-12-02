@@ -11,8 +11,7 @@ defmodule TestHelpers do
       # TODO: need to force TLS v1.1 as MySQL 5.7 otherwise fails, need to document this.
       ssl_opts: [versions: [:"tlsv1.1"]],
       backoff_type: :stop,
-      max_restarts: 0,
-      show_sensitive_data_on_connection_error: true
+      max_restarts: 0
     ]
   end
 end
