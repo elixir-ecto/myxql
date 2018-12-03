@@ -17,6 +17,8 @@ defmodule TestHelpers do
 end
 
 sql = """
+SET time_zone = '+00:00';
+
 DROP DATABASE IF EXISTS myxql_test;
 CREATE DATABASE myxql_test;
 USE myxql_test;

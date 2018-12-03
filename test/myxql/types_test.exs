@@ -89,12 +89,13 @@ defmodule MyXQL.TypesTest do
         assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
       end
 
-      # TODO:
-      # test "MYSQL_TYPE_TIMESTAMP - time zones", c do
-      #   id = insert(c, "my_timestamp", ~N[1999-12-31 09:10:20])
-      #   query!(c, "SET time_zone = '+08:00'")
-      #   assert get(c, "my_timestamp", id) == ~N[1999-12-31 17:10:20]
-      # end
+      test "MYSQL_TYPE_TIMESTAMP - time zones", c do
+        id = insert(c, "my_timestamp", ~N[1999-12-31 09:10:20])
+        query!(c, "SET time_zone = '+08:00'")
+        assert get(c, "my_timestamp", id) == ~N[1999-12-31 16:10:20]
+      after
+        query!(c, "SET time_zone = '+00:00'")
+      end
 
       test "MYSQL_TYPE_YEAR", c do
         assert_roundtrip(c, "my_year", 1999)
