@@ -386,8 +386,8 @@ defmodule MyXQL.Messages do
       <<0xFF, _::binary>> ->
         decode_err_packet(payload)
 
-      # TODO: column_count is lenenc_int, not just int
-      <<column_count::size(8), rest::binary>> ->
+      rest ->
+        {column_count, rest} = take_length_encoded_integer(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
         {rows, warning_count, status_flags} =
@@ -502,8 +502,8 @@ defmodule MyXQL.Messages do
       <<0xFF, _::binary>> ->
         decode_err_packet(payload)
 
-      # TODO: column_count is lenenc_int, not int
-      <<column_count::size(8), rest::binary>> ->
+      rest ->
+        {column_count, rest} = take_length_encoded_integer(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
         {rows, warning_count, status_flags} =
