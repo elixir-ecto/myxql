@@ -93,7 +93,7 @@ defmodule MyXQL.Types do
   @mysql_type_datetime 0x0C
   @mysql_type_year 0x0D
   @mysql_type_varchar 0x0F
-  # @mysql_type_bit 0x10
+  @mysql_type_bit 0x10
   @mysql_type_json 0xF5
   @mysql_type_newdecimal 0xF6
   # @mysql_type_enum 0xF7
@@ -129,11 +129,6 @@ defmodule MyXQL.Types do
     Decimal.new(value)
   end
 
-  # TODO: can we even support bits in *text* protocol?
-  # def decode_text_value(value, <<@mysql_type_bit>>) do
-  #   value
-  # end
-
   def decode_text_value(value, @mysql_type_date) do
     Date.from_iso8601!(value)
   end
@@ -150,19 +145,14 @@ defmodule MyXQL.Types do
     NaiveDateTime.from_iso8601!(value)
   end
 
-  def decode_text_value(value, @mysql_type_varchar) do
-    value
-  end
-
-  def decode_text_value(value, @mysql_type_var_string) do
-    value
-  end
-
-  def decode_text_value(value, @mysql_type_string) do
-    value
-  end
-
-  def decode_text_value(value, @mysql_type_blob) do
+  def decode_text_value(value, type)
+      when type in [
+             @mysql_type_varchar,
+             @mysql_type_var_string,
+             @mysql_type_string,
+             @mysql_type_blob,
+             @mysql_type_bit
+           ] do
     value
   end
 
@@ -229,7 +219,7 @@ defmodule MyXQL.Types do
     do: take_binary_datetime(binary)
 
   def take_binary_value(data, type)
-      when type in [@mysql_type_var_string, @mysql_type_string, @mysql_type_blob] do
+      when type in [@mysql_type_var_string, @mysql_type_string, @mysql_type_blob, @mysql_type_bit] do
     take_length_encoded_string(data)
   end
 
@@ -264,6 +254,11 @@ defmodule MyXQL.Types do
 
   def encode_binary_value(binary) when is_binary(binary) do
     {@mysql_type_var_string, encode_length_encoded_string(binary)}
+  end
+
+  def encode_binary_value(bitstring) when is_bitstring(bitstring) do
+    IO.inspect(bitstring)
+    {@mysql_type_bit, bitstring}
   end
 
   def encode_binary_value(true) do

@@ -101,10 +101,12 @@ defmodule MyXQL.TypesTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
-      # test "MYSQL_TYPE_BIT", c do
-      #   assert_roundtrip(c, "my_bit2", <<1::2>>)
-      #   # assert_roundtrip(c, "my_bit8", 1)
-      # end
+      test "MYSQL_TYPE_BIT", c do
+        assert_roundtrip(c, "my_bit2", <<0b10>>)
+        assert_roundtrip(c, "my_bit2", <<0b01>>)
+
+        assert_roundtrip(c, "my_bit8", <<0b10101010>>)
+      end
 
       test "MYSQL_TYPE_NEWDECIMAL - SQL DECIMAL", c do
         assert_roundtrip(c, "my_decimal", Decimal.new(-13))
