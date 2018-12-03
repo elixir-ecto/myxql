@@ -404,7 +404,6 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html
-
   def decode_com_stmt_prepare_response(data) do
     packet(payload: payload) = decode_packet(data)
 
