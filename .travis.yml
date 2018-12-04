@@ -10,6 +10,8 @@ addons:
     packages:
       - mysql-client
 env:
+  global:
+    - MYSQL_UNIX_PORT=/var/run/mysqld/mysqld.sock
   matrix:
     - DB=mysql:5.7
     - DB=mysql:8.0

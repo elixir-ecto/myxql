@@ -87,6 +87,42 @@ defmodule MyXQLTest do
                assert_start_and_killed(opts)
              end) =~ "(MyXQL.Error) connection refused"
     end
+
+    test "connect using UNIX domain socket is the default" do
+      opts =
+        @opts
+        |> Keyword.delete(:hostname)
+        |> Keyword.delete(:port)
+        |> Keyword.delete(:socket)
+
+      {:ok, conn} = MyXQL.start_link(opts)
+      MyXQL.query!(conn, "SELECT 1")
+    end
+
+    test "connect using UNIX domain socket" do
+      socket = System.get_env("MYSQL_UNIX_PORT") || "/tmp/mysql.sock"
+
+      opts =
+        @opts
+        |> Keyword.delete(:hostname)
+        |> Keyword.delete(:port)
+        |> Keyword.merge(socket: socket)
+
+      {:ok, conn} = MyXQL.start_link(opts)
+      MyXQL.query!(conn, "SELECT 1")
+    end
+
+    test "connect using bad UNIX domain socket" do
+      opts =
+        @opts
+        |> Keyword.delete(:hostname)
+        |> Keyword.delete(:port)
+        |> Keyword.merge(socket: "/bad")
+
+      assert capture_log(fn ->
+               assert_start_and_killed(opts)
+             end) =~ "** (MyXQL.Error) no such file or directory"
+    end
   end
 
   describe "query" do

@@ -16,16 +16,30 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def connect(opts) do
-    default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
-
-    hostname = Keyword.fetch!(opts, :hostname)
-    port = Keyword.get(opts, :port, default_port)
     username = Keyword.fetch!(opts, :username)
     password = Keyword.get(opts, :password)
     database = Keyword.get(opts, :database)
-    timeout = Keyword.get(opts, :timeout, 5000)
     ssl? = Keyword.get(opts, :ssl, false)
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
+
+    # TODO: skip_database comes from Ecto.Adapters.MySQL, rethink this.
+    skip_database? = Keyword.get(opts, :skip_database, false)
+    database = if skip_database?, do: nil, else: database
+
+    case do_connect(opts) do
+      {:ok, sock} ->
+        state = %__MODULE__{sock: sock}
+        handshake(state, username, password, database, ssl?, ssl_opts)
+
+      {:error, reason} ->
+        message = reason |> :inet.format_error() |> List.to_string()
+        {:error, %MyXQL.Error{message: message}}
+    end
+  end
+
+  defp do_connect(opts) do
+    {address, port} = address_and_port(opts)
+    timeout = Keyword.get(opts, :timeout, 5000)
 
     # TODO: figure out best recbuf and/or support multiple recvs when they don't fit
     socket_opts = [
@@ -34,18 +48,20 @@ defmodule MyXQL.Protocol do
       recbuf: 65535
     ]
 
-    # TODO: skip_database comes from Ecto.Adapters.MySQL, rethink this.
-    skip_database? = Keyword.get(opts, :skip_database, false)
-    database = if skip_database?, do: nil, else: database
+    :gen_tcp.connect(address, port, socket_opts, timeout)
+  end
 
-    case :gen_tcp.connect(String.to_charlist(hostname), port, socket_opts, timeout) do
-      {:ok, sock} ->
-        state = %__MODULE__{sock: sock}
-        handshake(state, username, password, database, ssl?, ssl_opts)
+  defp address_and_port(opts) do
+    tcp? = Keyword.has_key?(opts, :hostname) or Keyword.has_key?(opts, :port)
 
-      {:error, reason} ->
-        message = reason |> :inet.format_error() |> List.to_string()
-        {:error, %MyXQL.Error{message: message}}
+    if tcp? and not Keyword.has_key?(opts, :socket) do
+      hostname = Keyword.get(opts, :hostname)
+      default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
+      port = Keyword.get(opts, :port, default_port)
+      {String.to_charlist(hostname), port}
+    else
+      socket = Keyword.get(opts, :socket, System.get_env("MYSQL_UNIX_PORT") || "/tmp/mysql.sock")
+      {{:local, socket}, 0}
     end
   end
 
