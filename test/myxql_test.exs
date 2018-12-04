@@ -137,7 +137,7 @@ defmodule MyXQLTest do
     end
 
     test "invalid query", c do
-      assert {:error, %MyXQL.Error{message: "Unknown column 'bad' in 'field list'"}} =
+      assert {:error, %MyXQL.Error{mysql: %{name: :ER_BAD_FIELD_ERROR}}} =
                MyXQL.query(c.conn, "SELECT bad")
     end
 
@@ -189,7 +189,7 @@ defmodule MyXQLTest do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
       :ok = MyXQL.close(c.conn, query)
 
-      assert {:error, %MyXQL.Error{message: "Unknown prepared statement handler" <> _}} =
+      assert {:error, %MyXQL.Error{mysql: %{name: :ER_UNKNOWN_STMT_HANDLER}}} =
                MyXQL.execute(c.conn, query, [2, 3])
     end
 
@@ -266,7 +266,7 @@ defmodule MyXQLTest do
         MyXQL.transaction(c.conn, fn conn ->
           assert DBConnection.status(conn) == :transaction
 
-          assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
+          assert {:error, %MyXQL.Error{mysql: %{name: :ER_DUP_ENTRY}}} =
                    MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
 
           MyXQL.rollback(conn, reason)
