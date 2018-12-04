@@ -257,7 +257,6 @@ defmodule MyXQL.Types do
   end
 
   def encode_binary_value(bitstring) when is_bitstring(bitstring) do
-    IO.inspect(bitstring)
     {@mysql_type_bit, bitstring}
   end
 
