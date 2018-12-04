@@ -10,8 +10,7 @@ defmodule MyXQL.Protocol do
     transaction_status: :idle,
     # TODO: GC prepared statements?
     prepared_statements: %{},
-    cursors: %{},
-    cursor: nil
+    cursors: %{}
   ]
 
   @impl true
@@ -263,7 +262,7 @@ defmodule MyXQL.Protocol do
     case data do
       <<_size::24-little, _seq, 0xFF, rest::binary>> ->
         err_packet(error_message: message) = decode_err_packet(<<0xFF>> <> rest)
-        {:error, %MyXQL.Error{message: message}, %{s | cursor: nil}}
+        {:error, %MyXQL.Error{message: message}, s}
 
       _ ->
         {rows, _warning_count, status_flags} =
@@ -275,7 +274,7 @@ defmodule MyXQL.Protocol do
         if :server_status_cursor_exists in list_status_flags(status_flags) do
           {:cont, result, s}
         else
-          {:halt, result, %{s | cursor: nil}}
+          {:halt, result, s}
         end
     end
   end
