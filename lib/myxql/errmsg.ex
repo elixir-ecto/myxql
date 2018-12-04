@@ -45,7 +45,7 @@ end
 defmodule MyXQL.Errmsg do
   @moduledoc false
 
-  # Downloaded from: https://github.com/mysql/mysql-server/tree/mysql-8.0.13
+  # Downloaded from: https://github.com/mysql/mysql-server/blob/mysql-8.0.13/share/errmsg-utf8.txt
   # References:
   # - https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html
   # - https://dev.mysql.com/doc/refman/8.0/en/error-message-components.html
