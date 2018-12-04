@@ -88,6 +88,7 @@ defmodule MyXQLTest do
              end) =~ "(MyXQL.Error) connection refused"
     end
 
+    @tag requires_otp_19: true
     test "connect using UNIX domain socket is the default" do
       opts =
         @opts
@@ -99,6 +100,7 @@ defmodule MyXQLTest do
       MyXQL.query!(conn, "SELECT 1")
     end
 
+    @tag requires_otp_19: true
     test "connect using UNIX domain socket" do
       socket = System.get_env("MYSQL_UNIX_PORT") || "/tmp/mysql.sock"
 
@@ -112,6 +114,7 @@ defmodule MyXQLTest do
       MyXQL.query!(conn, "SELECT 1")
     end
 
+    @tag requires_otp_19: true
     test "connect using bad UNIX domain socket" do
       opts =
         @opts

@@ -1,4 +1,5 @@
-ExUnit.start()
+exclude = if System.otp_release() >= "19", do: [], else: [:requires_otp_19]
+ExUnit.start(exclude: exclude)
 
 defmodule TestHelpers do
   def opts() do

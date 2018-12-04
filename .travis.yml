@@ -19,6 +19,8 @@ matrix:
   include:
     - elixir: 1.4
       otp_release: 18.3
+    - elixir: 1.5
+      otp_release: 19.3
 before_install:
   - docker pull $DB || true
   - sudo chmod 777 -R /var/run/mysqld
