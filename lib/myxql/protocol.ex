@@ -91,9 +91,8 @@ defmodule MyXQL.Protocol do
         s = put_statement_id(s, query, statement_id)
         {:ok, query, s}
 
-      err_packet(error_code: code, error_message: message) ->
-        exception = %Error{message: message, query: query, mysql: %{code: code}}
-        {:error, exception, s}
+      err_packet() = err_packet ->
+        {:error, exception(err_packet, query), s}
     end
   end
 
@@ -137,10 +136,8 @@ defmodule MyXQL.Protocol do
 
         {:ok, query, result, put_status(s, status_flags)}
 
-      err_packet(error_code: code, error_message: message) ->
-        mysql = %{code: code, message: message}
-        exception = %Error{message: message, query: query, mysql: mysql}
-        {:error, exception, s}
+      err_packet() = err_packet ->
+        {:error, exception(err_packet, query), s}
     end
   end
 
@@ -261,8 +258,8 @@ defmodule MyXQL.Protocol do
 
     case data do
       <<_size::24-little, _seq, 0xFF, rest::binary>> ->
-        err_packet(error_message: message) = decode_err_packet(<<0xFF>> <> rest)
-        {:error, %MyXQL.Error{message: message}, s}
+        err_packet() = err_packet = decode_err_packet(<<0xFF>> <> rest)
+        {:error, exception(err_packet, query), s}
 
       _ ->
         {rows, _warning_count, status_flags} =
@@ -349,8 +346,8 @@ defmodule MyXQL.Protocol do
       ok_packet(warning_count: 0) ->
         {:ok, state}
 
-      err_packet(error_message: message) ->
-        {:error, %MyXQL.Error{message: message}}
+      err_packet() = err_packet ->
+        {:error, exception(err_packet, nil)}
 
       auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data) ->
         with {:ok, auth_response} <-
@@ -362,8 +359,8 @@ defmodule MyXQL.Protocol do
             ok_packet(warning_count: 0) ->
               {:ok, state}
 
-            err_packet(error_message: message) ->
-              {:error, %MyXQL.Error{message: message}}
+            err_packet() = err_packet ->
+              {:error, exception(err_packet, nil)}
           end
         end
 
@@ -377,8 +374,8 @@ defmodule MyXQL.Protocol do
             ok_packet(warning_count: 0) ->
               {:ok, state}
 
-            err_packet(error_message: message) ->
-              {:error, %MyXQL.Error{message: message}}
+            err_packet() = err_packet ->
+              {:error, exception(err_packet, nil)}
           end
         else
           message =
@@ -472,10 +469,9 @@ defmodule MyXQL.Protocol do
           {:ok, result, put_status(s, status_flags)}
         end
 
-      err_packet(error_code: code, error_message: message) ->
+      err_packet() = err_packet ->
         # TODO: do we need query here?
-        exception = %Error{message: message, mysql: %{code: code}}
-        {:disconnect, exception, s}
+        {:disconnect, exception(err_packet, nil), s}
     end
   end
 
@@ -513,5 +509,11 @@ defmodule MyXQL.Protocol do
     {:ok, statement_id} = get_statement_id(query, s)
     query = %{query | ref: make_ref()}
     {query, statement_id, s}
+  end
+
+  defp exception(err_packet(error_code: code, error_message: message), query) do
+    name = MyXQL.Errmsg.code_to_name(code)
+    mysql = %{code: code, name: name, message: message}
+    %Error{message: message, query: query, mysql: mysql}
   end
 end
