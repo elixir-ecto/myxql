@@ -289,6 +289,7 @@ defmodule MyXQL.Protocol do
 
     handshake_v10(
       conn_id: conn_id,
+      server_version: server_version,
       auth_plugin_name: auth_plugin_name,
       auth_plugin_data1: auth_plugin_data1,
       auth_plugin_data2: auth_plugin_data2,
@@ -298,7 +299,7 @@ defmodule MyXQL.Protocol do
     state = %{state | connection_id: conn_id}
     sequence_id = 1
 
-    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, database, sequence_id) do
+    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, server_version, database, sequence_id) do
       {:ok, state, sequence_id} ->
         auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
 
@@ -416,9 +417,10 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp maybe_upgrade_to_ssl(state, true, ssl_opts, database, sequence_id) do
+  defp maybe_upgrade_to_ssl(state, true, ssl_opts, server_version, database, sequence_id) do
     data = encode_ssl_request(sequence_id, database)
     :ok = :gen_tcp.send(state.sock, data)
+    ssl_opts = default_tls_versions(ssl_opts, server_version)
 
     case :ssl.connect(state.sock, ssl_opts) do
       {:ok, ssl_sock} ->
@@ -430,8 +432,24 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp maybe_upgrade_to_ssl(state, false, _ssl_opts, _database, sequence_id) do
+  defp maybe_upgrade_to_ssl(
+         state,
+         false,
+         _ssl_opts,
+         _server_version,
+         _database,
+         sequence_id
+       ) do
     {:ok, state, sequence_id}
+  end
+
+  defp default_tls_versions(ssl_opts, server_version) do
+    # MySQL 5.7 cannot handle TLS v1.2 and doesn't fallback to v1.1
+    if Version.match?(server_version, "< 8.0.0") do
+      Keyword.put_new(ssl_opts, :versions, [:"tlsv1.1"])
+    else
+      ssl_opts
+    end
   end
 
   # inside connect/1 callback we need to handle timeout ourselves
