@@ -311,21 +311,36 @@ defmodule MyXQLTest do
       assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
     end
 
+    test "few rows with no leftovers", c do
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4)")
+
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT * FROM integers", [], max_rows: 2)
+          Enum.to_list(stream)
+        end)
+
+      # TODO: should there be just 2 results instead of 3?
+      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: []}] = result
+    end
+
     test "many rows", c do
       values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
 
-      {:ok, _result} =
+      {:ok, result} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers")
           Enum.to_list(stream)
         end)
+
+      assert 10_000 = result |> Enum.map(&length(&1.rows)) |> Enum.sum()
     end
 
     test "multiple streams", c do
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
 
-      {:ok, _} =
+      {:ok, result} =
         MyXQL.transaction(c.conn, fn conn ->
           odd =
             MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 != 0", [], max_rows: 2)
@@ -335,8 +350,10 @@ defmodule MyXQLTest do
             MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 = 0", [], max_rows: 2)
             |> Stream.flat_map(& &1.rows)
 
-          assert Enum.zip(odd, even) == [{[1], [2]}, {[3], [4]}]
+          Enum.zip(odd, even)
         end)
+
+      assert result == [{[1], [2]}, {[3], [4]}]
     end
 
     test "bad query" do
