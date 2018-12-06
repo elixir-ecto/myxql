@@ -320,7 +320,6 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      # TODO: should there be just 2 results instead of 3?
       assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: []}] = result
     end
 
