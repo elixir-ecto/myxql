@@ -99,7 +99,7 @@ defmodule MyXQL.Protocol do
   defp maybe_reprepare(query, s) do
     case get_statement_id(query, s) do
       {:ok, statement_id} ->
-        {query, statement_id, s}
+        {:ok, query, statement_id, s}
 
       :error ->
         reprepare(query, s)
@@ -108,36 +108,37 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_execute(%Query{type: :binary} = query, params, _opts, s) do
-    {query, statement_id, s} = maybe_reprepare(query, s)
-    data = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
-    {:ok, data} = send_and_recv(s, data)
+    with {:ok, query, statement_id, s} <- maybe_reprepare(query, s) do
+      data = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
+      {:ok, data} = send_and_recv(s, data)
 
-    case decode_com_stmt_execute_response(data) do
-      resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
-        columns = Enum.map(column_definitions, &elem(&1, 1))
-        result = %Result{columns: columns, num_rows: length(rows), rows: rows}
-        {:ok, query, result, put_status(s, status_flags)}
+      case decode_com_stmt_execute_response(data) do
+        resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
+          columns = Enum.map(column_definitions, &elem(&1, 1))
+          result = %Result{columns: columns, num_rows: length(rows), rows: rows}
+          {:ok, query, result, put_status(s, status_flags)}
 
-      ok_packet(
-        status_flags: status_flags,
-        affected_rows: affected_rows,
-        last_insert_id: last_insert_id,
-        info: _info
-      ) ->
-        result = %Result{
-          columns: [],
-          rows: nil,
-          num_rows: affected_rows,
-          last_insert_id: last_insert_id
-        }
+        ok_packet(
+          status_flags: status_flags,
+          affected_rows: affected_rows,
+          last_insert_id: last_insert_id,
+          info: _info
+        ) ->
+          result = %Result{
+            columns: [],
+            rows: nil,
+            num_rows: affected_rows,
+            last_insert_id: last_insert_id
+          }
 
-        {:ok, query, result, put_status(s, status_flags)}
-        # Logger.debug("info: #{inspect(info)}")
+          {:ok, query, result, put_status(s, status_flags)}
+          # Logger.debug("info: #{inspect(info)}")
 
-        {:ok, query, result, put_status(s, status_flags)}
+          {:ok, query, result, put_status(s, status_flags)}
 
-      err_packet() = err_packet ->
-        {:error, exception(err_packet, query), s}
+        err_packet() = err_packet ->
+          {:error, exception(err_packet, query), s}
+      end
     end
   end
 
@@ -237,7 +238,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_declare(query, params, _opts, s) do
-    {_query, statement_id, s} = maybe_reprepare(query, s)
+    {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
     {:ok, data} = send_and_recv(s, data)
 
@@ -252,7 +253,7 @@ defmodule MyXQL.Protocol do
   @impl true
   def handle_fetch(query, %Cursor{column_definitions: column_definitions}, opts, s) do
     max_rows = Keyword.fetch!(opts, :max_rows)
-    {_query, statement_id, s} = maybe_reprepare(query, s)
+    {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_fetch(statement_id, max_rows, 0)
     {:ok, data} = send_and_recv(s, data)
 
@@ -520,13 +521,14 @@ defmodule MyXQL.Protocol do
 
   defp reprepare(query, s) do
     # TODO: extract common parts instead
-    # TODO: handle error when it can't be prepared
     # TODO: return statement_id without additional lookup
     # TODO: we don't actually need to set new ref but that seems cleaner
-    {:ok, query, s} = handle_prepare(query, [], s)
-    {:ok, statement_id} = get_statement_id(query, s)
-    query = %{query | ref: make_ref()}
-    {query, statement_id, s}
+
+    with {:ok, query, s} <- handle_prepare(query, [], s) do
+      {:ok, statement_id} = get_statement_id(query, s)
+      query = %{query | ref: make_ref()}
+      {:ok, query, statement_id, s}
+    end
   end
 
   defp exception(err_packet(error_code: code, error_message: message), query) do
