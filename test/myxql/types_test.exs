@@ -85,6 +85,12 @@ defmodule MyXQL.TypesTest do
         assert get(c, "my_datetime", id) == ~N[1999-12-31 09:10:20]
       end
 
+      test "MYSQL_TYPE_DATETIME - down casting DateTime to NaiveDateTime", c do
+        ndt = ~N[1999-12-31 09:10:20]
+        datetime = DateTime.from_naive!(ndt, "Etc/UTC")
+        assert insert_and_get(c, "my_datetime", datetime) == ndt
+      end
+
       test "MYSQL_TYPE_TIMESTAMP", c do
         assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
       end
@@ -218,6 +224,7 @@ defmodule MyXQL.TypesTest do
         nil -> "NULL"
         true -> "TRUE"
         false -> "FALSE"
+        %DateTime{} = datetime -> "'#{NaiveDateTime.to_iso8601(datetime)}'"
         value -> "'#{value}'"
       end)
 
