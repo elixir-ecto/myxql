@@ -91,6 +91,17 @@ defmodule MyXQL.TypesTest do
         assert insert_and_get(c, "my_datetime", datetime) == ndt
       end
 
+      if @protocol == :binary do
+        test "MYSQL_TYPE_DATETIME - non-UTC datetimes", c do
+          ndt = ~N[1999-12-31 09:10:20]
+          datetime = %{DateTime.from_naive!(ndt, "Etc/UTC") | time_zone: "Europe/Warsaw"}
+
+          assert_raise ArgumentError, ~r"is not in UTC", fn ->
+            insert(c, "my_datetime", datetime)
+          end
+        end
+      end
+
       test "MYSQL_TYPE_TIMESTAMP", c do
         assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
       end

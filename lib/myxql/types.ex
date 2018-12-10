@@ -360,7 +360,6 @@ defmodule MyXQL.Types do
        microsecond::int(4)>>}
   end
 
-  # TODO: only handle UTC, raise otherwise
   defp encode_binary_datetime(%DateTime{
          year: year,
          month: month,
@@ -368,10 +367,15 @@ defmodule MyXQL.Types do
          hour: hour,
          minute: minute,
          second: second,
-         microsecond: {microsecond, _}
+         microsecond: {microsecond, _},
+         time_zone: "Etc/UTC"
        }) do
     {@mysql_type_datetime,
      <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1),
        microsecond::int(4)>>}
+  end
+
+  defp encode_binary_datetime(%DateTime{} = datetime) do
+    raise ArgumentError, "#{inspect(datetime)} is not in UTC"
   end
 end
