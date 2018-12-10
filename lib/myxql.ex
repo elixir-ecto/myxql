@@ -6,7 +6,14 @@ defmodule MyXQL do
   def query(conn, statement, params \\ [], opts \\ [])
       when is_binary(statement) or is_list(statement) do
     query_type = Keyword.get(opts, :query_type, :binary)
-    query = %MyXQL.Query{name: "", ref: make_ref(), statement: statement, type: query_type}
+
+    query = %MyXQL.Query{
+      name: "",
+      ref: make_ref(),
+      statement: statement,
+      type: query_type
+    }
+
     fun = if query_type == :binary, do: :prepare_execute, else: :execute
 
     case apply(DBConnection, fun, [conn, query, params, opts]) do

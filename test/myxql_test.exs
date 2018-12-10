@@ -225,14 +225,6 @@ defmodule MyXQLTest do
       {:ok, query2, _result} = MyXQL.execute(conn2, query1)
       assert query1.ref != query2.ref
     end
-
-    test "reprepare bad query from different connection", c do
-      conn1 = c.conn
-      {:error, %{query: query1}} = MyXQL.prepare(conn1, "", "SELECT bad")
-
-      {:ok, conn2} = MyXQL.start_link(@opts)
-      {:error, _} = MyXQL.execute(conn2, query1)
-    end
   end
 
   describe "transactions" do

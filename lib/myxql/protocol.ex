@@ -534,6 +534,6 @@ defmodule MyXQL.Protocol do
   defp exception(err_packet(error_code: code, error_message: message), query) do
     name = MyXQL.ErrorCodes.code_to_name(code)
     mysql = %{code: code, name: name, message: message}
-    %Error{message: message, query: query, mysql: mysql}
+    %Error{message: message, statement: query && query.statement, mysql: mysql}
   end
 end
