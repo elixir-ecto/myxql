@@ -1,5 +1,5 @@
 defmodule MyXQL.Query do
-  defstruct [:statement, :ref, name: "", type: :binary]
+  defstruct [:statement, :ref, name: "", num_params: nil, type: :binary]
 
   defimpl DBConnection.Query do
     def parse(query, _opts) do
@@ -9,6 +9,12 @@ defmodule MyXQL.Query do
 
     def describe(query, _opts) do
       query
+    end
+
+    def encode(%{num_params: num_params} = query, params, _opts)
+        when num_params != length(params) do
+      raise ArgumentError,
+            "parameters must be of length #{num_params} for query #{inspect(query)}"
     end
 
     def encode(_query, params, _opts) do

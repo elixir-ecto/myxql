@@ -14,9 +14,17 @@ defmodule MyXQL do
       type: query_type
     }
 
-    fun = if query_type == :binary, do: :prepare_execute, else: :execute
+    return =
+      case query_type do
+        :text ->
+          query = %{query | num_params: 0}
+          DBConnection.execute(conn, query, params, opts)
 
-    case apply(DBConnection, fun, [conn, query, params, opts]) do
+        :binary ->
+          DBConnection.prepare_execute(conn, query, params, opts)
+      end
+
+    case return do
       {:ok, _query, result} ->
         {:ok, result}
 

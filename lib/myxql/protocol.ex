@@ -87,8 +87,9 @@ defmodule MyXQL.Protocol do
     {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_prepare_response(data) do
-      com_stmt_prepare_ok(statement_id: statement_id) ->
+      com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params) ->
         s = put_statement_id(s, query, statement_id)
+        query = %{query | num_params: num_params}
         {:ok, query, s}
 
       err_packet() = err_packet ->

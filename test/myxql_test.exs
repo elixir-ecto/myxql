@@ -169,12 +169,24 @@ defmodule MyXQLTest do
       :timer.sleep(20)
       assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
     end
+
+    test "text query with invalid number of params", c do
+      assert_raise ArgumentError, ~r"parameters must be of length 0 for query", fn ->
+        MyXQL.query(c.conn, "SELECT 42", [1], query_type: :text)
+      end
+    end
+
+    test "binary query with invalid number of params", c do
+      assert_raise ArgumentError, ~r"parameters must be of length 2 for query", fn ->
+        MyXQL.query(c.conn, "SELECT ? * ?", [1], query_type: :binary)
+      end
+    end
   end
 
   describe "prepared statements" do
     setup [:connect, :truncate]
 
-    test "params", c do
+    test "prepare and execute", c do
       assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
     end
 
@@ -201,20 +213,6 @@ defmodule MyXQLTest do
       :ok = MyXQL.close(conn2, query1)
 
       assert {:ok, _, %{rows: [[6]]}} = MyXQL.execute(conn1, query1, [2, 3])
-    end
-
-    # TODO:
-    # test "execute with invalid number of arguments", c do
-    #   assert {:error, %MyXQL.Error{message: message}} = MyXQL.query(c.conn, "SELECT ? * ?", [1])
-    #   assert message == "Wrong number of params etc"
-
-    #   assert {:error, %MyXQL.Error{message: message}} = MyXQL.query(c.conn, "SELECT ? * ?", [1, 2, 3])
-    #   assert message == "Wrong number of params etc"
-    # end
-
-    test "unprepared query is prepared on execute", c do
-      query = %MyXQL.Query{statement: "SELECT ? * ?", ref: make_ref()}
-      assert {:ok, _query, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
     end
 
     test "prepared statement from different connection is reprepared", c do

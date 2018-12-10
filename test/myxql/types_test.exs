@@ -29,7 +29,7 @@ defmodule MyXQL.TypesTest do
 
       test "MYSQL_TYPE_TINY", c do
         assert_roundtrip(c, "my_tinyint", -127)
-        # assert_roundtrip(c, "my_tinyint", 127)
+        assert_roundtrip(c, "my_tinyint", 127)
       end
 
       test "MYSQL_TYPE_SHORT - SQL SMALLINT", c do
