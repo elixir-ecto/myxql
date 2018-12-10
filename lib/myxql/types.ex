@@ -16,7 +16,6 @@ defmodule MyXQL.Types do
   end
 
   # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
-  # TODO: check notes above
   def decode_length_encoded_integer(binary) do
     {integer, ""} = take_length_encoded_integer(binary)
     integer
