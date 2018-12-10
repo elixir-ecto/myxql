@@ -404,7 +404,6 @@ defmodule MyXQLTest do
   end
 
   defp truncate(c) do
-    # TODO: is there a better way? Run in sandbox mode?
     MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
     c
   end
