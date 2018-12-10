@@ -62,17 +62,13 @@ defmodule MyXQL do
   def stream(conn, query, params \\ [], opts \\ [])
 
   def stream(%DBConnection{} = conn, statement, params, opts) when is_binary(statement) do
+    query = %MyXQL.Query{name: "", ref: make_ref(), statement: statement}
+    stream(conn, query, params, opts)
+  end
+
+  def stream(%DBConnection{} = conn, %MyXQL.Query{type: :binary} = query, params, opts) do
     opts = Keyword.put_new(opts, :max_rows, 500)
-    query_type = Keyword.get(opts, :query_type, :binary)
-    query = %MyXQL.Query{name: "", ref: make_ref(), statement: statement, type: query_type}
-
-    case query_type do
-      :binary ->
-        DBConnection.prepare_stream(conn, query, params, opts)
-
-      :text ->
-        stream(conn, query, [], opts)
-    end
+    DBConnection.prepare_stream(conn, query, params, opts)
   end
 
   def child_spec(opts) do

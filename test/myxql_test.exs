@@ -373,6 +373,19 @@ defmodule MyXQLTest do
         end)
       end
     end
+
+    test "with prepared query", c do
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT * FROM integers")
+
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, query, [], max_rows: 2)
+          Enum.to_list(stream)
+        end)
+
+      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
+    end
   end
 
   # TODO:
