@@ -154,11 +154,6 @@ defmodule MyXQLTest do
       assert result.num_rows == 10_000
     end
 
-    # TODO:
-    # test "multiple results", c do
-    #   assert [%{rows: [[1]]}, %{rows: [[2]]}] = MyXQL.query!(c.conn, "SELECT 1; SELECT 2", [], query_type: :text)
-    # end
-
     test "query before and after idle ping" do
       opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
       {:ok, pid} = MyXQL.start_link(opts)
