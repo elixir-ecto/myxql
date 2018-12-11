@@ -410,12 +410,16 @@ defmodule MyXQL.Protocol do
     if ssl? do
       {:ok, password <> <<0x00>>}
     else
-      # TODO: put error code into separate exception field
-      message =
-        "ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection."
-
-      {:error, %MyXQL.Error{message: message}}
+      # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
+      code = 2061
+      name = :CR_AUTH_PLUGIN_ERR
+      message = auth_error_message(plugin_name, code, "Authentication requires secure connection")
+      {:error, %MyXQL.Error{message: message, mysql: %{code: code, name: name, message: message}}}
     end
+  end
+
+  defp auth_error_message(plugin_name, code, message) do
+    "ERROR #{code} (HY000): Authentication plugin '#{plugin_name}' reported error: #{message}."
   end
 
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, server_version, database, sequence_id) do

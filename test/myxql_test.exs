@@ -64,7 +64,7 @@ defmodule MyXQLTest do
                  Keyword.merge(@opts, username: "sha256_password", password: "secret", ssl: false)
 
                assert_start_and_killed(opts)
-             end) =~ "** (MyXQL.Error)"
+             end) =~ ~r"\*\* \(MyXQL.Error\) .* 'sha256_password' .* requires secure connection"
     end
 
     test "connect with no password" do
