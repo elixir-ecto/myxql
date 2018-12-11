@@ -4,7 +4,7 @@
 # - https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html
 # - https://dev.mysql.com/doc/refman/8.0/en/error-message-components.html
 
-defmodule MyXQL.ErrorCodes.Parser do
+defmodule MyXQL.ErrorCodesParser do
   @moduledoc false
 
   def parse(errmsg_path) do
@@ -49,12 +49,12 @@ end
 url = "https://raw.githubusercontent.com/mysql/mysql-server/mysql-8.0.13/share/errmsg-utf8.txt"
 path = Path.basename(url)
 {_, 0} = System.cmd("curl", ~w(-O #{url}))
-codes = MyXQL.ErrorCodes.Parser.parse(path)
+codes = MyXQL.ErrorCodesParser.parse(path)
 
 code = """
 # Do not edit manually, see build_error_codes.exs at the root.
 
-defmodule MyXQL.ErrorCodes do
+defmodule MyXQL.ServerErrorCodes do
   @moduledoc false
 
   codes = #{inspect(codes, limit: :infinity)}
@@ -71,4 +71,4 @@ end
 
 """
 
-File.write!("lib/myxql/error_codes.ex", Code.format_string!(code))
+File.write!("lib/myxql/server_error_codes.ex", Code.format_string!(code))
