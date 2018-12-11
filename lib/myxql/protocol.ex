@@ -93,7 +93,7 @@ defmodule MyXQL.Protocol do
         {:ok, query, s}
 
       err_packet() = err_packet ->
-        {:error, exception(err_packet, query), s}
+        {:error, exception(err_packet, query.statement), s}
     end
   end
 
@@ -138,7 +138,7 @@ defmodule MyXQL.Protocol do
           {:ok, query, result, put_status(s, status_flags)}
 
         err_packet() = err_packet ->
-          {:error, exception(err_packet, query), s}
+          {:error, exception(err_packet, query.statement), s}
       end
     end
   end
@@ -261,7 +261,7 @@ defmodule MyXQL.Protocol do
     case data do
       <<_size::24-little, _seq, 0xFF, rest::binary>> ->
         err_packet() = err_packet = decode_err_packet(<<0xFF>> <> rest)
-        {:error, exception(err_packet, query), s}
+        {:error, exception(err_packet, query.statement), s}
 
       _ ->
         {rows, _warning_count, status_flags} =
@@ -477,24 +477,23 @@ defmodule MyXQL.Protocol do
 
   defp handle_transaction(statement, s) do
     :ok = send_text_query(s, statement)
-    transaction_recv(s)
+    transaction_recv(statement, s)
   end
 
-  defp transaction_recv(s) do
+  defp transaction_recv(statement, s) do
     {:ok, data} = msg_recv(s)
 
     case decode_com_query_response(data) do
       ok_packet(status_flags: status_flags) ->
         if has_status_flag?(status_flags, :server_more_results_exists) do
-          transaction_recv(s)
+          transaction_recv(statement, s)
         else
           result = :todo
           {:ok, result, put_status(s, status_flags)}
         end
 
       err_packet() = err_packet ->
-        # TODO: do we need query here?
-        {:disconnect, exception(err_packet, nil), s}
+        {:disconnect, exception(err_packet, statement), s}
     end
   end
 
@@ -535,9 +534,9 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp exception(err_packet(error_code: code, error_message: message), query) do
+  defp exception(err_packet(error_code: code, error_message: message), statement) do
     name = MyXQL.ServerErrorCodes.code_to_name(code)
     mysql = %{code: code, name: name, message: message}
-    %Error{message: message, statement: query && query.statement, mysql: mysql}
+    %Error{message: message, statement: statement, mysql: mysql}
   end
 end
