@@ -524,7 +524,7 @@ defmodule MyXQL.Protocol do
 
   defp reprepare(query, s) do
     # TODO: extract common parts instead
-    # TODO: return statement_id without additional lookup
+    # TODO: return statement_id without additional lookup. Maybe store statement_in on %Query{}?
     # TODO: we don't actually need to set new ref but that seems cleaner
 
     with {:ok, query, s} <- handle_prepare(query, [], s) do
