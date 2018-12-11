@@ -408,8 +408,7 @@ defmodule MyXQL.Protocol do
   defp auth_switch_response(plugin_name, password, _plugin_data, ssl?)
        when plugin_name in ["sha256_password", "caching_sha2_password"] do
     if ssl? do
-      # TODO: add test for empty password
-      {:ok, (password || "") <> <<0x00>>}
+      {:ok, password <> <<0x00>>}
     else
       # TODO: put error code into separate exception field
       message =
