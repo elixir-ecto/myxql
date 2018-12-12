@@ -62,8 +62,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def disconnect(_reason, s) do
-    # TODO: see how postgrex does it
-    :gen_tcp.close(s.sock)
+    sock_close(s)
     :ok
   end
 
@@ -470,6 +469,9 @@ defmodule MyXQL.Protocol do
   defp sock_recv(state, timeout \\ :infinity)
   defp sock_recv(%{sock: sock}, timeout) when is_port(sock), do: :gen_tcp.recv(sock, 0, timeout)
   defp sock_recv(%{sock: ssl_sock}, timeout), do: :ssl.recv(ssl_sock, 0, timeout)
+
+  defp sock_close(%{sock: sock}) when is_port(sock), do: :gen_tcp.close(sock)
+  defp sock_close(%{sock: ssl_sock}), do: :ssl.close(ssl_sock)
 
   defp handle_transaction(statement, s) do
     :ok = send_text_query(s, statement)
