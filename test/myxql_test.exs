@@ -348,11 +348,9 @@ defmodule MyXQLTest do
       assert result == [{[1], [2]}, {[3], [4]}]
     end
 
-    test "bad query" do
-      {:ok, conn} = MyXQL.start_link(@opts)
-
+    test "bad query", c do
       assert_raise MyXQL.Error, "Unknown column 'bad' in 'field list'", fn ->
-        MyXQL.transaction(conn, fn conn ->
+        MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT bad")
           Enum.to_list(stream)
         end)
@@ -370,6 +368,19 @@ defmodule MyXQLTest do
         end)
 
       assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
+    end
+
+    test "on another connection", c do
+      MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
+
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT * FROM integers")
+
+      {:ok, conn2} = MyXQL.start_link(@opts)
+
+      assert {:ok, [%{rows: [[1], [2], [3], [4], [5]]}]} =
+               MyXQL.transaction(conn2, fn conn ->
+                 MyXQL.stream(conn, query) |> Enum.to_list()
+               end)
     end
   end
 
