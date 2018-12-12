@@ -6,6 +6,7 @@ defmodule MyXQL.Protocol do
 
   defstruct [
     :sock,
+    :sock_mod,
     :connection_id,
     transaction_status: :idle,
     # TODO: GC prepared statements?
@@ -25,7 +26,7 @@ defmodule MyXQL.Protocol do
 
     case do_connect(opts) do
       {:ok, sock} ->
-        state = %__MODULE__{sock: sock}
+        state = %__MODULE__{sock: sock, sock_mod: :gen_tcp}
         handshake(state, username, password, database, ssl?, ssl_opts)
 
       {:error, reason} ->
@@ -426,7 +427,7 @@ defmodule MyXQL.Protocol do
 
     case :ssl.connect(state.sock, ssl_opts) do
       {:ok, ssl_sock} ->
-        {:ok, %{state | sock: ssl_sock}, sequence_id + 1}
+        {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
 
       {:error, reason} ->
         message = reason |> :ssl.format_error() |> List.to_string()
@@ -465,15 +466,17 @@ defmodule MyXQL.Protocol do
     sock_recv(state)
   end
 
-  defp sock_send(%{sock: sock}, data) when is_port(sock), do: :gen_tcp.send(sock, data)
-  defp sock_send(%{sock: ssl_sock}, data), do: :ssl.send(ssl_sock, data)
+  defp sock_send(%{sock: sock, sock_mod: sock_mod}, data) do
+    sock_mod.send(sock, data)
+  end
 
-  defp sock_recv(state, timeout \\ :infinity)
-  defp sock_recv(%{sock: sock}, timeout) when is_port(sock), do: :gen_tcp.recv(sock, 0, timeout)
-  defp sock_recv(%{sock: ssl_sock}, timeout), do: :ssl.recv(ssl_sock, 0, timeout)
+  defp sock_recv(%{sock: sock, sock_mod: sock_mod}, timeout \\ :infinity) do
+    sock_mod.recv(sock, 0, timeout)
+  end
 
-  defp sock_close(%{sock: sock}) when is_port(sock), do: :gen_tcp.close(sock)
-  defp sock_close(%{sock: ssl_sock}), do: :ssl.close(ssl_sock)
+  defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
+    sock_mod.close(sock)
+  end
 
   defp handle_transaction(statement, s) do
     :ok = send_text_query(s, statement)
