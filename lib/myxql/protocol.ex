@@ -161,7 +161,7 @@ defmodule MyXQL.Protocol do
     case get_statement_id(query, state) do
       {:ok, statement_id} ->
         data = encode_com_stmt_close(statement_id)
-        :ok = msg_send(state, data)
+        :ok = sock_send(state, data)
         {:ok, nil, state}
 
       :error ->
@@ -455,21 +455,21 @@ defmodule MyXQL.Protocol do
 
   # inside connect/1 callback we need to handle timeout ourselves
   defp connect_send_and_recv(state, data) do
-    :ok = msg_send(state, data)
-    msg_recv(state, 5000)
+    :ok = sock_send(state, data)
+    sock_recv(state, 5000)
   end
 
   defp send_and_recv(state, data) do
-    :ok = msg_send(state, data)
-    msg_recv(state)
+    :ok = sock_send(state, data)
+    sock_recv(state)
   end
 
-  defp msg_send(%{sock: sock}, data) when is_port(sock), do: :gen_tcp.send(sock, data)
-  defp msg_send(%{sock: ssl_sock}, data), do: :ssl.send(ssl_sock, data)
+  defp sock_send(%{sock: sock}, data) when is_port(sock), do: :gen_tcp.send(sock, data)
+  defp sock_send(%{sock: ssl_sock}, data), do: :ssl.send(ssl_sock, data)
 
-  defp msg_recv(state, timeout \\ :infinity)
-  defp msg_recv(%{sock: sock}, timeout) when is_port(sock), do: :gen_tcp.recv(sock, 0, timeout)
-  defp msg_recv(%{sock: ssl_sock}, timeout), do: :ssl.recv(ssl_sock, 0, timeout)
+  defp sock_recv(state, timeout \\ :infinity)
+  defp sock_recv(%{sock: sock}, timeout) when is_port(sock), do: :gen_tcp.recv(sock, 0, timeout)
+  defp sock_recv(%{sock: ssl_sock}, timeout), do: :ssl.recv(ssl_sock, 0, timeout)
 
   defp handle_transaction(statement, s) do
     :ok = send_text_query(s, statement)
@@ -477,7 +477,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp transaction_recv(statement, s) do
-    {:ok, data} = msg_recv(s)
+    {:ok, data} = sock_recv(s)
 
     case decode_com_query_response(data) do
       ok_packet(status_flags: status_flags) ->
@@ -495,7 +495,7 @@ defmodule MyXQL.Protocol do
 
   defp send_text_query(s, statement) do
     data = encode_com_query(statement)
-    msg_send(s, data)
+    sock_send(s, data)
   end
 
   defp transaction_status(status_flags) do
