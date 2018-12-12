@@ -193,8 +193,13 @@ defmodule MyXQLTest do
     end
 
     test "prepare and close", c do
+      assert prepared_statements_count(c) == 0
+
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
+      assert prepared_statements_count(c) == 1
+
       :ok = MyXQL.close(c.conn, query)
+      assert prepared_statements_count(c) == 0
 
       assert {:error, %MyXQL.Error{mysql: %{name: :ER_UNKNOWN_STMT_HANDLER}}} =
                MyXQL.execute(c.conn, query, [2, 3])
@@ -410,7 +415,7 @@ defmodule MyXQLTest do
   end
 
   defp truncate(c) do
-    MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
+    MyXQL.query!(c.conn, "TRUNCATE TABLE integers", [], query_type: :text)
     c
   end
 
@@ -421,5 +426,12 @@ defmodule MyXQLTest do
       MyXQL.query!(pid, "SHOW VARIABLES WHERE variable_name = 'default_authentication_plugin'")
 
     plugin_name
+  end
+
+  defp prepared_statements_count(c) do
+    sql = "SHOW GLOBAL STATUS LIKE '%Prepared_stmt_count%'"
+    %{rows: [["Prepared_stmt_count", count]]} = MyXQL.query!(c.conn, sql, [], query_type: :text)
+
+    String.to_integer(count)
   end
 end
