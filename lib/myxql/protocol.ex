@@ -15,7 +15,9 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def connect(opts) do
-    username = Keyword.fetch!(opts, :username)
+    username =
+      Keyword.get(opts, :username, System.get_env("USER") || raise(":username is missing"))
+
     password = Keyword.get(opts, :password)
     database = Keyword.get(opts, :database)
     ssl? = Keyword.get(opts, :ssl, false)
