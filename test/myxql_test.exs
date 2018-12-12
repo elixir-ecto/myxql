@@ -410,7 +410,7 @@ defmodule MyXQLTest do
   end
 
   defp truncate(c) do
-    MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
+    MyXQL.query!(c.conn, "TRUNCATE TABLE integers", [], query_type: :text)
     c
   end
 
