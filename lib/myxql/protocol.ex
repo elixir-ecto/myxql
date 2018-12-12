@@ -21,10 +21,6 @@ defmodule MyXQL.Protocol do
     ssl? = Keyword.get(opts, :ssl, false)
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
 
-    # TODO: skip_database comes from Ecto.Adapters.MySQL, rethink this.
-    skip_database? = Keyword.get(opts, :skip_database, false)
-    database = if skip_database?, do: nil, else: database
-
     case do_connect(opts) do
       {:ok, sock} ->
         state = %__MODULE__{sock: sock}
