@@ -68,7 +68,6 @@ defmodule MyXQL.ServerErrorCodes do
 
   def code_to_name(_), do: nil
 end
-
 """
 
-File.write!("lib/myxql/server_error_codes.ex", Code.format_string!(code))
+File.write!("lib/myxql/server_error_codes.ex", [Code.format_string!(code), "\n"])
