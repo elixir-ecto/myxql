@@ -9,7 +9,6 @@ defmodule MyXQL.Protocol do
     :sock_mod,
     :connection_id,
     transaction_status: :idle,
-    # TODO: GC prepared statements?
     prepared_statements: %{},
     cursors: %{}
   ]
@@ -80,28 +79,28 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, s) when is_reference(ref) do
+  def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, state) when is_reference(ref) do
     data = encode_com_stmt_prepare(query.statement)
-    {:ok, data} = send_and_recv(s, data)
+    {:ok, data} = send_and_recv(state, data)
 
     case decode_com_stmt_prepare_response(data) do
       com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params) ->
-        s = put_statement_id(s, query, statement_id)
+        state = put_statement_id(state, query, statement_id)
         query = %{query | num_params: num_params}
-        {:ok, query, s}
+        {:ok, query, state}
 
       err_packet() = err_packet ->
-        {:error, exception(err_packet, query.statement), s}
+        {:error, exception(err_packet, query.statement), state}
     end
   end
 
-  defp maybe_reprepare(query, s) do
-    case get_statement_id(query, s) do
+  defp maybe_reprepare(query, state) do
+    case get_statement_id(state, query) do
       {:ok, statement_id} ->
-        {:ok, query, statement_id, s}
+        {:ok, query, statement_id, state}
 
       :error ->
-        reprepare(query, s)
+        reprepare(query, state)
     end
   end
 
@@ -159,11 +158,12 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_close(query, _opts, state) do
-    case get_statement_id(query, state) do
+  def handle_close(%Query{} = query, _opts, state) do
+    case get_statement_id(state, query) do
       {:ok, statement_id} ->
         data = encode_com_stmt_close(statement_id)
         :ok = sock_send(state, data)
+        state = delete_statement_id(state, query)
         {:ok, nil, state}
 
       :error ->
@@ -513,27 +513,29 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp put_status(s, status_flags) do
-    %{s | transaction_status: transaction_status(status_flags)}
+  defp put_status(state, status_flags) do
+    %{state | transaction_status: transaction_status(status_flags)}
   end
 
-  defp put_statement_id(s, %Query{ref: ref}, statement_id) do
-    %{s | prepared_statements: Map.put(s.prepared_statements, ref, statement_id)}
+  defp put_statement_id(state, %Query{ref: ref}, statement_id) do
+    %{state | prepared_statements: Map.put(state.prepared_statements, ref, statement_id)}
   end
 
-  defp get_statement_id(%Query{ref: ref}, s) do
-    Map.fetch(s.prepared_statements, ref)
+  defp get_statement_id(state, %Query{ref: ref}) do
+    Map.fetch(state.prepared_statements, ref)
   end
 
-  defp reprepare(query, s) do
+  defp delete_statement_id(state, %Query{ref: ref}) do
+    %{state | prepared_statements: Map.delete(state.prepared_statements, ref)}
+  end
+
+  defp reprepare(query, state) do
     # TODO: extract common parts instead
     # TODO: return statement_id without additional lookup. Maybe store statement_in on %Query{}?
-    # TODO: we don't actually need to set new ref but that seems cleaner
 
-    with {:ok, query, s} <- handle_prepare(query, [], s) do
-      {:ok, statement_id} = get_statement_id(query, s)
-      query = %{query | ref: make_ref()}
-      {:ok, query, statement_id, s}
+    with {:ok, query, state} <- handle_prepare(query, [], state) do
+      {:ok, statement_id} = get_statement_id(state, query)
+      {:ok, query, statement_id, state}
     end
   end
 

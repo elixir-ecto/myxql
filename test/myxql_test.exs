@@ -188,35 +188,33 @@ defmodule MyXQLTest do
     test "prepare and then execute", c do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
 
-      assert {:ok, %MyXQL.Query{}, %MyXQL.Result{rows: [[6]]}} =
-               MyXQL.execute(c.conn, query, [2, 3])
+      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
     end
 
-    test "prepare and close", c do
-      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
+    test "prepare, execute, close, and execute", c do
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT 42")
+      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query, [])
       :ok = MyXQL.close(c.conn, query)
 
-      assert {:error, %MyXQL.Error{mysql: %{name: :ER_UNKNOWN_STMT_HANDLER}}} =
-               MyXQL.execute(c.conn, query, [2, 3])
+      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query, [])
     end
 
     test "prepare from different connection and close", c do
       conn1 = c.conn
-      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT ? * ?")
+      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
       :ok = MyXQL.close(conn2, query1)
 
-      assert {:ok, _, %{rows: [[6]]}} = MyXQL.execute(conn1, query1, [2, 3])
+      assert {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn1, query1, [])
     end
 
     test "prepared statement from different connection is reprepared", c do
       conn1 = c.conn
-      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 1")
+      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
-      {:ok, query2, _result} = MyXQL.execute(conn2, query1)
-      assert query1.ref != query2.ref
+      {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
     end
   end
 
