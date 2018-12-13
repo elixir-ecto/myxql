@@ -135,8 +135,8 @@ defmodule MyXQL.Messages do
   end
 
   def encode_packet(payload, sequence_id) do
-    payload_length = byte_size(payload)
-    <<payload_length::int(3), sequence_id::int(1), payload::binary>>
+    payload_length = :erlang.iolist_size(payload)
+    [<<payload_length::int(3), sequence_id::int(1)>>, payload]
   end
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
@@ -357,9 +357,9 @@ defmodule MyXQL.Messages do
     encode_com(0x19, <<statement_id::int(4)>>)
   end
 
-  defp encode_com(command, binary) do
+  defp encode_com(command, iodata) when is_integer(command) do
     sequence_id = 0
-    encode_packet(<<command::integer, binary::binary>>, sequence_id)
+    encode_packet([command, iodata], sequence_id)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset

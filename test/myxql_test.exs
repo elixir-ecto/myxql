@@ -136,6 +136,16 @@ defmodule MyXQLTest do
                MyXQL.query(c.conn, "SELECT 2*3, 4*5")
     end
 
+    test "iodata in text protocol", c do
+      statement = ["SELECT", [" ", ["42"]]]
+      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [], query_type: :text)
+    end
+
+    test "iodata in binary protocol", c do
+      statement = ["SELECT", [" ", ["42"]]]
+      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [], query_type: :binary)
+    end
+
     test "invalid query", c do
       assert {:error, %MyXQL.Error{mysql: %{name: :ER_BAD_FIELD_ERROR}}} =
                MyXQL.query(c.conn, "SELECT bad")

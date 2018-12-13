@@ -3,8 +3,7 @@ defmodule MyXQL.Query do
 
   defimpl DBConnection.Query do
     def parse(query, _opts) do
-      # TODO: send iodata to the socket instead
-      %{query | statement: IO.iodata_to_binary(query.statement)}
+      %{query | statement: query.statement}
     end
 
     def describe(query, _opts) do
