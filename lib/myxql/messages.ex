@@ -135,7 +135,7 @@ defmodule MyXQL.Messages do
   end
 
   def encode_packet(payload, sequence_id) do
-    payload_length = :erlang.iolist_size(payload)
+    payload_length = IO.iodata_length(payload)
     [<<payload_length::int(3), sequence_id::int(1)>>, payload]
   end
 
