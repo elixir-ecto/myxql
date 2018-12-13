@@ -396,8 +396,13 @@ defmodule MyXQLTest do
   # describe "stored procedures" do
   #   setup [:connect, :truncate]
 
-  #   test "multi-resultset", c do
-  #     MyXQL.query!(c.conn, "CALL multi();", [], query_type: :text)
+  #   test "multi-resultset in text protocol", c do
+  #     MyXQL.query!(c.conn, "CALL multi();", [])
+  #     |> IO.inspect()
+  #   end
+
+  #   test "multi-resultset in binary protocol", c do
+  #     MyXQL.query!(c.conn, "CALL multi();", [])
   #     |> IO.inspect()
   #   end
   # end
