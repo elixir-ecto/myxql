@@ -131,9 +131,14 @@ defmodule MyXQLTest do
   describe "query" do
     setup [:connect, :truncate]
 
-    test "simple query", c do
-      assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], rows: [[6, 20]]}} =
-               MyXQL.query(c.conn, "SELECT 2*3, 4*5")
+    test "simple query in text protocol", c do
+      assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], num_rows: 1, rows: [[6, 20]]}} =
+               MyXQL.query(c.conn, "SELECT 2*3, 4*5", [], query_type: :text)
+    end
+
+    test "simple query in binary protocol", c do
+      assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], num_rows: 1, rows: [[6, 20]]}} =
+               MyXQL.query(c.conn, "SELECT 2*3, 4*5", [], query_type: :binary)
     end
 
     test "iodata in text protocol", c do

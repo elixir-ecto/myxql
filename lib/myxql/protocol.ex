@@ -149,9 +149,15 @@ defmodule MyXQL.Protocol do
       ok_packet(last_insert_id: last_insert_id, status_flags: status_flags) ->
         {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id}, put_status(s, status_flags)}
 
-      resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
+      resultset(
+        column_definitions: column_definitions,
+        row_count: num_rows,
+        rows: rows,
+        status_flags: status_flags
+      ) ->
         columns = Enum.map(column_definitions, &elem(&1, 1))
-        {:ok, query, %MyXQL.Result{columns: columns, rows: rows}, put_status(s, status_flags)}
+        result = %MyXQL.Result{columns: columns, num_rows: num_rows, rows: rows}
+        {:ok, query, result, put_status(s, status_flags)}
 
       err_packet(error_message: message) ->
         {:error, %MyXQL.Error{message: message}, s}
