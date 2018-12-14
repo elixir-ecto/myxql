@@ -79,7 +79,8 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, state) when is_reference(ref) do
+  def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, state)
+      when is_reference(ref) do
     data = encode_com_stmt_prepare(query.statement)
     {:ok, data} = send_and_recv(state, data)
 
