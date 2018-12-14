@@ -506,12 +506,13 @@ defmodule MyXQL.Messages do
         {column_count, rest} = take_length_encoded_integer(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
-        {rows, warning_count, status_flags} =
-          decode_binary_resultset_rows(rest, column_definitions, [])
+        {row_count, rows, warning_count, status_flags} =
+          decode_binary_resultset_rows(rest, column_definitions)
 
         resultset(
           column_count: column_count,
           column_definitions: column_definitions,
+          row_count: row_count,
           rows: rows,
           warning_count: warning_count,
           status_flags: status_flags
@@ -620,18 +621,22 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
-  def decode_binary_resultset_rows(data, column_definitions, acc) do
+  def decode_binary_resultset_rows(data, column_definitions) do
+    decode_binary_resultset_rows(data, column_definitions, 0, [])
+  end
+
+  def decode_binary_resultset_rows(data, column_definitions, row_count, rows) do
     case take_packet(data) do
       # EOF packet
       {<<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>>, ""} ->
-        {Enum.reverse(acc), warning_count, status_flags}
+        {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       {payload, rest} ->
         size = div(length(column_definitions) + 7 + 2, 8)
         <<0x00, null_bitmap::int(size), values::binary>> = payload
         null_bitmap = null_bitmap >>> 2
         row = decode_binary_resultset_row(values, null_bitmap, column_definitions, [])
-        decode_binary_resultset_rows(rest, column_definitions, [row | acc])
+        decode_binary_resultset_rows(rest, column_definitions, row_count + 1, [row | rows])
     end
   end
 

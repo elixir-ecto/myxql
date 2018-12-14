@@ -269,11 +269,11 @@ defmodule MyXQL.Protocol do
         {:error, exception(err_packet, query.statement), s}
 
       _ ->
-        {rows, _warning_count, status_flags} =
-          decode_binary_resultset_rows(data, column_definitions, [])
+        {row_count, rows, _warning_count, status_flags} =
+          decode_binary_resultset_rows(data, column_definitions)
 
         columns = Enum.map(column_definitions, &elem(&1, 1))
-        result = %MyXQL.Result{rows: rows, num_rows: length(rows), columns: columns}
+        result = %MyXQL.Result{rows: rows, num_rows: row_count, columns: columns}
 
         if :server_status_cursor_exists in list_status_flags(status_flags) do
           {:cont, result, s}
