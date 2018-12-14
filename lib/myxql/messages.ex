@@ -366,7 +366,14 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
   #
   # both text & binary resultset have the same columns shape, but different rows
-  defrecord :resultset, [:column_count, :column_definitions, :rows, :warning_count, :status_flags]
+  defrecord :resultset, [
+    :column_count,
+    :column_definitions,
+    :row_count,
+    :rows,
+    :warning_count,
+    :status_flags
+  ]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(data) do
@@ -383,12 +390,13 @@ defmodule MyXQL.Messages do
         {column_count, rest} = take_length_encoded_integer(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
-        {rows, warning_count, status_flags} =
-          decode_text_resultset_rows(rest, column_definitions, [])
+        {row_count, rows, warning_count, status_flags} =
+          decode_text_resultset_rows(rest, column_definitions)
 
         resultset(
           column_count: column_count,
           column_definitions: column_definitions,
+          row_count: row_count,
           rows: rows,
           warning_count: warning_count,
           status_flags: status_flags
@@ -563,20 +571,29 @@ defmodule MyXQL.Messages do
     {Enum.reverse(acc), rest}
   end
 
-  defp decode_text_resultset_rows(data, column_definitions, acc) do
+  defp decode_text_resultset_rows(data, column_definitions) do
+    decode_text_resultset_rows(data, column_definitions, 0, [])
+  end
+
+  defp decode_text_resultset_rows(data, column_definitions, row_count, rows) do
     packet(payload: payload) = decode_packet(data)
 
     case payload do
       # EOF packet
       <<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>> ->
-        {Enum.reverse(acc), warning_count, status_flags}
+        {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       _ ->
-        {row, rest} = decode_text_resultset_row(payload, column_definitions, [])
-        decode_text_resultset_rows(rest, column_definitions, [row | acc])
+        {row, rest} = decode_text_resultset_row(payload, column_definitions)
+        decode_text_resultset_rows(rest, column_definitions, row_count + 1, [row | rows])
     end
   end
 
+  defp decode_text_resultset_row(data, column_definitions) do
+    decode_text_resultset_row(data, column_definitions, [])
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
   defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
     case data do
       <<value_size::size(8), value::bytes-size(value_size), rest::binary>> ->
