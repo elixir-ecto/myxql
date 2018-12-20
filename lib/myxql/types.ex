@@ -31,6 +31,13 @@ defmodule MyXQL.Types do
   def take_int_lenenc(<<0xFD, int::int(3), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}
 
+  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::FixedLengthString
+  defmacro string(size) do
+    quote do
+      bytes - size(unquote(size))
+    end
+  end
+
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
   def encode_string_lenenc(binary) when is_binary(binary) do
     size = encode_int_lenenc(byte_size(binary))
@@ -44,7 +51,7 @@ defmodule MyXQL.Types do
 
   def take_string_lenenc(binary) do
     {size, rest} = take_int_lenenc(binary)
-    <<string::bytes-size(size), rest::binary>> = rest
+    <<string::string(size), rest::binary>> = rest
     {string, rest}
   end
 

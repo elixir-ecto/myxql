@@ -127,7 +127,7 @@ defmodule MyXQL.Messages do
     <<
       payload_length::int(3),
       _sequence_id::int(1),
-      payload::bytes-size(payload_length),
+      payload::string(payload_length),
       rest::binary
     >> = data
 
@@ -172,8 +172,8 @@ defmodule MyXQL.Messages do
     <<
       0xFF,
       error_code::int(2),
-      sql_state_marker::bytes-size(1),
-      sql_state::bytes-size(5),
+      sql_state_marker::string(1),
+      sql_state::string(5),
       error_message::binary
     >> = data
 
@@ -604,7 +604,7 @@ defmodule MyXQL.Messages do
     <<
       payload_length::int(3),
       _sequence_id::int(1),
-      payload::bytes-size(payload_length),
+      payload::string(payload_length),
       rest::binary
     >> = data
 
