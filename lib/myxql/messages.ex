@@ -210,7 +210,7 @@ defmodule MyXQL.Messages do
     packet(payload: payload) = decode_packet(data)
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
-    {server_version, rest} = take_null_terminated_string(rest)
+    {server_version, rest} = take_string_nul(rest)
 
     if Version.compare(server_version, @min_server_version) == :lt do
       raise "minimum supported server version is #{@min_server_version}, got: #{server_version}"
@@ -231,8 +231,8 @@ defmodule MyXQL.Messages do
 
     take = auth_plugin_data_length - 8
     <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
-    auth_plugin_data2 = decode_null_terminated_string(auth_plugin_data2)
-    auth_plugin_name = decode_null_terminated_string(auth_plugin_name)
+    auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
+    auth_plugin_name = decode_string_nul(auth_plugin_name)
 
     handshake_v10(
       protocol_version: protocol_version,
@@ -324,8 +324,8 @@ defmodule MyXQL.Messages do
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
   def decode_auth_switch_request(<<0xFE, rest::binary>>) do
-    {plugin_name, rest} = take_null_terminated_string(rest)
-    {plugin_data, ""} = take_null_terminated_string(rest)
+    {plugin_name, rest} = take_string_nul(rest)
+    {plugin_data, ""} = take_string_nul(rest)
 
     auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)
   end

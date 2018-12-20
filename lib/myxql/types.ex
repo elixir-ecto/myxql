@@ -49,14 +49,14 @@ defmodule MyXQL.Types do
   end
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::NulTerminatedString
-  def take_null_terminated_string(binary) do
-    [string, rest] = :binary.split(binary, <<0>>)
-    {string, rest}
+  def decode_string_nul(binary) do
+    {string, ""} = take_string_nul(binary)
+    string
   end
 
-  def decode_null_terminated_string(binary) do
-    {string, ""} = take_null_terminated_string(binary)
-    string
+  def take_string_nul(binary) do
+    [string, rest] = :binary.split(binary, <<0>>)
+    {string, rest}
   end
 
   # Text & Binary
