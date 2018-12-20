@@ -543,11 +543,11 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = payload
 
-    {_schema, rest} = take_length_encoded_string(rest)
-    {_table, rest} = take_length_encoded_string(rest)
-    {_org_table, rest} = take_length_encoded_string(rest)
-    {name, rest} = take_length_encoded_string(rest)
-    {_org_name, rest} = take_length_encoded_string(rest)
+    {_schema, rest} = take_string_lenenc(rest)
+    {_table, rest} = take_string_lenenc(rest)
+    {_org_table, rest} = take_string_lenenc(rest)
+    {name, rest} = take_string_lenenc(rest)
+    {_org_name, rest} = take_string_lenenc(rest)
 
     <<
       0x0C,

@@ -10,13 +10,13 @@ defmodule MyXQL.TypesTest do
     assert decode_int_lenenc(<<0xFE, 0, 0, 0, 0, 1, 0, 0, 0>>) == 4_294_967_296
   end
 
-  test "length_encoded_string" do
-    assert decode_length_encoded_string(<<3, "aaa">>) == "aaa"
+  test "string_lenenc" do
+    assert decode_string_lenenc(<<3, "aaa">>) == "aaa"
 
     string = String.duplicate("a", 252)
-    assert decode_length_encoded_string(<<0xFC, 0, 252, string::binary>>) == string
+    assert decode_string_lenenc(<<0xFC, 0, 252, string::binary>>) == string
 
-    assert take_length_encoded_string(<<3, "aaab">>) == {"aaa", "b"}
+    assert take_string_lenenc(<<3, "aaab">>) == {"aaa", "b"}
   end
 
   for protocol <- [:text, :binary] do

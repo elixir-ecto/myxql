@@ -32,17 +32,17 @@ defmodule MyXQL.Types do
   def take_int_lenenc(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
-  def encode_length_encoded_string(binary) when is_binary(binary) do
+  def encode_string_lenenc(binary) when is_binary(binary) do
     size = encode_int_lenenc(byte_size(binary))
     <<size::binary, binary::binary>>
   end
 
-  def decode_length_encoded_string(binary) do
+  def decode_string_lenenc(binary) do
     {_size, rest} = take_int_lenenc(binary)
     rest
   end
 
-  def take_length_encoded_string(binary) do
+  def take_string_lenenc(binary) do
     {size, rest} = take_int_lenenc(binary)
     <<string::bytes-size(size), rest::binary>> = rest
     {string, rest}
@@ -197,7 +197,7 @@ defmodule MyXQL.Types do
   end
 
   def take_binary_value(data, @mysql_type_newdecimal) do
-    {string, rest} = take_length_encoded_string(data)
+    {string, rest} = take_string_lenenc(data)
     decimal = Decimal.new(string)
     {decimal, rest}
   end
@@ -217,11 +217,11 @@ defmodule MyXQL.Types do
 
   def take_binary_value(data, type)
       when type in [@mysql_type_var_string, @mysql_type_string, @mysql_type_blob, @mysql_type_bit] do
-    take_length_encoded_string(data)
+    take_string_lenenc(data)
   end
 
   def take_binary_value(data, @mysql_type_json) do
-    {json, rest} = take_length_encoded_string(data)
+    {json, rest} = take_string_lenenc(data)
     value = Jason.decode!(json)
     {value, rest}
   end
@@ -250,7 +250,7 @@ defmodule MyXQL.Types do
   def encode_binary_value(%DateTime{} = datetime), do: encode_binary_datetime(datetime)
 
   def encode_binary_value(binary) when is_binary(binary) do
-    {@mysql_type_var_string, encode_length_encoded_string(binary)}
+    {@mysql_type_var_string, encode_string_lenenc(binary)}
   end
 
   def encode_binary_value(bitstring) when is_bitstring(bitstring) do
