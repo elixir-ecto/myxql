@@ -523,9 +523,9 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def41, [:name, :type]
+  defrecord :column_def, [:name, :type]
 
-  defp decode_column_def41(data) do
+  defp decode_column_def(data) do
     packet(payload: payload) = decode_packet(data)
 
     <<
@@ -551,11 +551,11 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = rest
 
-    {column_def41(name: name, type: type), rest}
+    {column_def(name: name, type: type), rest}
   end
 
   defp decode_column_defs(data, column_count, acc) when column_count > 0 do
-    {column_name, rest} = decode_column_def41(data)
+    {column_name, rest} = decode_column_def(data)
     decode_column_defs(rest, column_count - 1, [column_name | acc])
   end
 
@@ -586,7 +586,7 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
-  defp decode_text_resultset_row(data, [column_def41(type: type) | tail], acc) do
+  defp decode_text_resultset_row(data, [column_def(type: type) | tail], acc) do
     case data do
       # null value is 0xFB
       <<0xFB, rest::binary>> ->
@@ -634,7 +634,7 @@ defmodule MyXQL.Messages do
   end
 
   defp decode_binary_resultset_row(values, null_bitmap, [column_def | column_defs], acc) do
-    column_def41(type: type) = column_def
+    column_def(type: type) = column_def
     {value, rest} = take_binary_value(values, null_bitmap, type)
     decode_binary_resultset_row(rest, null_bitmap >>> 1, column_defs, [value | acc])
   end
