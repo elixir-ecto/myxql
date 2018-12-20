@@ -65,9 +65,13 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-  @character_sets %{
+  character_sets = %{
     utf8_general_ci: 0x21
   }
+
+  for {name, code} <- character_sets do
+    def character_set_name_to_code(unquote(name)), do: unquote(code)
+  end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
   @cursor_types %{
@@ -268,14 +272,13 @@ defmodule MyXQL.Messages do
         sequence_id
       ) do
     capability_flags = capability_flags(database, ssl?)
-    charset = Map.fetch!(@character_sets, :utf8_general_ci)
     auth_response = if auth_response, do: encode_string_lenenc(auth_response), else: <<0>>
     database = if database, do: <<database::binary, 0x00>>, else: ""
 
     payload = <<
       capability_flags::int(4),
       @max_packet_size::int(4),
-      charset,
+      character_set_name_to_code(:utf8_general_ci),
       0::int(23),
       <<username::binary, 0x00>>,
       auth_response::binary,
@@ -288,12 +291,11 @@ defmodule MyXQL.Messages do
 
   def encode_ssl_request(sequence_id, database) do
     capability_flags = capability_flags(database, true)
-    charset = Map.fetch!(@character_sets, :utf8_general_ci)
 
     payload = <<
       capability_flags::int(4),
       @max_packet_size::int(4),
-      charset,
+      character_set_name_to_code(:utf8_general_ci),
       0::int(23)
     >>
 
