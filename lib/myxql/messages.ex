@@ -147,8 +147,8 @@ defmodule MyXQL.Messages do
   def decode_ok_packet(data) do
     <<0x00, rest::binary>> = data
 
-    {affected_rows, rest} = take_length_encoded_integer(rest)
-    {last_insert_id, rest} = take_length_encoded_integer(rest)
+    {affected_rows, rest} = take_int_lenenc(rest)
+    {last_insert_id, rest} = take_int_lenenc(rest)
 
     <<
       status_flags::int(2),
@@ -387,7 +387,7 @@ defmodule MyXQL.Messages do
         decode_err_packet(payload)
 
       rest ->
-        {column_count, rest} = take_length_encoded_integer(rest)
+        {column_count, rest} = take_int_lenenc(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
         {row_count, rows, warning_count, status_flags} =
@@ -503,7 +503,7 @@ defmodule MyXQL.Messages do
         decode_err_packet(payload)
 
       rest ->
-        {column_count, rest} = take_length_encoded_integer(rest)
+        {column_count, rest} = take_int_lenenc(rest)
         {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
 
         {row_count, rows, warning_count, status_flags} =

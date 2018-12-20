@@ -3,11 +3,11 @@ defmodule MyXQL.TypesTest do
   import MyXQL.Types
   use Bitwise
 
-  test "length_encoded_integer" do
-    assert decode_length_encoded_integer(<<100>>) == 100
-    assert decode_length_encoded_integer(<<0xFC, 0x10, 0x27>>) == 10_000
-    assert decode_length_encoded_integer(<<0xFD, 0, 0, 1>>) == 65536
-    assert decode_length_encoded_integer(<<0xFE, 0, 0, 0, 0, 1, 0, 0, 0>>) == 4_294_967_296
+  test "int_lenenc" do
+    assert decode_int_lenenc(<<100>>) == 100
+    assert decode_int_lenenc(<<0xFC, 0x10, 0x27>>) == 10_000
+    assert decode_int_lenenc(<<0xFD, 0, 0, 1>>) == 65536
+    assert decode_int_lenenc(<<0xFE, 0, 0, 0, 0, 1, 0, 0, 0>>) == 4_294_967_296
   end
 
   test "length_encoded_string" do
