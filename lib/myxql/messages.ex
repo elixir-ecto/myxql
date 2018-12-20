@@ -359,7 +359,7 @@ defmodule MyXQL.Messages do
   # both text & binary resultset have the same columns shape, but different rows
   defrecord :resultset, [
     :column_count,
-    :column_definitions,
+    :column_defs,
     :row_count,
     :rows,
     :warning_count,
@@ -379,14 +379,14 @@ defmodule MyXQL.Messages do
 
       rest ->
         {column_count, rest} = take_int_lenenc(rest)
-        {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
+        {column_defs, rest} = decode_column_defs(rest, column_count, [])
 
         {row_count, rows, warning_count, status_flags} =
-          decode_text_resultset_rows(rest, column_definitions)
+          decode_text_resultset_rows(rest, column_defs)
 
         resultset(
           column_count: column_count,
-          column_definitions: column_definitions,
+          column_defs: column_defs,
           row_count: row_count,
           rows: rows,
           warning_count: warning_count,
@@ -495,14 +495,14 @@ defmodule MyXQL.Messages do
 
       rest ->
         {column_count, rest} = take_int_lenenc(rest)
-        {column_definitions, rest} = decode_column_definitions(rest, column_count, [])
+        {column_defs, rest} = decode_column_defs(rest, column_count, [])
 
         {row_count, rows, warning_count, status_flags} =
-          decode_binary_resultset_rows(rest, column_definitions)
+          decode_binary_resultset_rows(rest, column_defs)
 
         resultset(
           column_count: column_count,
-          column_definitions: column_definitions,
+          column_defs: column_defs,
           row_count: row_count,
           rows: rows,
           warning_count: warning_count,
@@ -523,9 +523,9 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_definition41, [:name, :type]
+  defrecord :column_def41, [:name, :type]
 
-  defp decode_column_definition41(data) do
+  defp decode_column_def41(data) do
     packet(payload: payload) = decode_packet(data)
 
     <<
@@ -551,23 +551,23 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = rest
 
-    {column_definition41(name: name, type: type), rest}
+    {column_def41(name: name, type: type), rest}
   end
 
-  defp decode_column_definitions(data, column_count, acc) when column_count > 0 do
-    {column_name, rest} = decode_column_definition41(data)
-    decode_column_definitions(rest, column_count - 1, [column_name | acc])
+  defp decode_column_defs(data, column_count, acc) when column_count > 0 do
+    {column_name, rest} = decode_column_def41(data)
+    decode_column_defs(rest, column_count - 1, [column_name | acc])
   end
 
-  defp decode_column_definitions(rest, 0, acc) do
+  defp decode_column_defs(rest, 0, acc) do
     {Enum.reverse(acc), rest}
   end
 
-  defp decode_text_resultset_rows(data, column_definitions) do
-    decode_text_resultset_rows(data, column_definitions, 0, [])
+  defp decode_text_resultset_rows(data, column_defs) do
+    decode_text_resultset_rows(data, column_defs, 0, [])
   end
 
-  defp decode_text_resultset_rows(data, column_definitions, row_count, rows) do
+  defp decode_text_resultset_rows(data, column_defs, row_count, rows) do
     packet(payload: payload) = decode_packet(data)
 
     case payload do
@@ -576,17 +576,17 @@ defmodule MyXQL.Messages do
         {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       _ ->
-        {row, rest} = decode_text_resultset_row(payload, column_definitions)
-        decode_text_resultset_rows(rest, column_definitions, row_count + 1, [row | rows])
+        {row, rest} = decode_text_resultset_row(payload, column_defs)
+        decode_text_resultset_rows(rest, column_defs, row_count + 1, [row | rows])
     end
   end
 
-  defp decode_text_resultset_row(data, column_definitions) do
-    decode_text_resultset_row(data, column_definitions, [])
+  defp decode_text_resultset_row(data, column_defs) do
+    decode_text_resultset_row(data, column_defs, [])
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
-  defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
+  defp decode_text_resultset_row(data, [column_def41(type: type) | tail], acc) do
     case data do
       # null value is 0xFB
       <<0xFB, rest::binary>> ->
@@ -614,34 +614,29 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
-  def decode_binary_resultset_rows(data, column_definitions) do
-    decode_binary_resultset_rows(data, column_definitions, 0, [])
+  def decode_binary_resultset_rows(data, column_defs) do
+    decode_binary_resultset_rows(data, column_defs, 0, [])
   end
 
-  def decode_binary_resultset_rows(data, column_definitions, row_count, rows) do
+  def decode_binary_resultset_rows(data, column_defs, row_count, rows) do
     case take_packet(data) do
       # EOF packet
       {<<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>, ""} ->
         {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       {payload, rest} ->
-        size = div(length(column_definitions) + 7 + 2, 8)
+        size = div(length(column_defs) + 7 + 2, 8)
         <<0x00, null_bitmap::int(size), values::binary>> = payload
         null_bitmap = null_bitmap >>> 2
-        row = decode_binary_resultset_row(values, null_bitmap, column_definitions, [])
-        decode_binary_resultset_rows(rest, column_definitions, row_count + 1, [row | rows])
+        row = decode_binary_resultset_row(values, null_bitmap, column_defs, [])
+        decode_binary_resultset_rows(rest, column_defs, row_count + 1, [row | rows])
     end
   end
 
-  defp decode_binary_resultset_row(
-         values,
-         null_bitmap,
-         [column_definition | column_definitions],
-         acc
-       ) do
-    column_definition41(type: type) = column_definition
+  defp decode_binary_resultset_row(values, null_bitmap, [column_def | column_defs], acc) do
+    column_def41(type: type) = column_def
     {value, rest} = take_binary_value(values, null_bitmap, type)
-    decode_binary_resultset_row(rest, null_bitmap >>> 1, column_definitions, [value | acc])
+    decode_binary_resultset_row(rest, null_bitmap >>> 1, column_defs, [value | acc])
   end
 
   defp decode_binary_resultset_row("", _null_bitmap, [], acc) do

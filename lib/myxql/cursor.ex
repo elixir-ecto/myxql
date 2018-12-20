@@ -1,4 +1,4 @@
 defmodule MyXQL.Cursor do
   @moduledoc false
-  defstruct [:column_definitions]
+  defstruct [:column_defs]
 end

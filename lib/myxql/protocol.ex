@@ -112,8 +112,8 @@ defmodule MyXQL.Protocol do
       {:ok, data} = send_and_recv(s, data)
 
       case decode_com_stmt_execute_response(data) do
-        resultset(column_definitions: column_definitions, rows: rows, status_flags: status_flags) ->
-          columns = Enum.map(column_definitions, &elem(&1, 1))
+        resultset(column_defs: column_defs, rows: rows, status_flags: status_flags) ->
+          columns = Enum.map(column_defs, &elem(&1, 1))
           result = %Result{columns: columns, num_rows: length(rows), rows: rows}
           {:ok, query, result, put_status(s, status_flags)}
 
@@ -150,12 +150,12 @@ defmodule MyXQL.Protocol do
         {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id}, put_status(s, status_flags)}
 
       resultset(
-        column_definitions: column_definitions,
+        column_defs: column_defs,
         row_count: num_rows,
         rows: rows,
         status_flags: status_flags
       ) ->
-        columns = Enum.map(column_definitions, &elem(&1, 1))
+        columns = Enum.map(column_defs, &elem(&1, 1))
         result = %MyXQL.Result{columns: columns, num_rows: num_rows, rows: rows}
         {:ok, query, result, put_status(s, status_flags)}
 
@@ -249,15 +249,15 @@ defmodule MyXQL.Protocol do
     {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_execute_response(data) do
-      resultset(column_definitions: column_definitions, rows: [], status_flags: status_flags) ->
+      resultset(column_defs: column_defs, rows: [], status_flags: status_flags) ->
         true = :server_status_cursor_exists in list_status_flags(status_flags)
-        cursor = %Cursor{column_definitions: column_definitions}
+        cursor = %Cursor{column_defs: column_defs}
         {:ok, query, cursor, put_status(s, status_flags)}
     end
   end
 
   @impl true
-  def handle_fetch(query, %Cursor{column_definitions: column_definitions}, opts, s) do
+  def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, s) do
     max_rows = Keyword.fetch!(opts, :max_rows)
     {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
     data = encode_com_stmt_fetch(statement_id, max_rows, 0)
@@ -270,9 +270,9 @@ defmodule MyXQL.Protocol do
 
       _ ->
         {row_count, rows, _warning_count, status_flags} =
-          decode_binary_resultset_rows(data, column_definitions)
+          decode_binary_resultset_rows(data, column_defs)
 
-        columns = Enum.map(column_definitions, &elem(&1, 1))
+        columns = Enum.map(column_defs, &elem(&1, 1))
         result = %MyXQL.Result{rows: rows, num_rows: row_count, columns: columns}
 
         if :server_status_cursor_exists in list_status_flags(status_flags) do
