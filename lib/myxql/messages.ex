@@ -588,11 +588,13 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
   defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
     case data do
-      <<value_size::int(1), value::bytes-size(value_size), rest::binary>> ->
-        decode_text_resultset_row(rest, tail, [decode_text_value(value, type) | acc])
-
+      # null value is 0xFB
       <<0xFB, rest::binary>> ->
         decode_text_resultset_row(rest, tail, [nil | acc])
+
+      _ ->
+        {value, rest} = take_string_lenenc(data)
+        decode_text_resultset_row(rest, tail, [decode_text_value(value, type) | acc])
     end
   end
 
