@@ -268,28 +268,19 @@ defmodule MyXQL.Messages do
         sequence_id
       ) do
     capability_flags = capability_flags(database, ssl?)
-
     charset = Map.fetch!(@character_sets, :utf8_general_ci)
-    username = <<username::binary, 0>>
+    auth_response = if auth_response, do: encode_string_lenenc(auth_response), else: <<0>>
     database = if database, do: <<database::binary, 0x00>>, else: ""
-    auth_plugin_name = <<auth_plugin_name::binary, 0x00>>
-
-    auth_response =
-      if auth_response do
-        <<byte_size(auth_response), auth_response::binary>>
-      else
-        <<0>>
-      end
 
     payload = <<
       capability_flags::int(4),
       @max_packet_size::int(4),
       charset,
-      0::8*23,
-      username::binary,
+      0::int(23),
+      <<username::binary, 0x00>>,
       auth_response::binary,
       database::binary,
-      auth_plugin_name::binary
+      (<<auth_plugin_name::binary, 0x00>>)
     >>
 
     encode_packet(payload, sequence_id)
@@ -297,13 +288,13 @@ defmodule MyXQL.Messages do
 
   def encode_ssl_request(sequence_id, database) do
     capability_flags = capability_flags(database, true)
-    charset = 8
+    charset = Map.fetch!(@character_sets, :utf8_general_ci)
 
     payload = <<
       capability_flags::int(4),
       @max_packet_size::int(4),
       charset,
-      0::8*23
+      0::int(23)
     >>
 
     encode_packet(payload, sequence_id)
@@ -524,8 +515,8 @@ defmodule MyXQL.Messages do
   def encode_com_stmt_fetch(statement_id, num_rows, sequence_id) do
     payload = <<
       0x1C,
-      statement_id::32-little,
-      num_rows::32-little
+      statement_id::int(4),
+      num_rows::int(4)
     >>
 
     encode_packet(payload, sequence_id)
@@ -556,7 +547,7 @@ defmodule MyXQL.Messages do
       <<type>>,
       _flags::2-bytes,
       _decimals::1-bytes,
-      0::8*2,
+      0::int(2),
       rest::binary
     >> = rest
 
@@ -597,7 +588,7 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
   defp decode_text_resultset_row(data, [column_definition41(type: type) | tail], acc) do
     case data do
-      <<value_size::size(8), value::bytes-size(value_size), rest::binary>> ->
+      <<value_size::int(1), value::bytes-size(value_size), rest::binary>> ->
         decode_text_resultset_row(rest, tail, [decode_text_value(value, type) | acc])
 
       <<0xFB, rest::binary>> ->
@@ -628,7 +619,7 @@ defmodule MyXQL.Messages do
   def decode_binary_resultset_rows(data, column_definitions, row_count, rows) do
     case take_packet(data) do
       # EOF packet
-      {<<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>>, ""} ->
+      {<<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>, ""} ->
         {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       {payload, rest} ->
