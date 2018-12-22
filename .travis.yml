@@ -15,19 +15,12 @@ env:
   matrix:
     - DB=mysql:5.7
     - DB=mysql:8.0
-    - CHECKS=true
 matrix:
   include:
     - elixir: 1.4
       otp_release: 18.3
     - elixir: 1.5
       otp_release: 19.3
-before_install:
-  - docker pull $DB || true
-  - sudo chmod 777 -R /var/run/mysqld
-  - docker run --name mysql -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB
-  - mysql --version
-  - until mysql -u root -e "SELECT @@version;"; do sleep 1; done
+    - env: CHECKS_ONLY=true
 script:
-  - [ -n "$CHECKS" ] && mix format --check-formatted
-  - mix test
+  - ./ci.sh
