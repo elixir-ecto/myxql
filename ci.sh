@@ -2,7 +2,6 @@
 set -e
 set -x
 
-echo $CHECKS_ONLY
 if [ -n "$CHECKS_ONLY" ]; then
   mix compile --warnings-as-errors
   mix format --check-formatted
