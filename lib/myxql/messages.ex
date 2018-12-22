@@ -39,9 +39,9 @@ defmodule MyXQL.Messages do
     client_deprecate_eof: 0x01000000
   }
 
-  def has_capability_flag?(flags, name) do
-    value = Map.fetch(@capability_flags, name)
-    flags &&& value == value
+  def has_capability_flag?(flags, name) when is_integer(flags) do
+    value = Map.fetch!(@capability_flags, name)
+    (flags &&& value) == value
   end
 
   def set_capability_flags(flags \\ 0, names) do
