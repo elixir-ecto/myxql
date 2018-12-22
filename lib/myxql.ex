@@ -72,6 +72,7 @@ defmodule MyXQL do
 
   defdelegate transaction(conn, fun, opts \\ []), to: DBConnection
 
+  @spec rollback(DBConnection.t(), any()) :: no_return()
   defdelegate rollback(conn, reason), to: DBConnection
 
   def stream(conn, query, params \\ [], opts \\ [])

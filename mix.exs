@@ -20,9 +20,10 @@ defmodule MyXQL.MixProject do
   defp deps() do
     [
       {:db_connection, "~> 2.0"},
-      {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:decimal, "~> 1.6"},
-      {:jason, "~> 1.0", optional: true}
+      {:jason, "~> 1.0", optional: true},
+      {:binpp, ">= 0.0.0", only: [:dev, :test]},
+      {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false}
     ]
   end
 end
