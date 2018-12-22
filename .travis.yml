@@ -15,6 +15,7 @@ env:
   matrix:
     - DB=mysql:5.7
     - DB=mysql:8.0
+    - CHECKS=true
 matrix:
   include:
     - elixir: 1.4
@@ -27,3 +28,6 @@ before_install:
   - docker run --name mysql -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d $DB
   - mysql --version
   - until mysql -u root -e "SELECT @@version;"; do sleep 1; done
+script:
+  - [ -n "$CHECKS" ] && mix format --check-formatted
+  - mix test
