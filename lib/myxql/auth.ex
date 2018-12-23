@@ -1,4 +1,4 @@
-defmodule MyXQL.Utils do
+defmodule MyXQL.Auth do
   @moduledoc false
   use Bitwise
 
@@ -12,6 +12,8 @@ defmodule MyXQL.Utils do
   def sha256_password(password, auth_plugin_data) do
     sha_hash(:sha256, password, auth_plugin_data)
   end
+
+  ## Helpers
 
   defp sha_hash(type, password, auth_plugin_data)
        when is_binary(password) and is_binary(auth_plugin_data) do
