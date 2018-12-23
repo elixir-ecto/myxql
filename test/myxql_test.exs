@@ -131,24 +131,19 @@ defmodule MyXQLTest do
   describe "query" do
     setup [:connect, :truncate]
 
-    test "simple query in text protocol", c do
+    test "simple query", c do
       assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], num_rows: 1, rows: [[6, 20]]}} =
-               MyXQL.query(c.conn, "SELECT 2*3, 4*5", [], query_type: :text)
-    end
-
-    test "simple query in binary protocol", c do
-      assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], num_rows: 1, rows: [[6, 20]]}} =
-               MyXQL.query(c.conn, "SELECT 2*3, 4*5", [], query_type: :binary)
+               MyXQL.query(c.conn, "SELECT 2*3, 4*5")
     end
 
     test "iodata in text protocol", c do
       statement = ["SELECT", [" ", ["42"]]]
-      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [], query_type: :text)
+      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement)
     end
 
     test "iodata in binary protocol", c do
-      statement = ["SELECT", [" ", ["42"]]]
-      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [], query_type: :binary)
+      statement = ["SELECT", [" ", ["?"]]]
+      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [42])
     end
 
     test "invalid query", c do
@@ -178,18 +173,6 @@ defmodule MyXQLTest do
       assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
       :timer.sleep(20)
       assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
-    end
-
-    test "text query with invalid number of params", c do
-      assert_raise ArgumentError, ~r"parameters must be of length 0 for query", fn ->
-        MyXQL.query(c.conn, "SELECT 42", [1], query_type: :text)
-      end
-    end
-
-    test "binary query with invalid number of params", c do
-      assert_raise ArgumentError, ~r"parameters must be of length 2 for query", fn ->
-        MyXQL.query(c.conn, "SELECT ? * ?", [1], query_type: :binary)
-      end
     end
   end
 
@@ -230,6 +213,12 @@ defmodule MyXQLTest do
 
       {:ok, conn2} = MyXQL.start_link(@opts)
       {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
+    end
+
+    test "invalid number of params", c do
+      assert_raise ArgumentError, ~r"parameters must be of length 2 for query", fn ->
+        MyXQL.query(c.conn, "SELECT ? * ?", [1])
+      end
     end
   end
 
@@ -428,7 +417,7 @@ defmodule MyXQLTest do
   end
 
   defp truncate(c) do
-    MyXQL.query!(c.conn, "TRUNCATE TABLE integers", [], query_type: :text)
+    MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
     c
   end
 

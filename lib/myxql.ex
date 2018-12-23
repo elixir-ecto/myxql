@@ -4,34 +4,32 @@ defmodule MyXQL do
   end
 
   def query(conn, statement, params \\ [], opts \\ [])
-      when is_binary(statement) or is_list(statement) do
-    query_type = Keyword.get(opts, :query_type, :binary)
 
+  def query(conn, statement, [], opts) when is_binary(statement) or is_list(statement) do
+    query = %MyXQL.Query{
+      name: "",
+      statement: statement,
+      type: :text
+    }
+
+    DBConnection.execute(conn, query, [], opts)
+    |> query_result()
+  end
+
+  def query(conn, statement, params, opts) when is_binary(statement) or is_list(statement) do
     query = %MyXQL.Query{
       name: "",
       ref: make_ref(),
       statement: statement,
-      type: query_type
+      type: :binary
     }
 
-    return =
-      case query_type do
-        :text ->
-          query = %{query | num_params: 0}
-          DBConnection.execute(conn, query, params, opts)
-
-        :binary ->
-          DBConnection.prepare_execute(conn, query, params, opts)
-      end
-
-    case return do
-      {:ok, _query, result} ->
-        {:ok, result}
-
-      {:error, _} = error ->
-        error
-    end
+    DBConnection.prepare_execute(conn, query, params, opts)
+    |> query_result()
   end
+
+  defp query_result({:ok, _query, result}), do: {:ok, result}
+  defp query_result({:error, _} = error), do: error
 
   def query!(conn, statement, params \\ [], opts \\ []) do
     case query(conn, statement, params, opts) do

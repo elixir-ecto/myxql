@@ -263,7 +263,17 @@ defmodule MyXQL.TypesTest do
   defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     statement = "SELECT #{fields} FROM test_types WHERE id = '#{id}'"
-    %MyXQL.Result{rows: [values]} = MyXQL.query!(c.conn, statement, [], query_type: c.protocol)
+
+    %MyXQL.Result{rows: [values]} =
+      case c.protocol do
+        :text ->
+          MyXQL.query!(c.conn, statement)
+
+        :binary ->
+          {:ok, _, result} = MyXQL.prepare_execute(c.conn, "", statement)
+          result
+      end
+
     values
   end
 

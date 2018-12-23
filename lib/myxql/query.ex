@@ -10,7 +10,7 @@ defmodule MyXQL.Query do
       query
     end
 
-    def encode(%{num_params: num_params} = query, params, _opts)
+    def encode(%{type: :binary, num_params: num_params} = query, params, _opts)
         when num_params != length(params) do
       raise ArgumentError,
             "parameters must be of length #{num_params} for query #{inspect(query)}"
