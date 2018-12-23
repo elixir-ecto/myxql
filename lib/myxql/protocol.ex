@@ -146,8 +146,13 @@ defmodule MyXQL.Protocol do
     {:ok, data} = send_and_recv(s, data)
 
     case decode_com_query_response(data) do
-      ok_packet(last_insert_id: last_insert_id, status_flags: status_flags) ->
-        {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id}, put_status(s, status_flags)}
+      ok_packet(
+        last_insert_id: last_insert_id,
+        affected_rows: affected_rows,
+        status_flags: status_flags
+      ) ->
+        {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id, num_rows: affected_rows},
+         put_status(s, status_flags)}
 
       resultset(
         column_defs: column_defs,
