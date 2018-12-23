@@ -164,8 +164,8 @@ defmodule MyXQL.Protocol do
         result = %MyXQL.Result{columns: columns, num_rows: num_rows, rows: rows}
         {:ok, query, result, put_status(s, status_flags)}
 
-      err_packet(error_message: message) ->
-        {:error, %MyXQL.Error{message: message}, s}
+      err_packet() = err_packet ->
+        {:error, exception(err_packet, query.statement), s}
     end
   end
 
