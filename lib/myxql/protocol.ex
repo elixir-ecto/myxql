@@ -38,7 +38,6 @@ defmodule MyXQL.Protocol do
     {address, port} = address_and_port(opts)
     timeout = Keyword.get(opts, :timeout, 5000)
 
-    # TODO: figure out best recbuf and/or support multiple recvs when they don't fit
     socket_opts = [
       :binary,
       active: false,
@@ -233,7 +232,6 @@ defmodule MyXQL.Protocol do
         handle_transaction("ROLLBACK", s)
 
       :savepoint when status == :transaction ->
-        # TODO: send as one query
         {:ok, _result, s} = handle_transaction("ROLLBACK TO SAVEPOINT myxql_savepoint", s)
         handle_transaction("RELEASE SAVEPOINT myxql_savepoint", s)
 
@@ -288,7 +286,6 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  # TODO: finish up
   @impl true
   def handle_deallocate(_query, %Cursor{}, _opts, s) do
     {:ok, nil, s}
@@ -542,9 +539,6 @@ defmodule MyXQL.Protocol do
   end
 
   defp reprepare(query, state) do
-    # TODO: extract common parts instead
-    # TODO: return statement_id without additional lookup. Maybe store statement_in on %Query{}?
-
     with {:ok, query, state} <- handle_prepare(query, [], state) do
       {:ok, statement_id} = get_statement_id(state, query)
       {:ok, query, statement_id, state}

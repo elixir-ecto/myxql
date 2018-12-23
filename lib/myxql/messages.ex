@@ -144,8 +144,6 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
-  # TODO:
-  # - investigate using CLIENT_SESSION_TRACK & SERVER_SESSION_STATE_CHANGED capabilities
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
 
   def decode_ok_packet(data) do
@@ -460,7 +458,6 @@ defmodule MyXQL.Messages do
 
   defp encode_params(params) do
     null_type = 0x06
-    # TODO: handle unsigned types
     unsigned_flag = 0x00
 
     {count, null_bitmap, types, values} =
@@ -484,7 +481,6 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
-  # TODO: similar to decode_com_query_response, except for decode_binary_resultset_rows
   def decode_com_stmt_execute_response(data) do
     packet(payload: payload) = decode_packet(data)
 

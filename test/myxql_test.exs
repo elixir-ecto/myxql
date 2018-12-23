@@ -386,26 +386,10 @@ defmodule MyXQLTest do
     end
   end
 
-  # TODO:
-  # describe "stored procedures" do
-  #   setup [:connect, :truncate]
-
-  #   test "multi-resultset in text protocol", c do
-  #     MyXQL.query!(c.conn, "CALL multi();", [])
-  #     |> IO.inspect()
-  #   end
-
-  #   test "multi-resultset in binary protocol", c do
-  #     MyXQL.query!(c.conn, "CALL multi();", [])
-  #     |> IO.inspect()
-  #   end
-  # end
-
   defp assert_start_and_killed(opts) do
     Process.flag(:trap_exit, true)
 
     case MyXQL.start_link(opts) do
-      # TODO: see if we can go back to the default 100ms timeout
       {:ok, pid} -> assert_receive {:EXIT, ^pid, :killed}, 500
       {:error, :killed} -> :ok
     end
