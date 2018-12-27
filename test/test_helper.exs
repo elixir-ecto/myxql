@@ -3,14 +3,25 @@ ExUnit.start(exclude: exclude)
 
 defmodule TestHelpers do
   def opts() do
+    ssl_opts =
+      case System.get_env("FORCE_TLS11") do
+        nil ->
+          []
+
+        "true" ->
+          [versions: [:"tlsv1.1"]]
+      end
+
     [
       hostname: "127.0.0.1",
       username: "root",
       database: "myxql_test",
       timeout: 5000,
       ssl: false,
+      ssl_opts: ssl_opts,
       backoff_type: :stop,
       max_restarts: 0,
+      pool_size: 1,
       show_sensitive_data_on_connection_error: true
     ]
   end
