@@ -13,7 +13,7 @@ env:
   global:
     - MYSQL_UNIX_PORT=/var/run/mysqld/mysqld.sock
   matrix:
-    - DB=mysql:5.7 FORCE_TLS11
+    - DB=mysql:5.7 FORCE_TLS11=true
     - DB=mysql:8.0
 matrix:
   include:
