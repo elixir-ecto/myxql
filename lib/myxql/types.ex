@@ -26,7 +26,7 @@ defmodule MyXQL.Types do
     integer
   end
 
-  def take_int_lenenc(<<int::8, rest::binary>>) when int < 251, do: {int, rest}
+  def take_int_lenenc(<<int::int(1), rest::binary>>) when int < 251, do: {int, rest}
   def take_int_lenenc(<<0xFC, int::int(2), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFD, int::int(3), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}

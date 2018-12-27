@@ -212,7 +212,7 @@ defmodule MyXQL.Messages do
 
     <<
       conn_id::int(4),
-      auth_plugin_data1::8-bytes,
+      auth_plugin_data1::string(8),
       0,
       capability_flags1::int(2),
       character_set::int(1),
@@ -439,7 +439,7 @@ defmodule MyXQL.Messages do
       flags::size(8),
       iteration_count::int(4),
       null_bitmap::bitstring,
-      new_params_bound_flag::8,
+      new_params_bound_flag::int(1),
       types::binary,
       values::binary
     >>
@@ -532,11 +532,11 @@ defmodule MyXQL.Messages do
 
     <<
       0x0C,
-      _character_set::2-bytes,
+      _character_set::int(2),
       _column_length::int(4),
       <<type>>,
-      _flags::2-bytes,
-      _decimals::1-bytes,
+      _flags::int(2),
+      _decimals::int(1),
       0::int(2),
       rest::binary
     >> = rest
@@ -562,7 +562,7 @@ defmodule MyXQL.Messages do
 
     case payload do
       # EOF packet
-      <<0xFE, warning_count::int(2), status_flags::int(2), 0::8*2>> ->
+      <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>> ->
         {row_count, Enum.reverse(rows), warning_count, status_flags}
 
       _ ->
