@@ -4,10 +4,6 @@ defmodule MyXQL.Messages do
   use Bitwise
   import MyXQL.Types
 
-  # 5.7.10 is the first releaase that supports TLS v1.1.
-  # https://dev.mysql.com/doc/refman/5.7/en/encrypted-connection-protocols-ciphers.html
-  @min_server_version Version.parse!("5.7.10")
-
   @max_packet_size 65536
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
@@ -213,10 +209,6 @@ defmodule MyXQL.Messages do
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
     {server_version, rest} = take_string_nul(rest)
-
-    if Version.compare(server_version, @min_server_version) == :lt do
-      raise "minimum supported server version is #{@min_server_version}, got: #{server_version}"
-    end
 
     <<
       conn_id::int(4),
