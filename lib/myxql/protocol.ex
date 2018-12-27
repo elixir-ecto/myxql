@@ -436,6 +436,20 @@ defmodule MyXQL.Protocol do
       {:ok, ssl_sock} ->
         {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
 
+      {:error, {:tls_alert, 'bad record mac'} = reason} ->
+        versions = :ssl.versions()[:supported]
+
+        message = """
+        #{reason |> :ssl.format_error() |> List.to_string()}
+
+        You might be using TLS version not supported by the server.
+        Protocol versions reported by the :ssl application: #{inspect(versions)}.
+        Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
+        versions.
+        """
+
+        {:error, %MyXQL.Error{message: message}}
+
       {:error, reason} ->
         message = reason |> :ssl.format_error() |> List.to_string()
         {:error, %MyXQL.Error{message: message}}
