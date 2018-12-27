@@ -29,8 +29,7 @@ defmodule MyXQL.Protocol do
         handshake(state, username, password, database, ssl?, ssl_opts)
 
       {:error, reason} ->
-        message = reason |> :inet.format_error() |> List.to_string()
-        {:error, %MyXQL.Error{message: message}}
+        {:error, erlang_error(reason)}
     end
   end
 
@@ -191,9 +190,7 @@ defmodule MyXQL.Protocol do
         {:ok, put_status(state, status_flags)}
 
       {:error, reason} ->
-        message = reason |> :ssl.format_error() |> List.to_string()
-        error = %MyXQL.Error{message: message}
-        {:disconnect, error, state}
+        {:disconnect, erlang_error(reason), state}
     end
   end
 
@@ -439,20 +436,18 @@ defmodule MyXQL.Protocol do
       {:error, {:tls_alert, 'bad record mac'} = reason} ->
         versions = :ssl.versions()[:supported]
 
-        message = """
-        #{reason |> :ssl.format_error() |> List.to_string()}
-
+        extra_message = """
         You might be using TLS version not supported by the server.
         Protocol versions reported by the :ssl application: #{inspect(versions)}.
         Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
         versions.
         """
 
-        {:error, %MyXQL.Error{message: message}}
+        error = erlang_error(reason)
+        {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
 
       {:error, reason} ->
-        message = reason |> :ssl.format_error() |> List.to_string()
-        {:error, %MyXQL.Error{message: message}}
+        {:error, erlang_error(reason)}
     end
   end
 
@@ -555,5 +550,10 @@ defmodule MyXQL.Protocol do
   defp mysql_error(code, name, message, statement) when is_integer(code) and is_atom(name) do
     mysql = %{code: code, name: name}
     %MyXQL.Error{message: message, mysql: mysql, statement: statement}
+  end
+
+  defp erlang_error(reason) do
+    message = reason |> :ssl.format_error() |> List.to_string()
+    %MyXQL.Error{message: message, erlang: reason}
   end
 end
