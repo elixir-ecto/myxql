@@ -2,7 +2,7 @@ defmodule MyXQL.Protocol do
   @moduledoc false
   use DBConnection
   import MyXQL.Messages
-  alias MyXQL.{Cursor, Error, Query, Result}
+  alias MyXQL.{Cursor, Query, Result}
 
   defstruct [
     :sock,
@@ -90,7 +90,7 @@ defmodule MyXQL.Protocol do
         {:ok, query, state}
 
       err_packet() = err_packet ->
-        {:error, exception(err_packet, query.statement), state}
+        {:error, mysql_error(err_packet, query.statement), state}
     end
   end
 
@@ -135,7 +135,7 @@ defmodule MyXQL.Protocol do
           {:ok, query, result, put_status(s, status_flags)}
 
         err_packet() = err_packet ->
-          {:error, exception(err_packet, query.statement), s}
+          {:error, mysql_error(err_packet, query.statement), s}
       end
     end
   end
@@ -164,7 +164,7 @@ defmodule MyXQL.Protocol do
         {:ok, query, result, put_status(s, status_flags)}
 
       err_packet() = err_packet ->
-        {:error, exception(err_packet, query.statement), s}
+        {:error, mysql_error(err_packet, query.statement), s}
     end
   end
 
@@ -269,7 +269,7 @@ defmodule MyXQL.Protocol do
     case data do
       <<_size::24-little, _seq, 0xFF, rest::binary>> ->
         err_packet() = err_packet = decode_err_packet(<<0xFF>> <> rest)
-        {:error, exception(err_packet, query.statement), s}
+        {:error, mysql_error(err_packet, query.statement), s}
 
       _ ->
         {row_count, rows, _warning_count, status_flags} =
@@ -356,7 +356,7 @@ defmodule MyXQL.Protocol do
         {:ok, state}
 
       err_packet() = err_packet ->
-        {:error, exception(err_packet, nil)}
+        {:error, mysql_error(err_packet, nil)}
 
       auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data) ->
         with {:ok, auth_response} <-
@@ -369,7 +369,7 @@ defmodule MyXQL.Protocol do
               {:ok, state}
 
             err_packet() = err_packet ->
-              {:error, exception(err_packet, nil)}
+              {:error, mysql_error(err_packet, nil)}
           end
         end
 
@@ -384,13 +384,10 @@ defmodule MyXQL.Protocol do
               {:ok, state}
 
             err_packet() = err_packet ->
-              {:error, exception(err_packet, nil)}
+              {:error, mysql_error(err_packet, nil)}
           end
         else
-          message =
-            "ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection."
-
-          {:error, %MyXQL.Error{message: message}}
+          auth_plugin_secure_connection_error(auth_plugin_name)
         end
     end
   end
@@ -416,16 +413,19 @@ defmodule MyXQL.Protocol do
     if ssl? do
       {:ok, password <> <<0x00>>}
     else
-      # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
-      code = 2061
-      name = :CR_AUTH_PLUGIN_ERR
-      message = auth_error_message(plugin_name, code, "Authentication requires secure connection")
-      {:error, %MyXQL.Error{message: message, mysql: %{code: code, name: name, message: message}}}
+      auth_plugin_secure_connection_error(plugin_name)
     end
   end
 
-  defp auth_error_message(plugin_name, code, message) do
-    "ERROR #{code} (HY000): Authentication plugin '#{plugin_name}' reported error: #{message}."
+  # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
+  defp auth_plugin_secure_connection_error(plugin_name) do
+    code = 2061
+    name = :CR_AUTH_PLUGIN_ERR
+
+    message =
+      "ERROR #{code} (HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
+
+    {:error, mysql_error(code, name, message, nil)}
   end
 
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, database, sequence_id) do
@@ -507,7 +507,7 @@ defmodule MyXQL.Protocol do
         end
 
       err_packet() = err_packet ->
-        {:disconnect, exception(err_packet, statement), s}
+        {:disconnect, mysql_error(err_packet, statement), s}
     end
   end
 
@@ -547,9 +547,13 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp exception(err_packet(error_code: code, error_message: message), statement) do
+  defp mysql_error(err_packet(error_code: code, error_message: message), statement) do
     name = MyXQL.ServerErrorCodes.code_to_name(code)
-    mysql = %{code: code, name: name, message: message}
-    %Error{message: message, statement: statement, mysql: mysql}
+    mysql_error(code, name, message, statement)
+  end
+
+  defp mysql_error(code, name, message, statement) when is_integer(code) and is_atom(name) do
+    mysql = %{code: code, name: name}
+    %MyXQL.Error{message: message, mysql: mysql, statement: statement}
   end
 end
