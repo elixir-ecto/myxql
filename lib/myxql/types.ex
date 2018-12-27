@@ -104,7 +104,7 @@ defmodule MyXQL.Types do
   # @mysql_type_set 0xF8
   # @mysql_type_tiny_blob 0xF9
   # @mysql_type_medium_blob 0xFA
-  # @mysql_type_long_blob 0xFB
+  @mysql_type_long_blob 0xFB
   @mysql_type_blob 0xFC
   @mysql_type_var_string 0xFD
   @mysql_type_string 0xFE
@@ -155,6 +155,7 @@ defmodule MyXQL.Types do
              @mysql_type_var_string,
              @mysql_type_string,
              @mysql_type_blob,
+             @mysql_type_long_blob,
              @mysql_type_bit
            ] do
     value
@@ -223,7 +224,13 @@ defmodule MyXQL.Types do
     do: take_binary_datetime(binary)
 
   def take_binary_value(data, type)
-      when type in [@mysql_type_var_string, @mysql_type_string, @mysql_type_blob, @mysql_type_bit] do
+      when type in [
+             @mysql_type_var_string,
+             @mysql_type_string,
+             @mysql_type_blob,
+             @mysql_type_long_blob,
+             @mysql_type_bit
+           ] do
     take_string_lenenc(data)
   end
 

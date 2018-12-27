@@ -1,15 +1,12 @@
-exclude = if System.otp_release() >= "19", do: [], else: [:requires_otp_19]
-ExUnit.start(exclude: exclude)
-
 defmodule TestHelper do
   def opts() do
     ssl_opts =
       case System.get_env("FORCE_TLS11") do
-        nil ->
-          []
-
         "true" ->
           [versions: [:"tlsv1.1"]]
+
+        nil ->
+          []
       end
 
     [
@@ -25,24 +22,78 @@ defmodule TestHelper do
       show_sensitive_data_on_connection_error: true
     ]
   end
+
+  def auth_plugins() do
+    {:ok, pid} = MyXQL.start_link(opts())
+
+    %{rows: plugins} =
+      MyXQL.query!(
+        pid,
+        "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'authentication'"
+      )
+
+    List.flatten(plugins)
+  end
+
+  def default_auth_plugin() do
+    {:ok, pid} = MyXQL.start_link(opts())
+
+    %MyXQL.Result{rows: [[plugin_name]]} =
+      MyXQL.query!(pid, "SELECT plugin FROM mysql.user WHERE user = 'root' LIMIT 1")
+
+    plugin_name
+  end
+
+  def mysql(sql) do
+    args = ~w(
+      --protocol=tcp
+      --user=root
+    ) ++ ["-e", sql]
+
+    cmd(["mysql" | args])
+  end
+
+  def cmd([command | args]) do
+    case System.cmd(command, args) do
+      {"", 0} ->
+        :ok
+
+      {result, 0} ->
+        IO.puts(result)
+
+      {result, _} ->
+        IO.puts(result)
+        exit(:error)
+    end
+  end
 end
 
-sql = """
+TestHelper.mysql("""
 DROP DATABASE IF EXISTS myxql_test;
 CREATE DATABASE myxql_test;
-USE myxql_test;
+""")
 
+sha256_password_available? = "sha256_password" in TestHelper.auth_plugins()
+
+if sha256_password_available? do
+  TestHelper.mysql("""
+  DROP USER IF EXISTS sha256_password;
+  CREATE USER sha256_password IDENTIFIED WITH sha256_password;
+  ALTER USER sha256_password IDENTIFIED BY 'secret';
+  GRANT ALL PRIVILEGES ON myxql_test.* TO sha256_password;
+  """)
+end
+
+TestHelper.mysql("""
+USE myxql_test;
 DROP USER IF EXISTS default_auth;
 CREATE USER default_auth IDENTIFIED BY 'secret';
 GRANT ALL PRIVILEGES ON myxql_test.* TO default_auth;
 
 DROP USER IF EXISTS mysql_native_password;
-CREATE USER mysql_native_password IDENTIFIED WITH mysql_native_password BY 'secret';
+CREATE USER mysql_native_password IDENTIFIED WITH mysql_native_password;
+ALTER USER mysql_native_password IDENTIFIED BY 'secret';
 GRANT ALL PRIVILEGES ON myxql_test.* TO mysql_native_password;
-
-DROP USER IF EXISTS sha256_password;
-CREATE USER sha256_password IDENTIFIED WITH sha256_password BY 'secret';
-GRANT ALL PRIVILEGES ON myxql_test.* TO sha256_password;
 
 DROP USER IF EXISTS nopassword;
 CREATE USER nopassword;
@@ -53,7 +104,7 @@ CREATE TABLE integers (x int);
 CREATE TABLE uniques (a int UNIQUE);
 
 CREATE TABLE test_types (
-  id SERIAL PRIMARY KEY AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   my_tinyint TINYINT,
   my_smallint SMALLINT,
   my_mediumint MEDIUMINT,
@@ -89,21 +140,27 @@ BEGIN
   SELECT 2;
 END$$
 DELIMITER ;
-"""
+""")
 
-argv = ~w(
-  --protocol=tcp
-  --user=root
-) ++ ["-e", sql]
+exclude = if System.otp_release() >= "19", do: [], else: [:requires_otp_19]
 
-case System.cmd("mysql", argv) do
-  {"", 0} ->
-    :ok
+exclude =
+  if sha256_password_available? do
+    exclude
+  else
+    [{:auth_plugin, "sha256_password"} | exclude]
+  end
 
-  {result, 0} ->
-    IO.puts(result)
+exclude =
+  case System.get_env("JSON") do
+    "false" -> [{:requires_json, true} | exclude]
+    _ -> exclude
+  end
 
-  {result, _} ->
-    IO.puts(result)
-    exit(:error)
-end
+exclude =
+  case System.get_env("SSL") do
+    "false" -> [{:requires_ssl, true} | exclude]
+    _ -> exclude
+  end
+
+ExUnit.start(exclude: exclude)

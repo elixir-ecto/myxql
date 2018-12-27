@@ -5,6 +5,7 @@ defmodule MyXQLTest do
   @opts TestHelper.opts()
 
   describe "connect" do
+    @tag requires_ssl: true
     test "connect with default auth method and SSL" do
       opts = Keyword.merge(@opts, username: "default_auth", password: "secret", ssl: true)
       {:ok, conn} = MyXQL.start_link(opts)
@@ -15,7 +16,7 @@ defmodule MyXQLTest do
     test "connect with default auth method and no SSL" do
       opts = Keyword.merge(@opts, username: "default_auth", password: "secret", ssl: false)
 
-      case default_auth_plugin() do
+      case TestHelper.default_auth_plugin() do
         "mysql_native_password" ->
           {:ok, conn} = MyXQL.start_link(opts)
           MyXQL.query!(conn, "SELECT 1")
@@ -42,6 +43,7 @@ defmodule MyXQLTest do
              end) =~ "** (MyXQL.Error) Access denied for user 'mysql_native_password'"
     end
 
+    @tag auth_plugin: "sha256_password"
     test "connect with sha256_password and SSL" do
       opts = Keyword.merge(@opts, username: "sha256_password", password: "secret", ssl: true)
       {:ok, conn} = MyXQL.start_link(opts)
@@ -49,6 +51,7 @@ defmodule MyXQLTest do
       MyXQL.query!(conn, "SELECT 1")
     end
 
+    @tag auth_plugin: "sha256_password"
     test "connect with sha256_password, SSL and bad password" do
       assert capture_log(fn ->
                opts =
@@ -58,6 +61,7 @@ defmodule MyXQLTest do
              end) =~ "** (MyXQL.Error) Access denied for user 'sha256_password'"
     end
 
+    @tag auth_plugin: "sha256_password"
     test "connect with sha256_password and no SSL" do
       assert capture_log(fn ->
                opts =
@@ -74,6 +78,7 @@ defmodule MyXQLTest do
       MyXQL.query!(conn, "SELECT 1")
     end
 
+    @tag requires_ssl: true
     test "connect with bad SSL opts" do
       assert capture_log(fn ->
                opts = Keyword.merge(@opts, ssl: true, ssl_opts: [ciphers: [:bad]])
@@ -403,14 +408,5 @@ defmodule MyXQLTest do
   defp truncate(c) do
     MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
     c
-  end
-
-  defp default_auth_plugin() do
-    {:ok, pid} = MyXQL.start_link(@opts)
-
-    %MyXQL.Result{rows: [[_, plugin_name]]} =
-      MyXQL.query!(pid, "SHOW VARIABLES WHERE variable_name = 'default_authentication_plugin'")
-
-    plugin_name
   end
 end

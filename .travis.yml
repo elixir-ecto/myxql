@@ -11,10 +11,12 @@ addons:
       - mysql-client
 env:
   global:
+    - MYSQL_SOCKET_DIR=/var/run/mysqld
     - MYSQL_UNIX_PORT=/var/run/mysqld/mysqld.sock
   matrix:
     - DB=mysql:5.7 FORCE_TLS11=true
     - DB=mysql:8.0
+    - DB=mariadb:10.3 JSON=false SSL=false
 matrix:
   include:
     - elixir: 1.4

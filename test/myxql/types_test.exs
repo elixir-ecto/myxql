@@ -163,6 +163,7 @@ defmodule MyXQL.TypesTest do
         assert insert_and_get(c, "my_boolean", false) == 0
       end
 
+      @tag requires_json: true
       test "JSON", c do
         assert insert_and_get(c, "my_json", "[]") == []
         assert insert_and_get(c, "my_json", "[1, [2, 3]]") == [1, [2, 3]]

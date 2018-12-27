@@ -215,11 +215,11 @@ defmodule MyXQL.Messages do
       auth_plugin_data1::8-bytes,
       0,
       capability_flags1::int(2),
-      character_set::8,
+      character_set::int(1),
       status_flags::int(2),
       capability_flags2::int(2),
-      auth_plugin_data_length::8,
-      0::int(10),
+      auth_plugin_data_length::int(1),
+      _::int(10),
       rest::binary
     >> = rest
 
