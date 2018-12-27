@@ -2,7 +2,7 @@ defmodule MyXQLTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureLog
 
-  @opts TestHelpers.opts()
+  @opts TestHelper.opts()
 
   describe "connect" do
     test "connect with default auth method and SSL" do

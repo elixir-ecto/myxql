@@ -202,7 +202,7 @@ defmodule MyXQL.TypesTest do
   end
 
   defp connect(c) do
-    {:ok, conn} = MyXQL.start_link(TestHelpers.opts())
+    {:ok, conn} = MyXQL.start_link(TestHelper.opts())
     Keyword.put(c, :conn, conn)
   end
 
