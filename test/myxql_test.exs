@@ -136,10 +136,12 @@ defmodule MyXQLTest do
     test "connect with SSL but without starting :ssl" do
       Application.stop(:ssl)
 
-      assert_raise RuntimeError, ~r"cannot be established because `:ssl` application is not started", fn ->
-        opts = Keyword.merge(@opts, ssl: true)
-        MyXQL.start_link(opts)
-      end
+      assert_raise RuntimeError,
+                   ~r"cannot be established because `:ssl` application is not started",
+                   fn ->
+                     opts = Keyword.merge(@opts, ssl: true)
+                     MyXQL.start_link(opts)
+                   end
     after
       Application.start(:ssl)
     end

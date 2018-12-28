@@ -92,7 +92,8 @@ defmodule MyXQL do
   end
 
   defp ensure_deps_started!(opts) do
-    if Keyword.get(opts, :ssl, false) and not List.keymember?(:application.which_applications(), :ssl, 0) do
+    if Keyword.get(opts, :ssl, false) and
+         not List.keymember?(:application.which_applications(), :ssl, 0) do
       raise """
       SSL connection cannot be established because `:ssl` application is not started,
       you can add it to `:extra_applications` in your `mix.exs`:
