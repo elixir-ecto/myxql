@@ -8,7 +8,7 @@ Documentation: http://hexdocs.pm/myxql/
 
 ## Features
 
-  * Automatic decoding and encoding of Elixir values to and from MyXQL text and binary protocols
+  * Automatic decoding and encoding of Elixir values to and from MySQL text and binary protocols
   * Supports transactions, prepared queries, streaming, pooling and more via [DBConnection](https://github.com/elixir-ecto/db_connection)
   * Supports MySQL 5.7.10+, 8.0, and MariaDB 10.3
 
