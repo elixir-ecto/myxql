@@ -24,7 +24,7 @@ def deps() do
 end
 ```
 
-```
+```elixir
 iex> {:ok, pid} = MyXQL.start_link(username: "root")
 iex> MyXQL.query!(pid, "CREATE DATABASE IF NOT EXISTS blog")
 
@@ -49,7 +49,7 @@ iex> MyXQL.query(pid, "SELECT * FROM posts")
 
 It's recommended to start MyXQL under supervision tree:
 
-```
+```elixir
 defmodule MyApp.Application do
   use Application
 
@@ -103,7 +103,7 @@ MyXQL comes with JSON support out of the box via the [Jason](https://github.com/
 You can customize it to use another library via the `:json_library` configuration:
 
 ```elixir
-config :postgrex, :json_library, SomeOtherLib
+config :myxql, :json_library, SomeOtherLib
 ```
 
 ## Contributing
