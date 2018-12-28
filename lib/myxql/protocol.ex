@@ -50,7 +50,7 @@ defmodule MyXQL.Protocol do
     tcp? = Keyword.has_key?(opts, :hostname) or Keyword.has_key?(opts, :port)
 
     if tcp? and not Keyword.has_key?(opts, :socket) do
-      hostname = Keyword.get(opts, :hostname)
+      hostname = Keyword.get(opts, :hostname, "localhost")
       default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
       port = Keyword.get(opts, :port, default_port)
       {String.to_charlist(hostname), port}
