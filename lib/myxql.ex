@@ -320,10 +320,11 @@ defmodule MyXQL do
 
   ## Example
 
-      {:error, :oops} = MyXQL.transaction(pid, fn conn  ->
-        MyXQL.rollback(conn, :oops)
-        IO.puts "never reaches here!"
-      end)
+      {:error, :oops} =
+        MyXQL.transaction(pid, fn conn  ->
+          MyXQL.rollback(conn, :oops)
+          IO.puts "never reaches here!"
+        end)
 
   """
   @spec rollback(DBConnection.t(), any()) :: no_return()
