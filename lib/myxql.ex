@@ -1,5 +1,6 @@
 defmodule MyXQL do
   def start_link(opts) do
+    ensure_deps_started!(opts)
     DBConnection.start_link(MyXQL.Protocol, opts)
   end
 
@@ -83,8 +84,24 @@ defmodule MyXQL do
     DBConnection.child_spec(MyXQL.Protocol, opts)
   end
 
+  ## Helpers
+
   @doc false
   def json_library() do
     Application.get_env(:myxql, :json_library, Jason)
+  end
+
+  defp ensure_deps_started!(opts) do
+    if Keyword.get(opts, :ssl, false) and not List.keymember?(:application.which_applications(), :ssl, 0) do
+      raise """
+      SSL connection cannot be established because `:ssl` application is not started,
+      you can add it to `:extra_applications` in your `mix.exs`:
+
+          def application() do
+            [extra_applications: [:ssl]]
+          end
+
+      """
+    end
   end
 end
