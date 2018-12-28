@@ -39,9 +39,15 @@ defmodule MyXQL do
   end
 
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
-      when is_binary(statement) do
+      when is_binary(statement) or is_list(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare_execute(conn, query, params, opts)
+  end
+
+  def prepare_execute!(conn, name, statement, params \\ [], opts \\ [])
+      when is_binary(statement) or is_list(statement) do
+    query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
+    DBConnection.prepare_execute!(conn, query, params, opts)
   end
 
   defdelegate execute(conn, query, params \\ [], opts \\ []), to: DBConnection
