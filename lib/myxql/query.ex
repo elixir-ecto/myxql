@@ -30,7 +30,7 @@ defmodule MyXQL.Query do
 
   defimpl String.Chars do
     def to_string(%{statement: statement}) do
-      statement
+      IO.iodata_to_binary(statement)
     end
   end
 end

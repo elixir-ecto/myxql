@@ -149,6 +149,10 @@ defmodule MyXQLTest do
     test "iodata in binary protocol", c do
       statement = ["SELECT", [" ", ["?"]]]
       assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [42])
+
+      {query, result} = MyXQL.prepare_execute!(c.conn, "", statement, [42])
+      assert to_string(query) == "SELECT ?"
+      assert %{rows: [[42]]} = result
     end
 
     test "invalid query", c do
