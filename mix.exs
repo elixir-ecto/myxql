@@ -23,7 +23,8 @@ defmodule MyXQL.MixProject do
       {:decimal, "~> 1.6"},
       {:jason, "~> 1.0", optional: true},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
-      {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false}
+      {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 end

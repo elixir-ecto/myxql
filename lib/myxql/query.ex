@@ -1,4 +1,23 @@
 defmodule MyXQL.Query do
+  @moduledoc """
+  Query struct returned from a successfully prepared query.
+
+  Its public fields are:
+
+    * `:name` - The name of the prepared statement;
+    * `:num_params` - The number of parameter placeholders;
+    * `:ref` - A reference used to identify prepared queries;
+    * `:statement` - The prepared statement
+
+  """
+
+  @type t :: %__MODULE__{
+          name: iodata(),
+          num_params: non_neg_integer(),
+          ref: reference(),
+          statement: iodata()
+        }
+
   defstruct name: "",
             num_params: nil,
             ref: nil,
