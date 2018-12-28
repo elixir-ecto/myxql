@@ -383,6 +383,15 @@ defmodule MyXQLTest do
       end
     end
 
+    test "invalid params", c do
+      assert_raise ArgumentError, ~r"parameters must be of length 2", fn ->
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, "SELECT ? * ?", [1])
+          Enum.to_list(stream)
+        end)
+      end
+    end
+
     test "with prepared query", c do
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT * FROM integers")

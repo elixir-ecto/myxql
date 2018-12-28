@@ -357,8 +357,15 @@ defmodule MyXQL do
           DBConnection.PrepareStream.t()
   def stream(conn, query, params \\ [], opts \\ [])
 
-  def stream(%DBConnection{} = conn, statement, params, opts) when is_binary(statement) do
-    query = %MyXQL.Query{name: "", ref: make_ref(), statement: statement}
+  def stream(%DBConnection{} = conn, statement, params, opts)
+      when is_binary(statement) or is_list(statement) do
+    query = %MyXQL.Query{
+      name: "",
+      ref: make_ref(),
+      statement: statement,
+      num_params: length(params)
+    }
+
     stream(conn, query, params, opts)
   end
 
