@@ -5,6 +5,6 @@ defmodule MyXQL.Error do
           message: String.t(),
           statement: iodata() | nil,
           mysql: %{code: integer(), name: atom()} | nil,
-          erlang: term() | nil
+          erlang: :inet.posix() | term() | nil
         }
 end
