@@ -1,8 +1,8 @@
 defmodule MyXQL.Messages do
   @moduledoc false
   import Record
-  use Bitwise
   import MyXQL.Types
+  use Bitwise
 
   @max_packet_size 65536
 
@@ -461,7 +461,7 @@ defmodule MyXQL.Messages do
           if value == nil do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
           else
-            {type, value} = encode_binary_value(value)
+            {type, value} = MyXQL.Row.encode_binary_value(value)
 
             {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag>>,
              <<values::binary, value::binary>>}
@@ -584,7 +584,7 @@ defmodule MyXQL.Messages do
 
       _ ->
         {value, rest} = take_string_lenenc(data)
-        decode_text_resultset_row(rest, tail, [decode_text_value(value, type) | acc])
+        decode_text_resultset_row(rest, tail, [MyXQL.Row.decode_text_value(value, type) | acc])
     end
   end
 
@@ -625,7 +625,7 @@ defmodule MyXQL.Messages do
 
   defp decode_binary_resultset_row(values, null_bitmap, [column_def | column_defs], acc) do
     column_def(type: type) = column_def
-    {value, rest} = take_binary_value(values, null_bitmap, type)
+    {value, rest} = MyXQL.Row.take_binary_value(values, null_bitmap, type)
     decode_binary_resultset_row(rest, null_bitmap >>> 1, column_defs, [value | acc])
   end
 
