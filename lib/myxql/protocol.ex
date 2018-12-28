@@ -553,7 +553,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp erlang_error(reason) do
-    message = reason |> :ssl.format_error() |> List.to_string()
+    message = {:error, reason} |> :ssl.format_error() |> List.to_string()
     %MyXQL.Error{message: message, erlang: reason}
   end
 end
