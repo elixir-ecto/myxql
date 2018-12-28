@@ -94,7 +94,7 @@ defmodule MyXQLTest do
     end
 
     @tag requires_otp_19: true
-    test "connect using UNIX domain socket is the default" do
+    test "connect using default protocol (:socket)" do
       opts =
         @opts
         |> Keyword.delete(:hostname)
@@ -111,8 +111,8 @@ defmodule MyXQLTest do
 
       opts =
         @opts
-        |> Keyword.delete(:hostname)
         |> Keyword.delete(:port)
+        |> Keyword.put(:hostname, "intentionally_bad_host")
         |> Keyword.merge(socket: socket)
 
       {:ok, conn} = MyXQL.start_link(opts)

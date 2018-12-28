@@ -47,16 +47,25 @@ defmodule MyXQL.Protocol do
   end
 
   defp address_and_port(opts) do
-    tcp? = Keyword.has_key?(opts, :hostname) or Keyword.has_key?(opts, :port)
+    default_protocol =
+      if (Keyword.has_key?(opts, :hostname) or Keyword.has_key?(opts, :port)) and
+           not Keyword.has_key?(opts, :socket),
+         do: :tcp,
+         else: :socket
 
-    if tcp? and not Keyword.has_key?(opts, :socket) do
-      hostname = Keyword.get(opts, :hostname, "localhost")
-      default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
-      port = Keyword.get(opts, :port, default_port)
-      {String.to_charlist(hostname), port}
-    else
-      socket = Keyword.get(opts, :socket, System.get_env("MYSQL_UNIX_PORT") || "/tmp/mysql.sock")
-      {{:local, socket}, 0}
+    protocol = Keyword.get(opts, :protocol, default_protocol)
+
+    case protocol do
+      :socket ->
+        default_socket = System.get_env("MYSQL_UNIX_PORT") || "/tmp/mysql.sock"
+        socket = Keyword.get(opts, :socket, default_socket)
+        {{:local, socket}, 0}
+
+      :tcp ->
+        hostname = Keyword.get(opts, :hostname, "localhost")
+        default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
+        port = Keyword.get(opts, :port, default_port)
+        {String.to_charlist(hostname), port}
     end
   end
 
