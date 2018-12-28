@@ -3,7 +3,7 @@ defmodule MyXQL.Query do
 
   defimpl DBConnection.Query do
     def parse(query, _opts) do
-      %{query | statement: query.statement}
+      query
     end
 
     def describe(query, _opts) do

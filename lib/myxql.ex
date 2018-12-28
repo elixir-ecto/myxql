@@ -46,14 +46,7 @@ defmodule MyXQL do
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
       when is_binary(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
-
-    case DBConnection.prepare_execute(conn, query, params, opts) do
-      {:ok, query, result} ->
-        {:ok, query, result}
-
-      {:error, _} = error ->
-        error
-    end
+    DBConnection.prepare_execute(conn, query, params, opts)
   end
 
   defdelegate execute(conn, query, params \\ [], opts \\ []), to: DBConnection
