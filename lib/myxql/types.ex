@@ -162,7 +162,7 @@ defmodule MyXQL.Types do
   end
 
   def decode_text_value(value, @mysql_type_json) do
-    Jason.decode!(value)
+    MyXQL.json_library().decode!(value)
   end
 
   # Binary values
@@ -236,7 +236,7 @@ defmodule MyXQL.Types do
 
   def take_binary_value(data, @mysql_type_json) do
     {json, rest} = take_string_lenenc(data)
-    value = Jason.decode!(json)
+    value = MyXQL.json_library().decode!(json)
     {value, rest}
   end
 

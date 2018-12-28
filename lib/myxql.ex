@@ -82,4 +82,9 @@ defmodule MyXQL do
   def child_spec(opts) do
     DBConnection.child_spec(MyXQL.Protocol, opts)
   end
+
+  @doc false
+  def json_library() do
+    Application.get_env(:myxql, :json_library, Jason)
+  end
 end
