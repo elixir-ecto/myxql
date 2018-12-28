@@ -129,7 +129,8 @@ CREATE TABLE test_types (
   my_varbinary3 VARBINARY(3),
   my_boolean BOOLEAN,
   my_blob BLOB,
-  my_json JSON
+  my_json JSON,
+  my_char CHAR
 );
 
 DROP PROCEDURE IF EXISTS multi;

@@ -169,6 +169,10 @@ defmodule MyXQL.TypesTest do
         assert insert_and_get(c, "my_json", "{}") == %{}
         assert insert_and_get(c, "my_json", "{\"a\": [\"foo\", 42]}") == %{"a" => ["foo", 42]}
       end
+
+      test "CHAR", c do
+        assert_roundtrip(c, "my_char", "é")
+      end
     end
   end
 
