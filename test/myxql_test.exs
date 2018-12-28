@@ -191,6 +191,7 @@ defmodule MyXQLTest do
     test "prepare and then execute", c do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
 
+      assert query.num_params == 2
       assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
     end
 

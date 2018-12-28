@@ -2,7 +2,7 @@ defmodule MyXQL.Protocol do
   @moduledoc false
   use DBConnection
   import MyXQL.Messages
-  alias MyXQL.{Cursor, Query, Result}
+  alias MyXQL.{Cursor, Query, TextQuery, Result}
 
   defstruct [
     :sock,
@@ -77,8 +77,7 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_prepare(%Query{ref: ref, type: :binary} = query, _opts, state)
-      when is_reference(ref) do
+  def handle_prepare(%Query{ref: ref} = query, _opts, state) when is_reference(ref) do
     data = encode_com_stmt_prepare(query.statement)
     {:ok, data} = send_and_recv(state, data)
 
@@ -104,7 +103,7 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_execute(%Query{type: :binary} = query, params, _opts, s) do
+  def handle_execute(%Query{} = query, params, _opts, s) do
     with {:ok, query, statement_id, s} <- maybe_reprepare(query, s) do
       data = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
       {:ok, data} = send_and_recv(s, data)
@@ -139,7 +138,7 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  def handle_execute(%Query{type: :text, statement: statement} = query, [], _opts, s) do
+  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, s) do
     data = encode_com_query(statement)
     {:ok, data} = send_and_recv(s, data)
 

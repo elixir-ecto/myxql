@@ -6,11 +6,7 @@ defmodule MyXQL do
   def query(conn, statement, params \\ [], opts \\ [])
 
   def query(conn, statement, [], opts) when is_binary(statement) or is_list(statement) do
-    query = %MyXQL.Query{
-      name: "",
-      statement: statement,
-      type: :text
-    }
+    query = %MyXQL.TextQuery{statement: statement}
 
     DBConnection.execute(conn, query, [], opts)
     |> query_result()
@@ -20,8 +16,7 @@ defmodule MyXQL do
     query = %MyXQL.Query{
       name: "",
       ref: make_ref(),
-      statement: statement,
-      type: :binary
+      statement: statement
     }
 
     DBConnection.prepare_execute(conn, query, params, opts)
@@ -73,7 +68,7 @@ defmodule MyXQL do
     stream(conn, query, params, opts)
   end
 
-  def stream(%DBConnection{} = conn, %MyXQL.Query{type: :binary} = query, params, opts) do
+  def stream(%DBConnection{} = conn, %MyXQL.Query{} = query, params, opts) do
     opts = Keyword.put_new(opts, :max_rows, 500)
     DBConnection.prepare_stream(conn, query, params, opts)
   end
