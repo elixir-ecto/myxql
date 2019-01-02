@@ -86,29 +86,9 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_prepare(%Query{ref: ref} = query, _opts, state) when is_reference(ref) do
-    payload = encode_com_stmt_prepare(query.statement)
-    data = encode_packet(payload, 0)
-    {:ok, data} = send_and_recv(state, data)
-
-    case decode_com_stmt_prepare_response(data) do
-      com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params) ->
-        state = put_statement_id(state, query, statement_id)
-        query = %{query | num_params: num_params}
-        {:ok, query, state}
-
-      err_packet() = err_packet ->
-        {:error, mysql_error(err_packet, query.statement), state}
-    end
-  end
-
-  defp maybe_reprepare(query, state) do
-    case get_statement_id(state, query) do
-      {:ok, statement_id} ->
-        {:ok, query, statement_id, state}
-
-      :error ->
-        reprepare(query, state)
+  def handle_prepare(query, _opts, state) do
+    with {:ok, query, _statement_id, state} <- prepare(query, state) do
+      {:ok, query, state}
     end
   end
 
@@ -202,7 +182,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_close(%Query{} = query, _opts, state) do
-    case get_statement_id(state, query) do
+    case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
         payload = encode_com_stmt_close(statement_id)
         data = encode_packet(payload, 0)
@@ -575,7 +555,7 @@ defmodule MyXQL.Protocol do
     %{state | prepared_statements: Map.put(state.prepared_statements, ref, statement_id)}
   end
 
-  defp get_statement_id(state, %Query{ref: ref}) do
+  defp fetch_statement_id(state, %Query{ref: ref}) do
     Map.fetch(state.prepared_statements, ref)
   end
 
@@ -583,11 +563,36 @@ defmodule MyXQL.Protocol do
     %{state | prepared_statements: Map.delete(state.prepared_statements, ref)}
   end
 
+  defp prepare(%Query{ref: ref} = query, state) when is_reference(ref) do
+    payload = encode_com_stmt_prepare(query.statement)
+    data = encode_packet(payload, 0)
+    {:ok, data} = send_and_recv(state, data)
+
+    case decode_com_stmt_prepare_response(data) do
+      com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params) ->
+        state = put_statement_id(state, query, statement_id)
+        query = %{query | num_params: num_params}
+        {:ok, query, statement_id, state}
+
+      err_packet() = err_packet ->
+        {:error, mysql_error(err_packet, query.statement), state}
+    end
+  end
+
+  defp maybe_reprepare(query, state) do
+    case fetch_statement_id(state, query) do
+      {:ok, statement_id} ->
+        {:ok, query, statement_id, state}
+
+      :error ->
+        reprepare(query, state)
+    end
+  end
+
   defp reprepare(query, state) do
     query = %Query{query | ref: make_ref()}
 
-    with {:ok, query, state} <- handle_prepare(query, [], state) do
-      {:ok, statement_id} = get_statement_id(state, query)
+    with {:ok, query, statement_id, state} <- prepare(query, state) do
       {:ok, query, statement_id, state}
     end
   end
