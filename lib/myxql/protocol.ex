@@ -124,7 +124,14 @@ defmodule MyXQL.Protocol do
       case decode_com_stmt_execute_response(data) do
         resultset(column_defs: column_defs, rows: rows, status_flags: status_flags) ->
           columns = Enum.map(column_defs, &elem(&1, 1))
-          result = %Result{connection_id: connection_id, columns: columns, num_rows: length(rows), rows: rows}
+
+          result = %Result{
+            connection_id: connection_id,
+            columns: columns,
+            num_rows: length(rows),
+            rows: rows
+          }
+
           {:ok, query, result, put_status(s, status_flags)}
 
         ok_packet(
@@ -164,8 +171,12 @@ defmodule MyXQL.Protocol do
         affected_rows: affected_rows,
         status_flags: status_flags
       ) ->
-        {:ok, query, %MyXQL.Result{connection_id: connection_id, last_insert_id: last_insert_id, num_rows: affected_rows},
-         put_status(s, status_flags)}
+        {:ok, query,
+         %MyXQL.Result{
+           connection_id: connection_id,
+           last_insert_id: last_insert_id,
+           num_rows: affected_rows
+         }, put_status(s, status_flags)}
 
       resultset(
         column_defs: column_defs,
@@ -174,7 +185,14 @@ defmodule MyXQL.Protocol do
         status_flags: status_flags
       ) ->
         columns = Enum.map(column_defs, &elem(&1, 1))
-        result = %MyXQL.Result{connection_id: connection_id, columns: columns, num_rows: num_rows, rows: rows}
+
+        result = %MyXQL.Result{
+          connection_id: connection_id,
+          columns: columns,
+          num_rows: num_rows,
+          rows: rows
+        }
+
         {:ok, query, result, put_status(s, status_flags)}
 
       err_packet() = err_packet ->
@@ -295,7 +313,13 @@ defmodule MyXQL.Protocol do
           decode_binary_resultset_rows(data, column_defs)
 
         columns = Enum.map(column_defs, &elem(&1, 1))
-        result = %MyXQL.Result{connection_id: connection_id, rows: rows, num_rows: row_count, columns: columns}
+
+        result = %MyXQL.Result{
+          connection_id: connection_id,
+          rows: rows,
+          num_rows: row_count,
+          columns: columns
+        }
 
         if :server_status_cursor_exists in list_status_flags(status_flags) do
           {:cont, result, s}
