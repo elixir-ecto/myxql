@@ -231,7 +231,7 @@ defmodule MyXQLTest do
       assert {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn1, query1, [])
     end
 
-    test "prepared statement from different connection is reprepared", c do
+    test "prepared query from different connection is re-prepared", c do
       conn1 = c.conn
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
@@ -239,6 +239,20 @@ defmodule MyXQLTest do
       {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
 
       assert query1.ref != query2.ref
+    end
+
+    test "prepared query is not re-prepared after schema change", c do
+      MyXQL.query!(c.conn, "CREATE TABLE test_prepared_schema_change (x integer)")
+      MyXQL.query!(c.conn, "INSERT INTO test_prepared_schema_change VALUES (1)")
+
+      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT * FROM test_prepared_schema_change")
+      MyXQL.query!(c.conn, "ALTER TABLE test_prepared_schema_change ADD y integer DEFAULT 2")
+
+      {:ok, query2, result} = MyXQL.execute(c.conn, query)
+      assert result.rows == [[1, 2]]
+      assert query.ref == query2.ref
+    after
+      MyXQL.query!(c.conn, "DROP TABLE IF EXISTS test_prepared_schema_change")
     end
 
     test "invalid number of params", c do
