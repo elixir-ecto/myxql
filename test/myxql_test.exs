@@ -236,7 +236,9 @@ defmodule MyXQLTest do
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
-      {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
+      {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
+
+      assert query1.ref != query2.ref
     end
 
     test "invalid number of params", c do

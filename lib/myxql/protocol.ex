@@ -584,6 +584,8 @@ defmodule MyXQL.Protocol do
   end
 
   defp reprepare(query, state) do
+    query = %Query{query | ref: make_ref()}
+
     with {:ok, query, state} <- handle_prepare(query, [], state) do
       {:ok, statement_id} = get_statement_id(state, query)
       {:ok, query, statement_id, state}
