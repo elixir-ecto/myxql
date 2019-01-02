@@ -121,13 +121,7 @@ defmodule MyXQL do
   end
 
   def query(conn, statement, params, opts) when is_binary(statement) or is_list(statement) do
-    query = %MyXQL.Query{
-      name: "",
-      ref: make_ref(),
-      statement: statement
-    }
-
-    DBConnection.prepare_execute(conn, query, params, opts)
+    prepare_execute(conn, "", statement, params, opts)
     |> query_result()
   end
 
