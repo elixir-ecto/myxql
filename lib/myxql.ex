@@ -39,6 +39,9 @@ defmodule MyXQL do
       the default pool is `1`. If you set a different pool, this option must be
       included with all requests contacting the pool
 
+    * `:connect_timeout` - Socket connect timeout in milliseconds (default:
+      `15000`)
+
   Options are passed to `DBConnection.start_link/2`, see it's documentation for
   other available options.
 

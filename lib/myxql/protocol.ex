@@ -35,7 +35,7 @@ defmodule MyXQL.Protocol do
 
   defp do_connect(opts) do
     {address, port} = address_and_port(opts)
-    timeout = Keyword.get(opts, :timeout, 5000)
+    connect_timeout = Keyword.get(opts, :connect_timeout, 15000)
 
     socket_opts = [
       :binary,
@@ -43,7 +43,7 @@ defmodule MyXQL.Protocol do
       recbuf: 65535
     ]
 
-    :gen_tcp.connect(address, port, socket_opts, timeout)
+    :gen_tcp.connect(address, port, socket_opts, connect_timeout)
   end
 
   defp address_and_port(opts) do
