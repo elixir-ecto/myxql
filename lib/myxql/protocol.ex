@@ -87,7 +87,8 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_prepare(%Query{ref: ref} = query, _opts, state) when is_reference(ref) do
-    data = encode_com_stmt_prepare(query.statement)
+    payload = encode_com_stmt_prepare(query.statement)
+    data = encode_packet(payload, 0)
     {:ok, data} = send_and_recv(state, data)
 
     case decode_com_stmt_prepare_response(data) do
@@ -114,7 +115,8 @@ defmodule MyXQL.Protocol do
   @impl true
   def handle_execute(%Query{} = query, params, _opts, s) do
     with {:ok, query, statement_id, s} <- maybe_reprepare(query, s) do
-      data = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
+      payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
+      data = encode_packet(payload, 0)
       {:ok, data} = send_and_recv(s, data)
 
       case decode_com_stmt_execute_response(data) do
@@ -148,7 +150,8 @@ defmodule MyXQL.Protocol do
   end
 
   def handle_execute(%TextQuery{statement: statement} = query, [], _opts, s) do
-    data = encode_com_query(statement)
+    payload = encode_com_query(statement)
+    data = encode_packet(payload, 0)
     {:ok, data} = send_and_recv(s, data)
 
     case decode_com_query_response(data) do
@@ -179,7 +182,8 @@ defmodule MyXQL.Protocol do
   def handle_close(%Query{} = query, _opts, state) do
     case get_statement_id(state, query) do
       {:ok, statement_id} ->
-        data = encode_com_stmt_close(statement_id)
+        payload = encode_com_stmt_close(statement_id)
+        data = encode_packet(payload, 0)
         :ok = sock_send(state, data)
         state = delete_statement_id(state, query)
         {:ok, nil, state}
@@ -191,7 +195,10 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def ping(state) do
-    case send_and_recv(state, encode_com_ping()) do
+    payload = encode_com_ping()
+    data = encode_packet(payload, 0)
+
+    case send_and_recv(state, data) do
       {:ok, data} ->
         packet(payload: payload) = decode_packet(data)
         ok_packet(status_flags: status_flags) = decode_ok_packet(payload)
@@ -253,7 +260,8 @@ defmodule MyXQL.Protocol do
   @impl true
   def handle_declare(query, params, _opts, s) do
     {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
-    data = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
+    payload = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
+    data = encode_packet(payload, 0)
     {:ok, data} = send_and_recv(s, data)
 
     case decode_com_stmt_execute_response(data) do
@@ -268,7 +276,8 @@ defmodule MyXQL.Protocol do
   def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, s) do
     max_rows = Keyword.fetch!(opts, :max_rows)
     {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
-    data = encode_com_stmt_fetch(statement_id, max_rows, 0)
+    payload = encode_com_stmt_fetch(statement_id, max_rows)
+    data = encode_packet(payload, 0)
     {:ok, data} = send_and_recv(s, data)
 
     case data do
@@ -307,7 +316,7 @@ defmodule MyXQL.Protocol do
       auth_plugin_data1: auth_plugin_data1,
       auth_plugin_data2: auth_plugin_data2,
       status_flags: _status_flags
-    ) = MyXQL.Messages.decode_handshake_v10(data)
+    ) = decode_handshake_v10(data)
 
     state = %{state | connection_id: conn_id}
     sequence_id = 1
@@ -344,16 +353,16 @@ defmodule MyXQL.Protocol do
        ) do
     auth_response = auth_response(auth_plugin_name, password, auth_plugin_data)
 
-    data =
-      MyXQL.Messages.encode_handshake_response_41(
+    payload =
+      encode_handshake_response_41(
         username,
         auth_plugin_name,
         auth_response,
         database,
-        ssl?,
-        sequence_id
+        ssl?
       )
 
+    data = encode_packet(payload, sequence_id)
     {:ok, data} = connect_send_and_recv(state, data)
 
     case decode_handshake_response(data) do
@@ -434,7 +443,8 @@ defmodule MyXQL.Protocol do
   end
 
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, database, sequence_id) do
-    data = encode_ssl_request(sequence_id, database)
+    payload = encode_ssl_request(database)
+    data = encode_packet(payload, sequence_id)
     :ok = :gen_tcp.send(state.sock, data)
 
     case :ssl.connect(state.sock, ssl_opts) do
@@ -515,7 +525,8 @@ defmodule MyXQL.Protocol do
   end
 
   defp send_text_query(s, statement) do
-    data = encode_com_query(statement)
+    payload = encode_com_query(statement)
+    data = encode_packet(payload, 0)
     sock_send(s, data)
   end
 

@@ -258,14 +258,13 @@ defmodule MyXQL.Messages do
         auth_plugin_name,
         auth_response,
         database,
-        ssl?,
-        sequence_id
+        ssl?
       ) do
     capability_flags = capability_flags(database, ssl?)
     auth_response = if auth_response, do: encode_string_lenenc(auth_response), else: <<0>>
     database = if database, do: <<database::binary, 0x00>>, else: ""
 
-    payload = <<
+    <<
       capability_flags::int(4),
       @max_packet_size::int(4),
       character_set_name_to_code(:utf8_general_ci),
@@ -275,21 +274,17 @@ defmodule MyXQL.Messages do
       database::binary,
       (<<auth_plugin_name::binary, 0x00>>)
     >>
-
-    encode_packet(payload, sequence_id)
   end
 
-  def encode_ssl_request(sequence_id, database) do
+  def encode_ssl_request(database) do
     capability_flags = capability_flags(database, true)
 
-    payload = <<
+    <<
       capability_flags::int(4),
       @max_packet_size::int(4),
       character_set_name_to_code(:utf8_general_ci),
       0::int(23)
     >>
-
-    encode_packet(payload, sequence_id)
   end
 
   def decode_handshake_response(data) do
@@ -341,8 +336,7 @@ defmodule MyXQL.Messages do
   end
 
   defp encode_com(command, iodata) when is_integer(command) do
-    sequence_id = 0
-    encode_packet([command, iodata], sequence_id)
+    [command, iodata]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
@@ -433,7 +427,7 @@ defmodule MyXQL.Messages do
     new_params_bound_flag = 1
     {null_bitmap, types, values} = encode_params(params)
 
-    payload = <<
+    <<
       command,
       statement_id::int(4),
       flags::size(8),
@@ -443,9 +437,6 @@ defmodule MyXQL.Messages do
       types::binary,
       values::binary
     >>
-
-    sequence_id = 0
-    encode_packet(payload, sequence_id)
   end
 
   defp encode_params(params) do
@@ -502,14 +493,12 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
-  def encode_com_stmt_fetch(statement_id, num_rows, sequence_id) do
-    payload = <<
+  def encode_com_stmt_fetch(statement_id, num_rows) do
+    <<
       0x1C,
       statement_id::int(4),
       num_rows::int(4)
     >>
-
-    encode_packet(payload, sequence_id)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
