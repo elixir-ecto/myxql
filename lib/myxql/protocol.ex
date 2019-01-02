@@ -114,6 +114,8 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_execute(%Query{} = query, params, _opts, s) do
+    %{connection_id: connection_id} = s
+
     with {:ok, query, statement_id, s} <- maybe_reprepare(query, s) do
       payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
       data = encode_packet(payload, 0)
@@ -122,7 +124,7 @@ defmodule MyXQL.Protocol do
       case decode_com_stmt_execute_response(data) do
         resultset(column_defs: column_defs, rows: rows, status_flags: status_flags) ->
           columns = Enum.map(column_defs, &elem(&1, 1))
-          result = %Result{columns: columns, num_rows: length(rows), rows: rows}
+          result = %Result{connection_id: connection_id, columns: columns, num_rows: length(rows), rows: rows}
           {:ok, query, result, put_status(s, status_flags)}
 
         ok_packet(
@@ -132,6 +134,7 @@ defmodule MyXQL.Protocol do
           info: _info
         ) ->
           result = %Result{
+            connection_id: connection_id,
             columns: [],
             rows: nil,
             num_rows: affected_rows,
@@ -150,6 +153,7 @@ defmodule MyXQL.Protocol do
   end
 
   def handle_execute(%TextQuery{statement: statement} = query, [], _opts, s) do
+    %{connection_id: connection_id} = s
     payload = encode_com_query(statement)
     data = encode_packet(payload, 0)
     {:ok, data} = send_and_recv(s, data)
@@ -160,7 +164,7 @@ defmodule MyXQL.Protocol do
         affected_rows: affected_rows,
         status_flags: status_flags
       ) ->
-        {:ok, query, %MyXQL.Result{last_insert_id: last_insert_id, num_rows: affected_rows},
+        {:ok, query, %MyXQL.Result{connection_id: connection_id, last_insert_id: last_insert_id, num_rows: affected_rows},
          put_status(s, status_flags)}
 
       resultset(
@@ -170,7 +174,7 @@ defmodule MyXQL.Protocol do
         status_flags: status_flags
       ) ->
         columns = Enum.map(column_defs, &elem(&1, 1))
-        result = %MyXQL.Result{columns: columns, num_rows: num_rows, rows: rows}
+        result = %MyXQL.Result{connection_id: connection_id, columns: columns, num_rows: num_rows, rows: rows}
         {:ok, query, result, put_status(s, status_flags)}
 
       err_packet() = err_packet ->
@@ -274,6 +278,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, s) do
+    %{connection_id: connection_id} = s
     max_rows = Keyword.fetch!(opts, :max_rows)
     {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
     payload = encode_com_stmt_fetch(statement_id, max_rows)
@@ -290,7 +295,7 @@ defmodule MyXQL.Protocol do
           decode_binary_resultset_rows(data, column_defs)
 
         columns = Enum.map(column_defs, &elem(&1, 1))
-        result = %MyXQL.Result{rows: rows, num_rows: row_count, columns: columns}
+        result = %MyXQL.Result{connection_id: connection_id, rows: rows, num_rows: row_count, columns: columns}
 
         if :server_status_cursor_exists in list_status_flags(status_flags) do
           {:cont, result, s}

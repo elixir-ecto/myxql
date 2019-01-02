@@ -5,6 +5,7 @@ defmodule MyXQL.Result do
   Its public fields are:
 
     * `:columns` - The column names;
+    * `:connection_id` - The column names;
     * `:last_insert_id` - The ID of the last inserted row;
     * `:num_rows` - The number of fetched or affected rows;
     * `:rows` - The result set. A list of lists, each inner list corresponding to a
@@ -14,6 +15,7 @@ defmodule MyXQL.Result do
 
   @type t :: %__MODULE__{
           columns: [String.t()] | nil,
+          connection_id: pos_integer(),
           last_insert_id: term() | nil,
           num_rows: non_neg_integer() | nil,
           rows: [[term()]] | nil
@@ -21,6 +23,7 @@ defmodule MyXQL.Result do
 
   defstruct [
     :columns,
+    :connection_id,
     :last_insert_id,
     :num_rows,
     :rows

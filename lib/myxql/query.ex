@@ -12,13 +12,15 @@ defmodule MyXQL.Query do
   """
 
   @type t :: %__MODULE__{
+          columns: [String.t()],
           name: iodata(),
           num_params: non_neg_integer(),
           ref: reference(),
           statement: iodata()
         }
 
-  defstruct name: "",
+  defstruct columns: [],
+            name: "",
             num_params: nil,
             ref: nil,
             statement: nil
