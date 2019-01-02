@@ -29,7 +29,7 @@ defmodule MyXQL.Protocol do
         handshake(state, username, password, database, ssl?, ssl_opts)
 
       {:error, reason} ->
-        {:error, erlang_error(reason)}
+        {:error, socket_error(reason)}
     end
   end
 
@@ -198,7 +198,7 @@ defmodule MyXQL.Protocol do
         {:ok, put_status(state, status_flags)}
 
       {:error, reason} ->
-        {:disconnect, erlang_error(reason), state}
+        {:disconnect, socket_error(reason), state}
     end
   end
 
@@ -451,11 +451,11 @@ defmodule MyXQL.Protocol do
         versions.
         """
 
-        error = erlang_error(reason)
+        error = socket_error(reason)
         {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
 
       {:error, reason} ->
-        {:error, erlang_error(reason)}
+        {:error, socket_error(reason)}
     end
   end
 
@@ -560,8 +560,8 @@ defmodule MyXQL.Protocol do
     %MyXQL.Error{message: message, mysql: mysql, statement: statement}
   end
 
-  defp erlang_error(reason) do
+  defp socket_error(reason) do
     message = {:error, reason} |> :ssl.format_error() |> List.to_string()
-    %MyXQL.Error{message: message, erlang: reason}
+    %MyXQL.Error{message: message, socket: reason}
   end
 end
