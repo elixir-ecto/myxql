@@ -103,7 +103,7 @@ MyXQL comes with JSON support out of the box via the [Jason](https://github.com/
 You can customize it to use another library via the `:json_library` configuration:
 
 ```elixir
-config :myxql, :json_library, SomeOtherLib
+config :myxql, :json_library, SomeJSONModule
 ```
 
 ## Contributing

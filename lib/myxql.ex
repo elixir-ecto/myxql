@@ -377,12 +377,22 @@ defmodule MyXQL do
     DBConnection.child_spec(MyXQL.Protocol, opts)
   end
 
-  ## Helpers
+  @doc """
+  Returns the configured JSON library.
 
-  @doc false
+  To customize the JSON library, including the following
+  in your `config/config.exs`:
+
+      config :phoenix, :json_library, SomeJSONModule
+
+  Defaults to `Jason`.
+  """
+  @spec json_library() :: module()
   def json_library() do
     Application.get_env(:myxql, :json_library, Jason)
   end
+
+  ## Helpers
 
   defp ensure_deps_started!(opts) do
     if Keyword.get(opts, :ssl, false) and
