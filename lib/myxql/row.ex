@@ -67,7 +67,8 @@ defmodule MyXQL.Row do
   end
 
   def decode_text_value(value, type) when type in [@mysql_type_float, @mysql_type_double] do
-    String.to_float(value)
+    {float, ""} = Float.parse(value)
+    float
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
@@ -109,48 +110,71 @@ defmodule MyXQL.Row do
 
   # Binary values
 
-  @spec take_binary_value(binary(), null_bitmap(), type()) :: {term(), binary()}
-  def take_binary_value(value, null_bitmap, type) do
+  @spec take_binary_value(binary(), null_bitmap(), type(), unsigned? :: boolean()) ::
+          {term(), binary()}
+  def take_binary_value(value, null_bitmap, type, unsigned?) do
     if (null_bitmap &&& 1) == 1 do
       {nil, value}
     else
-      take_binary_value(value, type)
+      take_binary_value(value, type, unsigned?)
     end
   end
 
-  defp take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny) do
+  defp take_binary_value(<<value::unsigned-int(1), rest::binary>>, @mysql_type_tiny, true) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(2), rest::binary>>, type)
+  defp take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny, false) do
+    {value, rest}
+  end
+
+  defp take_binary_value(<<value::unsigned-int(2), rest::binary>>, type, true)
        when type in [@mysql_type_short, @mysql_type_year] do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long) do
+  defp take_binary_value(<<value::signed-int(2), rest::binary>>, type, false)
+       when type in [@mysql_type_short, @mysql_type_year] do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(8), rest::binary>>, @mysql_type_longlong) do
+  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_int24, true) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24) do
+  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24, false) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::little-signed-float-size(32), rest::binary>>, @mysql_type_float) do
+  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_long, true) do
+    {value, rest}
+  end
+
+  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long, false) do
+    {value, rest}
+  end
+
+  defp take_binary_value(<<value::unsigned-int(8), rest::binary>>, @mysql_type_longlong, true) do
+    {value, rest}
+  end
+
+  defp take_binary_value(<<value::signed-int(8), rest::binary>>, @mysql_type_longlong, false) do
+    {value, rest}
+  end
+
+  defp take_binary_value(<<value::little-float-size(32), rest::binary>>, @mysql_type_float, _) do
     {value, rest}
   end
 
   defp take_binary_value(
-         <<value::little-signed-float-size(64), rest::binary>>,
-         @mysql_type_double
+         <<value::little-float-size(64), rest::binary>>,
+         @mysql_type_double,
+         _
        ) do
     {value, rest}
   end
 
-  defp take_binary_value(data, @mysql_type_newdecimal) do
+  defp take_binary_value(data, @mysql_type_newdecimal, _) do
     {string, rest} = take_string_lenenc(data)
     decimal = Decimal.new(string)
     {decimal, rest}
@@ -158,18 +182,20 @@ defmodule MyXQL.Row do
 
   defp take_binary_value(
          <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
-         @mysql_type_date
+         @mysql_type_date,
+         _
        ) do
     {:ok, date} = Date.new(year, month, day)
     {date, rest}
   end
 
-  defp take_binary_value(binary, @mysql_type_time), do: take_binary_time(binary)
+  defp take_binary_value(binary, @mysql_type_time, _), do: take_binary_time(binary)
 
-  defp take_binary_value(binary, type) when type in [@mysql_type_datetime, @mysql_type_timestamp],
-    do: take_binary_datetime(binary)
+  defp take_binary_value(binary, type, _)
+       when type in [@mysql_type_datetime, @mysql_type_timestamp],
+       do: take_binary_datetime(binary)
 
-  defp take_binary_value(data, type)
+  defp take_binary_value(data, type, _)
        when type in [
               @mysql_type_var_string,
               @mysql_type_string,
@@ -180,7 +206,7 @@ defmodule MyXQL.Row do
     take_string_lenenc(data)
   end
 
-  defp take_binary_value(data, @mysql_type_json) do
+  defp take_binary_value(data, @mysql_type_json, _) do
     {json, rest} = take_string_lenenc(data)
     value = MyXQL.json_library().decode!(json)
     {value, rest}
@@ -188,11 +214,11 @@ defmodule MyXQL.Row do
 
   @spec encode_binary_value(term()) :: {type(), term()}
   def encode_binary_value(value) when is_integer(value) do
-    {@mysql_type_longlong, <<value::signed-int(8)>>}
+    {@mysql_type_longlong, <<value::int(8)>>}
   end
 
   def encode_binary_value(value) when is_float(value) do
-    {@mysql_type_double, <<value::little-signed-float-size(64)>>}
+    {@mysql_type_double, <<value::little-float-size(64)>>}
   end
 
   def encode_binary_value(%Decimal{} = value) do
