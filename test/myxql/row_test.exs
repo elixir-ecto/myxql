@@ -147,11 +147,12 @@ defmodule MyXQL.RowTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
-      # if @protocol == :binary do
-      #   test "MYSQL_TYPE_BIT", c do
-      #     assert_roundtrip(c, "my_bit2", <<1::1, 0::1>>)
-      #   end
-      # end
+      test "MYSQL_TYPE_BIT", c do
+        assert_roundtrip(c, "my_bit2", <<0b10>>)
+        assert_roundtrip(c, "my_bit2", <<0b01>>)
+
+        assert_roundtrip(c, "my_bit10", <<0b00000001, 0b00011000>>)
+      end
 
       test "MYSQL_TYPE_NEWDECIMAL - SQL DECIMAL", c do
         assert_roundtrip(c, "my_decimal", Decimal.new(-13))

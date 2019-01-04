@@ -34,7 +34,7 @@ defmodule MyXQL.Row do
   @mysql_type_datetime 0x0C
   @mysql_type_year 0x0D
   @mysql_type_varchar 0x0F
-  # @mysql_type_bit 0x10
+  @mysql_type_bit 0x10
   @mysql_type_json 0xF5
   @mysql_type_newdecimal 0xF6
   # @mysql_type_enum 0xF7
@@ -98,8 +98,8 @@ defmodule MyXQL.Row do
              @mysql_type_var_string,
              @mysql_type_string,
              @mysql_type_blob,
-             @mysql_type_long_blob
-             # @mysql_type_bit
+             @mysql_type_long_blob,
+             @mysql_type_bit
            ] do
     value
   end
@@ -200,8 +200,8 @@ defmodule MyXQL.Row do
               @mysql_type_var_string,
               @mysql_type_string,
               @mysql_type_blob,
-              @mysql_type_long_blob
-              # @mysql_type_bit
+              @mysql_type_long_blob,
+              @mysql_type_bit
             ] do
     take_string_lenenc(data)
   end
@@ -240,9 +240,9 @@ defmodule MyXQL.Row do
     {@mysql_type_var_string, encode_string_lenenc(binary)}
   end
 
-  # def encode_binary_value(bitstring) when is_bitstring(bitstring) do
-  #   {@mysql_type_bit, bitstring}
-  # end
+  def encode_binary_value(binary) when is_binary(binary) do
+    {@mysql_type_bit, binary}
+  end
 
   def encode_binary_value(true) do
     {@mysql_type_tiny, <<1>>}
