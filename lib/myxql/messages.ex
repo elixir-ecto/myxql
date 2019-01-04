@@ -109,37 +109,6 @@ defmodule MyXQL.Messages do
     |> Enum.filter(&has_status_flag?(flags, &1))
   end
 
-  # Column flags (non-internal)
-  # https://dev.mysql.com/doc/dev/mysql-server/8.0.11/group__group__cs__column__definition__flags.html
-  @column_flags %{
-    not_null_flag: 0x0001,
-    pri_key_flag: 0x0002,
-    unique_key_flag: 0x0004,
-    multiple_key_flag: 0x0008,
-    blob_flag: 0x0010,
-    unsigned_flag: 0x0020,
-    zerofill_flag: 0x0040,
-    binary_flag: 0x0080,
-    enum_flag: 0x0100,
-    auto_increment_flag: 0x0200,
-    timestamp_flag: 0x0400,
-    set_flag: 0x0800,
-    no_default_value_flag: 0x1000,
-    on_update_now_flag: 0x2000,
-    num_flag: 0x4000
-  }
-
-  def has_column_flag?(flags, name) when is_integer(flags) do
-    value = Map.fetch!(@column_flags, name)
-    (flags &&& value) == value
-  end
-
-  def list_column_flags(flags) do
-    @column_flags
-    |> Map.keys()
-    |> Enum.filter(&has_column_flag?(flags, &1))
-  end
-
   ###########################################################
   # Basic packets
   #
@@ -483,7 +452,6 @@ defmodule MyXQL.Messages do
           if value == nil do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
           else
-            unsigned_flag = if value > (1 <<< 63) - 1, do: 0x80, else: unsigned_flag
             {type, value} = MyXQL.Row.encode_binary_value(value)
 
             {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag>>,
@@ -534,7 +502,7 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def, [:name, :type, :flags]
+  defrecord :column_def, [:name, :type]
 
   defp decode_column_def(data) do
     packet(payload: payload) = decode_packet(data)
@@ -556,13 +524,13 @@ defmodule MyXQL.Messages do
       _character_set::int(2),
       _column_length::int(4),
       <<type>>,
-      flags::int(2),
+      _flags::int(2),
       _decimals::int(1),
       0::int(2),
       rest::binary
     >> = rest
 
-    {column_def(name: name, type: type, flags: flags), rest}
+    {column_def(name: name, type: type), rest}
   end
 
   defp decode_column_defs(data, column_count, acc) when column_count > 0 do
@@ -645,9 +613,8 @@ defmodule MyXQL.Messages do
   end
 
   defp decode_binary_resultset_row(values, null_bitmap, [column_def | column_defs], acc) do
-    column_def(type: type, flags: flags) = column_def
-    unsigned? = has_column_flag?(flags, :unsigned_flag)
-    {value, rest} = MyXQL.Row.take_binary_value(values, null_bitmap, type, unsigned?)
+    column_def(type: type) = column_def
+    {value, rest} = MyXQL.Row.take_binary_value(values, null_bitmap, type)
     decode_binary_resultset_row(rest, null_bitmap >>> 1, column_defs, [value | acc])
   end
 
