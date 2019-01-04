@@ -478,7 +478,7 @@ defmodule MyXQL.Messages do
       Enum.reduce(params, {0, 0, <<>>, <<>>}, fn
         value, {idx, null_bitmap, types, values} ->
           null_value = if value == nil, do: 1, else: 0
-          null_bitmap = null_bitmap ||| (null_value <<< idx)
+          null_bitmap = null_bitmap ||| null_value <<< idx
 
           if value == nil do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
