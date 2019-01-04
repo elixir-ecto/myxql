@@ -85,7 +85,7 @@ timestamp       ~N[2013-10-12 00:37:14] **
 char            "é"
 text            "myxql"
 binary          <<1, 2, 3>>
-bit             <<0b00000001, 0b00011000>>
+bit             <<1::size(1), 0::size(1)>>
 json            %{"foo" => "bar"}
 ```
 

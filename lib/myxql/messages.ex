@@ -534,7 +534,7 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def, [:name, :type, :flags]
+  defrecord :column_def, [:name, :type, :length, :flags]
 
   defp decode_column_def(data) do
     packet(payload: payload) = decode_packet(data)
@@ -554,7 +554,7 @@ defmodule MyXQL.Messages do
     <<
       0x0C,
       _character_set::int(2),
-      _column_length::int(4),
+      column_length::int(4),
       <<type>>,
       flags::int(2),
       _decimals::int(1),
@@ -562,7 +562,7 @@ defmodule MyXQL.Messages do
       rest::binary
     >> = rest
 
-    {column_def(name: name, type: type, flags: flags), rest}
+    {column_def(name: name, type: type, length: column_length, flags: flags), rest}
   end
 
   defp decode_column_defs(data, column_count, acc) when column_count > 0 do
@@ -597,7 +597,7 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
-  defp decode_text_resultset_row(data, [column_def(type: type) | tail], acc) do
+  defp decode_text_resultset_row(data, [column_def(type: type, length: size) | tail], acc) do
     case data do
       # null value is 0xFB
       <<0xFB, rest::binary>> ->
@@ -605,7 +605,10 @@ defmodule MyXQL.Messages do
 
       _ ->
         {value, rest} = take_string_lenenc(data)
-        decode_text_resultset_row(rest, tail, [MyXQL.Row.decode_text_value(value, type) | acc])
+
+        decode_text_resultset_row(rest, tail, [
+          MyXQL.Row.decode_text_value(value, type, size) | acc
+        ])
     end
   end
 
@@ -645,9 +648,9 @@ defmodule MyXQL.Messages do
   end
 
   defp decode_binary_resultset_row(values, null_bitmap, [column_def | column_defs], acc) do
-    column_def(type: type, flags: flags) = column_def
+    column_def(type: type, flags: flags, length: length) = column_def
     unsigned? = has_column_flag?(flags, :unsigned_flag)
-    {value, rest} = MyXQL.Row.take_binary_value(values, null_bitmap, type, unsigned?)
+    {value, rest} = MyXQL.Row.take_binary_value(values, null_bitmap, type, unsigned?, length)
     decode_binary_resultset_row(rest, null_bitmap >>> 1, column_defs, [value | acc])
   end
 
