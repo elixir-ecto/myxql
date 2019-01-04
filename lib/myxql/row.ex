@@ -34,7 +34,7 @@ defmodule MyXQL.Row do
   @mysql_type_datetime 0x0C
   @mysql_type_year 0x0D
   @mysql_type_varchar 0x0F
-  @mysql_type_bit 0x10
+  # @mysql_type_bit 0x10
   @mysql_type_json 0xF5
   @mysql_type_newdecimal 0xF6
   # @mysql_type_enum 0xF7
@@ -53,8 +53,8 @@ defmodule MyXQL.Row do
 
   # Text values
 
-  @spec decode_text_value(term(), type(), non_neg_integer()) :: term()
-  def decode_text_value(value, type, _size)
+  @spec decode_text_value(term(), type()) :: term()
+  def decode_text_value(value, type)
       when type in [
              @mysql_type_tiny,
              @mysql_type_short,
@@ -66,141 +66,115 @@ defmodule MyXQL.Row do
     String.to_integer(value)
   end
 
-  def decode_text_value(value, type, _size)
-      when type in [@mysql_type_float, @mysql_type_double] do
+  def decode_text_value(value, type) when type in [@mysql_type_float, @mysql_type_double] do
     {float, ""} = Float.parse(value)
     float
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
-  def decode_text_value(value, @mysql_type_newdecimal, _size) do
+  def decode_text_value(value, @mysql_type_newdecimal) do
     Decimal.new(value)
   end
 
-  def decode_text_value(value, @mysql_type_date, _size) do
+  def decode_text_value(value, @mysql_type_date) do
     Date.from_iso8601!(value)
   end
 
-  def decode_text_value(value, @mysql_type_time, _size) do
+  def decode_text_value(value, @mysql_type_time) do
     Time.from_iso8601!(value)
   end
 
-  def decode_text_value(value, @mysql_type_datetime, _size) do
+  def decode_text_value(value, @mysql_type_datetime) do
     NaiveDateTime.from_iso8601!(value)
   end
 
-  def decode_text_value(value, @mysql_type_timestamp, _size) do
+  def decode_text_value(value, @mysql_type_timestamp) do
     NaiveDateTime.from_iso8601!(value)
   end
 
-  def decode_text_value(value, type, _size)
+  def decode_text_value(value, type)
       when type in [
              @mysql_type_varchar,
              @mysql_type_var_string,
              @mysql_type_string,
              @mysql_type_blob,
              @mysql_type_long_blob
+             # @mysql_type_bit
            ] do
     value
   end
 
-  def decode_text_value(value, @mysql_type_bit, size) do
-    decode_bitstring(value, size)
-  end
-
-  def decode_text_value(value, @mysql_type_json, _size) do
+  def decode_text_value(value, @mysql_type_json) do
     MyXQL.json_library().decode!(value)
   end
 
   # Binary values
 
-  @spec take_binary_value(
-          binary(),
-          null_bitmap(),
-          type(),
-          unsigned? :: boolean(),
-          size :: non_neg_integer()
-        ) ::
+  @spec take_binary_value(binary(), null_bitmap(), type(), unsigned? :: boolean()) ::
           {term(), binary()}
-  def take_binary_value(value, null_bitmap, type, unsigned?, size) do
+  def take_binary_value(value, null_bitmap, type, unsigned?) do
     if (null_bitmap &&& 1) == 1 do
       {nil, value}
     else
-      take_binary_value(value, type, unsigned?, size)
+      take_binary_value(value, type, unsigned?)
     end
   end
 
-  defp take_binary_value(<<value::unsigned-int(1), rest::binary>>, @mysql_type_tiny, true, _size) do
+  defp take_binary_value(<<value::unsigned-int(1), rest::binary>>, @mysql_type_tiny, true) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny, false, _size) do
+  defp take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny, false) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::unsigned-int(2), rest::binary>>, type, true, _size)
+  defp take_binary_value(<<value::unsigned-int(2), rest::binary>>, type, true)
        when type in [@mysql_type_short, @mysql_type_year] do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(2), rest::binary>>, type, false, _size)
+  defp take_binary_value(<<value::signed-int(2), rest::binary>>, type, false)
        when type in [@mysql_type_short, @mysql_type_year] do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_int24, true, _size) do
+  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_int24, true) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24, false, _size) do
+  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24, false) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_long, true, _size) do
+  defp take_binary_value(<<value::unsigned-int(4), rest::binary>>, @mysql_type_long, true) do
     {value, rest}
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long, false, _size) do
+  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long, false) do
     {value, rest}
   end
 
-  defp take_binary_value(
-         <<value::unsigned-int(8), rest::binary>>,
-         @mysql_type_longlong,
-         true,
-         _size
-       ) do
+  defp take_binary_value(<<value::unsigned-int(8), rest::binary>>, @mysql_type_longlong, true) do
     {value, rest}
   end
 
-  defp take_binary_value(
-         <<value::signed-int(8), rest::binary>>,
-         @mysql_type_longlong,
-         false,
-         _size
-       ) do
+  defp take_binary_value(<<value::signed-int(8), rest::binary>>, @mysql_type_longlong, false) do
     {value, rest}
   end
 
-  defp take_binary_value(
-         <<value::little-float-size(32), rest::binary>>,
-         @mysql_type_float,
-         _unsigned,
-         _size
-       ) do
+  defp take_binary_value(<<value::little-float-size(32), rest::binary>>, @mysql_type_float, _) do
     {value, rest}
   end
 
   defp take_binary_value(
          <<value::little-float-size(64), rest::binary>>,
          @mysql_type_double,
-         _unsigned,
-         _size
+         _
        ) do
     {value, rest}
   end
 
-  defp take_binary_value(data, @mysql_type_newdecimal, _unsigned, _size) do
+  defp take_binary_value(data, @mysql_type_newdecimal, _) do
     {string, rest} = take_string_lenenc(data)
     decimal = Decimal.new(string)
     {decimal, rest}
@@ -209,36 +183,30 @@ defmodule MyXQL.Row do
   defp take_binary_value(
          <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
          @mysql_type_date,
-         _unsigned,
-         _size
+         _
        ) do
     {:ok, date} = Date.new(year, month, day)
     {date, rest}
   end
 
-  defp take_binary_value(binary, @mysql_type_time, _unsigned, _size), do: take_binary_time(binary)
+  defp take_binary_value(binary, @mysql_type_time, _), do: take_binary_time(binary)
 
-  defp take_binary_value(binary, type, _unsigned, _size)
+  defp take_binary_value(binary, type, _)
        when type in [@mysql_type_datetime, @mysql_type_timestamp],
        do: take_binary_datetime(binary)
 
-  defp take_binary_value(data, type, _unsigned, _size)
+  defp take_binary_value(data, type, _)
        when type in [
               @mysql_type_var_string,
               @mysql_type_string,
               @mysql_type_blob,
               @mysql_type_long_blob
+              # @mysql_type_bit
             ] do
     take_string_lenenc(data)
   end
 
-  defp take_binary_value(data, @mysql_type_bit, _unsigned, size) do
-    {binary, rest} = take_string_lenenc(data)
-    bitstring = decode_bitstring(binary, size)
-    {bitstring, rest}
-  end
-
-  defp take_binary_value(data, @mysql_type_json, _unsigned, _size) do
+  defp take_binary_value(data, @mysql_type_json, _) do
     {json, rest} = take_string_lenenc(data)
     value = MyXQL.json_library().decode!(json)
     {value, rest}
@@ -272,10 +240,9 @@ defmodule MyXQL.Row do
     {@mysql_type_var_string, encode_string_lenenc(binary)}
   end
 
-  def encode_binary_value(bitstring) when is_bitstring(bitstring) do
-    binary = encode_bitstring(bitstring)
-    {@mysql_type_bit, encode_string_lenenc(binary)}
-  end
+  # def encode_binary_value(bitstring) when is_bitstring(bitstring) do
+  #   {@mysql_type_bit, bitstring}
+  # end
 
   def encode_binary_value(true) do
     {@mysql_type_tiny, <<1>>}
@@ -283,20 +250,6 @@ defmodule MyXQL.Row do
 
   def encode_binary_value(false) do
     {@mysql_type_tiny, <<0>>}
-  end
-
-  @spec encode_bitstring(bitstring()) :: binary
-  def encode_bitstring(value) when is_bitstring(value) do
-    size = bit_size(value)
-    pad = 8 - rem(size, 8)
-    <<0::size(pad), value::bitstring>>
-  end
-
-  @spec decode_bitstring(binary(), non_neg_integer()) :: bitstring()
-  def decode_bitstring(binary, size) do
-    pad = 8 - rem(size, 8)
-    <<0::size(pad), bitstring::bits-size(size)>> = binary
-    bitstring
   end
 
   ## Time/DateTime

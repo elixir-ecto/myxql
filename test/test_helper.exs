@@ -125,7 +125,8 @@ CREATE TABLE test_types (
   my_unsigned_decimal DECIMAL UNSIGNED,
   my_unsigned_decimal52 DECIMAL(5, 2) UNSIGNED,
 
-  my_bit3 BIT(3),
+  my_bit2 BIT(2),
+  my_bit8 BIT(8),
   my_date DATE,
   my_time TIME,
   my_time3 TIME(3),

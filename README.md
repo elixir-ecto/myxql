@@ -75,17 +75,15 @@ MySQL           Elixir
 -----           ------
 NULL            nil
 bool            1 | 0
+char            "é"
 int             42
 float           42.0
+text            "myxql"
 decimal         #Decimal<42.0> *
 date            ~D[2013-10-12]
 time            ~T[00:37:14]
 datetime        ~N[2013-10-12 00:37:14] **
 timestamp       ~N[2013-10-12 00:37:14] **
-char            "é"
-text            "myxql"
-binary          <<1, 2, 3>>
-bit             <<1::size(1), 0::size(1)>>
 json            %{"foo" => "bar"}
 ```
 

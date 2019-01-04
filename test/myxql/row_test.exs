@@ -1,7 +1,6 @@
 defmodule MyXQL.RowTest do
   use ExUnit.Case, async: true
   use Bitwise
-  import MyXQL.Row, only: [encode_bitstring: 1, decode_bitstring: 2]
 
   for protocol <- [:text, :binary] do
     @protocol protocol
@@ -148,10 +147,11 @@ defmodule MyXQL.RowTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
-      test "MYSQL_TYPE_BIT", c do
-        assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 1::1>>)
-        assert_roundtrip(c, "my_bit3", <<1::1, 1::1, 0::1>>)
-      end
+      # if @protocol == :binary do
+      #   test "MYSQL_TYPE_BIT", c do
+      #     assert_roundtrip(c, "my_bit2", <<1::1, 0::1>>)
+      #   end
+      # end
 
       test "MYSQL_TYPE_NEWDECIMAL - SQL DECIMAL", c do
         assert_roundtrip(c, "my_decimal", Decimal.new(-13))
@@ -239,17 +239,6 @@ defmodule MyXQL.RowTest do
     )
   end
 
-  test "bitstring" do
-    bitstring = <<1::1, 0::1, 1::1>>
-    assert bitstring == bitstring |> encode_bitstring() |> decode_bitstring(3)
-
-    bitstring = <<1::1, 1::1, 1::1, 0::1, 0::1, 0::1, 0::1, 0::1, 0::1, 0::1>>
-    assert bitstring == bitstring |> encode_bitstring() |> decode_bitstring(10)
-
-    bitstring = <<1, 2, 3>>
-    assert bitstring == bitstring |> encode_bitstring() |> decode_bitstring(24)
-  end
-
   defp connect(c) do
     {:ok, conn} = MyXQL.start_link(TestHelper.opts())
     Keyword.put(c, :conn, conn)
@@ -290,14 +279,13 @@ defmodule MyXQL.RowTest do
         nil -> "NULL"
         true -> "TRUE"
         false -> "FALSE"
-        binary when is_binary(binary) -> "'#{binary}'"
-        bitstring when is_bitstring(bitstring) -> "'" <> encode_bitstring(bitstring) <> "'"
         %DateTime{} = datetime -> "'#{NaiveDateTime.to_iso8601(datetime)}'"
         value -> "'#{value}'"
       end)
 
-    statement = "INSERT INTO test_types (#{fields}) VALUES (#{values})"
-    %MyXQL.Result{last_insert_id: id} = query!(c, statement)
+    %MyXQL.Result{last_insert_id: id} =
+      query!(c, "INSERT INTO test_types (#{fields}) VALUES (#{values})")
+
     id
   end
 
