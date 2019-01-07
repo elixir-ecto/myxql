@@ -1,8 +1,8 @@
 language: elixir
-services:
-  - docker
 elixir: 1.7
 otp_release: 21.2
+services:
+  - docker
 addons:
   apt:
     sources:
@@ -14,8 +14,8 @@ env:
     - MYSQL_SOCKET_DIR=/var/run/mysqld
     - MYSQL_UNIX_PORT=/var/run/mysqld/mysqld.sock
   matrix:
-    - DB=mysql:5.7 FORCE_TLS11=true
     - DB=mysql:8.0
+    - DB=mysql:5.7 FORCE_TLS11=true
     - DB=mariadb:10.3 JSON=false SSL=false
 matrix:
   include:
@@ -23,6 +23,8 @@ matrix:
       otp_release: 18.3
     - elixir: 1.5
       otp_release: 19.3
-    - env: CHECKS_ONLY=true
+    - script:
+        - mix compile --warnings-as-errors
+        - mix format --check-formatted
 script:
   - ./ci.sh
