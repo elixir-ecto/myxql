@@ -126,12 +126,13 @@ defmodule MyXQL.Messages do
   def take_packet(data) do
     <<
       payload_length::int(3),
-      _sequence_id::int(1),
+      sequence_id::int(1),
       payload::string(payload_length),
       rest::binary
     >> = data
 
-    {payload, rest}
+    packet = packet(payload: payload, payload_length: payload_length, sequence_id: sequence_id)
+    {packet, rest}
   end
 
   def encode_packet(payload, sequence_id) do
@@ -600,10 +601,10 @@ defmodule MyXQL.Messages do
   def decode_binary_resultset_rows(data, column_defs, row_count, rows) do
     case take_packet(data) do
       # EOF packet
-      {<<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>, ""} ->
+      {packet(payload: <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>), ""} ->
         {row_count, Enum.reverse(rows), warning_count, status_flags}
 
-      {payload, rest} ->
+      {packet(payload: payload), rest} ->
         size = div(length(column_defs) + 7 + 2, 8)
         <<0x00, null_bitmap::int(size), values::binary>> = payload
         null_bitmap = null_bitmap >>> 2
