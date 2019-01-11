@@ -119,7 +119,7 @@ defmodule MyXQL.Messages do
   defrecord :packet, [:payload_length, :sequence_id, :payload]
 
   def decode_packet(data) do
-    <<payload_length::size(24), sequence_id::size(8), payload::binary>> = data
+    <<payload_length::int(3), sequence_id::int(1), payload::binary>> = data
     packet(payload_length: payload_length, sequence_id: sequence_id, payload: payload)
   end
 
