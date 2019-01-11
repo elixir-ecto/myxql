@@ -1,9 +1,9 @@
-defmodule MyXQL.Row do
+defmodule MyXQL.RowValue do
   @moduledoc false
   import MyXQL.Types
   use Bitwise
 
-  # Text & Binary row encoding/decoding
+  # Text & Binary row value encoding/decoding
   #
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
   # https://dev.mysql.com/doc/refman/8.0/en/data-types.html

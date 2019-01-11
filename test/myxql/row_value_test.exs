@@ -1,4 +1,4 @@
-defmodule MyXQL.RowTest do
+defmodule MyXQL.RowValueTest do
   use ExUnit.Case, async: true
   use Bitwise
 
