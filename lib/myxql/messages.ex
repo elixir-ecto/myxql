@@ -116,7 +116,7 @@ defmodule MyXQL.Messages do
   ###########################################################
 
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
-  defrecord :packet, [:payload_length, :sequence_id, :payload]
+  defrecord :packet, [:sequence_id, :payload_length, :payload]
 
   def decode_packet(data) do
     <<payload_length::int(3), sequence_id::int(1), payload::binary>> = data
