@@ -386,7 +386,7 @@ defmodule MyXQL do
   To customize the JSON library, including the following
   in your `config/config.exs`:
 
-      config :phoenix, :json_library, SomeJSONModule
+      config :myxql, :json_library, SomeJSONModule
 
   Defaults to `Jason`.
   """
