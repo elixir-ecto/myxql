@@ -181,10 +181,16 @@ defmodule MyXQLTest do
                MyXQL.query(c.conn, "SELECT * FROM integers")
     end
 
-    test "insert many rows", c do
-      values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
+    test "many rows", c do
+      num = 10_000
+
+      values = Enum.map_join(1..num, ", ", &"(#{&1})")
       result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
-      assert result.num_rows == 10_000
+      assert result.num_rows == num
+
+      result = MyXQL.query!(c.conn, "SELECT x FROM integers")
+      assert List.flatten(result.rows) == Enum.to_list(1..num)
+      assert result.num_rows == num
     end
 
     test "query before and after idle ping" do
@@ -260,6 +266,18 @@ defmodule MyXQLTest do
         MyXQL.query(c.conn, "SELECT ? * ?", [1])
       end
     end
+
+    test "many rows", c do
+      num = 10_000
+
+      values = Enum.map_join(1..num, ", ", &"(#{&1})")
+      result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
+      assert result.num_rows == num
+
+      {_query, result} = MyXQL.prepare_execute!(c.conn, "", "SELECT x FROM integers")
+      assert List.flatten(result.rows) == Enum.to_list(1..num)
+      assert result.num_rows == num
+    end
   end
 
   describe "transactions" do
@@ -316,65 +334,68 @@ defmodule MyXQLTest do
     setup [:connect, :truncate]
 
     test "empty", c do
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers")
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [], num_rows: 0}] = result
+      assert [%{rows: [], num_rows: 0}] = results
 
       # try again for the same query
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers")
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [], num_rows: 0}] = result
+      assert [%{rows: [], num_rows: 0}] = results
     end
 
     test "few rows", c do
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
 
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers", [], max_rows: 2)
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
+      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = results
     end
 
     test "few rows with no leftovers", c do
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4)")
 
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers", [], max_rows: 2)
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: []}] = result
+      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: []}] = results
     end
 
     test "many rows", c do
+      num = 10_000
+
       values = Enum.map_join(1..10_000, ", ", &"(#{&1})")
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
 
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT * FROM integers")
           Enum.to_list(stream)
         end)
 
-      assert 10_000 = result |> Enum.map(&length(&1.rows)) |> Enum.sum()
+      assert length(results) == 21
+      assert results |> Enum.map(& &1.rows) |> List.flatten() == Enum.to_list(1..num)
     end
 
     test "multiple streams", c do
       MyXQL.query!(c.conn, "INSERT INTO integers VALUES (1), (2), (3), (4), (5)")
 
-      {:ok, result} =
+      {:ok, results} =
         MyXQL.transaction(c.conn, fn conn ->
           odd =
             MyXQL.stream(conn, "SELECT * FROM integers WHERE x % 2 != 0", [], max_rows: 2)
@@ -387,7 +408,7 @@ defmodule MyXQLTest do
           Enum.zip(odd, even)
         end)
 
-      assert result == [{[1], [2]}, {[3], [4]}]
+      assert results == [{[1], [2]}, {[3], [4]}]
     end
 
     test "bad query", c do

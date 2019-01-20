@@ -167,20 +167,42 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
   defrecord :err_packet, [:error_code, :sql_state_marker, :sql_state, :error_message]
 
-  def decode_err_packet(data) do
-    <<
-      0xFF,
-      error_code::int(2),
-      sql_state_marker::string(1),
-      sql_state::string(5),
-      error_message::binary
-    >> = data
+  def decode_err_packet(<<0xFF, rest::binary>>) do
+    decode_err_packet(0xFF, rest)
+  end
 
+  def decode_err_packet(
+        0xFF,
+        <<error_code::int(2), sql_state_marker::string(1), sql_state::string(5),
+          error_message::binary>>
+      ) do
     err_packet(
       error_code: error_code,
       sql_state_marker: sql_state_marker,
       sql_state: sql_state,
       error_message: error_message
+    )
+  end
+
+  def decode_generic_response(<<header, rest::binary>>) do
+    decode_generic_response(header, rest)
+  end
+
+  def decode_generic_response(header, rest)
+
+  def decode_generic_response(0x00, rest) do
+    decode_ok_packet(<<0x00, rest::binary>>)
+  end
+
+  def decode_generic_response(
+        0xFF,
+        <<code::int(2), state_marker::string(1), state::string(5), message::binary>>
+      ) do
+    err_packet(
+      error_code: code,
+      sql_state_marker: state_marker,
+      sql_state: state,
+      error_message: message
     )
   end
 
@@ -205,8 +227,7 @@ defmodule MyXQL.Messages do
     :auth_plugin_name
   ]
 
-  def decode_handshake_v10(data) do
-    packet(payload: payload) = decode_packet(data)
+  def decode_handshake_v10(payload) do
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
     {server_version, rest} = take_string_nul(rest)
@@ -288,21 +309,18 @@ defmodule MyXQL.Messages do
     >>
   end
 
-  def decode_handshake_response(data) do
-    packet(payload: payload) = decode_packet(data)
-
-    case payload do
-      <<0x00, _::binary>> -> decode_ok_packet(payload)
-      <<0xFF, _::binary>> -> decode_err_packet(payload)
-      <<0xFE, _::binary>> -> decode_auth_switch_request(payload)
-      <<0x01, 0x04>> -> :full_auth
-    end
-  end
-
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
-  def decode_auth_switch_request(<<0xFE, rest::binary>>) do
+  def decode_handshake_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
+    decode_generic_response(header, rest)
+  end
+
+  def decode_handshake_response(<<0x01, 0x04>>) do
+    :full_auth
+  end
+
+  def decode_handshake_response(<<0xFE, rest::binary>>) do
     {plugin_name, rest} = take_string_nul(rest)
     {plugin_data, ""} = take_string_nul(rest)
 
@@ -354,67 +372,49 @@ defmodule MyXQL.Messages do
   ]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
-  def decode_com_query_response(data) do
-    packet(payload: payload) = decode_packet(data)
-
-    case payload do
-      <<0x00, _::binary>> ->
-        decode_ok_packet(payload)
-
-      <<0xFF, _::binary>> ->
-        decode_err_packet(payload)
-
-      rest ->
-        {column_count, rest} = take_int_lenenc(rest)
-        {column_defs, rest} = decode_column_defs(rest, column_count, [])
-
-        {row_count, rows, warning_count, status_flags} =
-          decode_text_resultset_rows(rest, column_defs)
-
-        resultset(
-          column_count: column_count,
-          column_defs: column_defs,
-          row_count: row_count,
-          rows: rows,
-          warning_count: warning_count,
-          status_flags: status_flags
-        )
-    end
+  def decode_com_query_response(<<header, rest::binary>>, :initial)
+      when header in [0x00, 0xFF] do
+    {:halt, decode_generic_response(header, rest)}
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html
-  def decode_com_stmt_prepare_response(data) do
-    packet(payload: payload) = decode_packet(data)
-
-    case payload do
-      <<0x00, _::binary>> ->
-        decode_com_stmt_prepare_ok(payload)
-
-      <<0xFF, _::binary>> ->
-        decode_err_packet(payload)
-    end
+  def decode_com_query_response(payload, state) do
+    decode_resultset(payload, state, &MyXQL.RowValue.decode_text_row/2)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
   defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
 
-  def decode_com_stmt_prepare_ok(data) do
+  def decode_com_stmt_prepare_response(<<0x00, rest::binary>>, :initial) do
     <<
-      0,
       statement_id::int(4),
       num_columns::int(2),
       num_params::int(2),
       0,
       warning_count::int(2),
       _rest::binary
-    >> = data
+    >> = rest
 
-    com_stmt_prepare_ok(
-      statement_id: statement_id,
-      num_columns: num_columns,
-      num_params: num_params,
-      warning_count: warning_count
-    )
+    {:cont,
+     {com_stmt_prepare_ok(
+        statement_id: statement_id,
+        num_columns: num_columns,
+        num_params: num_params,
+        warning_count: warning_count
+      ), num_columns + num_params}}
+  end
+
+  def decode_com_stmt_prepare_response(<<0xFF, rest::binary>>, :initial) do
+    {:halt, decode_err_packet(0xFF, rest)}
+  end
+
+  # for now, we're simply consuming column_definition packets for params and columns,
+  # we might decode them in the future.
+  def decode_com_stmt_prepare_response(_payload, {com_stmt_prepare_ok, packets_left}) do
+    if packets_left > 1 do
+      {:cont, {com_stmt_prepare_ok, packets_left - 1}}
+    else
+      {:halt, com_stmt_prepare_ok}
+    end
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
@@ -465,32 +465,13 @@ defmodule MyXQL.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
-  def decode_com_stmt_execute_response(data) do
-    packet(payload: payload) = decode_packet(data)
+  def decode_com_stmt_execute_response(<<header, rest::binary>>, :initial)
+      when header in [0x00, 0xFF] do
+    {:halt, decode_generic_response(header, rest)}
+  end
 
-    case payload do
-      <<0x00, _::binary>> ->
-        decode_ok_packet(payload)
-
-      <<0xFF, _::binary>> ->
-        decode_err_packet(payload)
-
-      rest ->
-        {column_count, rest} = take_int_lenenc(rest)
-        {column_defs, rest} = decode_column_defs(rest, column_count, [])
-
-        {row_count, rows, warning_count, status_flags} =
-          decode_binary_resultset_rows(rest, column_defs)
-
-        resultset(
-          column_count: column_count,
-          column_defs: column_defs,
-          row_count: row_count,
-          rows: rows,
-          warning_count: warning_count,
-          status_flags: status_flags
-        )
-    end
+  def decode_com_stmt_execute_response(payload, state) do
+    decode_resultset(payload, state, &MyXQL.RowValue.decode_binary_row/2)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
@@ -505,15 +486,7 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
   defrecord :column_def, [:name, :type]
 
-  defp decode_column_def(data) do
-    packet(payload: payload) = decode_packet(data)
-
-    <<
-      3,
-      "def",
-      rest::binary
-    >> = payload
-
+  def decode_column_def(<<3, "def", rest::binary>>) do
     {_schema, rest} = take_string_lenenc(rest)
     {_table, rest} = take_string_lenenc(rest)
     {_org_table, rest} = take_string_lenenc(rest)
@@ -527,78 +500,46 @@ defmodule MyXQL.Messages do
       <<type>>,
       _flags::int(2),
       _decimals::int(1),
-      0::int(2),
-      rest::binary
+      0::int(2)
     >> = rest
 
-    {column_def(name: name, type: type), rest}
+    column_def(name: name, type: type)
   end
 
-  defp decode_column_defs(data, column_count, acc) when column_count > 0 do
-    {column_name, rest} = decode_column_def(data)
-    decode_column_defs(rest, column_count - 1, [column_name | acc])
+  defp decode_resultset(payload, :initial, _row_decoder) do
+    {:cont, {:column_defs, decode_int_lenenc(payload), []}}
   end
 
-  defp decode_column_defs(rest, 0, acc) do
-    {Enum.reverse(acc), rest}
-  end
+  defp decode_resultset(payload, {:column_defs, num_columns, acc}, _row_decoder) do
+    column_def = decode_column_def(payload)
+    acc = [column_def | acc]
 
-  defp decode_text_resultset_rows(data, column_defs) do
-    decode_text_resultset_rows(data, column_defs, 0, [])
-  end
-
-  defp decode_text_resultset_rows(data, column_defs, row_count, rows) do
-    packet(payload: payload) = decode_packet(data)
-
-    case payload do
-      # EOF packet
-      <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>> ->
-        {row_count, Enum.reverse(rows), warning_count, status_flags}
-
-      _ ->
-        {row, rest} = decode_text_resultset_row(payload, column_defs)
-        decode_text_resultset_rows(rest, column_defs, row_count + 1, [row | rows])
+    if num_columns > 1 do
+      {:cont, {:column_defs, num_columns - 1, acc}}
+    else
+      {:cont, {:rows, Enum.reverse(acc), []}}
     end
   end
 
-  defp decode_text_resultset_row(data, column_defs) do
-    decode_text_resultset_row(data, column_defs, [])
+  defp decode_resultset(
+         <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>,
+         {:rows, column_defs, acc},
+         _row_decoder
+       ) do
+    resultset =
+      resultset(
+        column_defs: column_defs,
+        row_count: length(acc),
+        rows: Enum.reverse(acc),
+        warning_count: warning_count,
+        status_flags: status_flags
+      )
+
+    {:halt, resultset}
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
-  defp decode_text_resultset_row(data, [column_def(type: type) | tail], acc) do
-    case data do
-      # null value is 0xFB
-      <<0xFB, rest::binary>> ->
-        decode_text_resultset_row(rest, tail, [nil | acc])
-
-      _ ->
-        {value, rest} = take_string_lenenc(data)
-
-        decode_text_resultset_row(rest, tail, [
-          MyXQL.RowValue.decode_text_value(value, type) | acc
-        ])
-    end
-  end
-
-  defp decode_text_resultset_row(rest, [], acc) do
-    {Enum.reverse(acc), rest}
-  end
-
-  # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
-  def decode_binary_resultset_rows(data, column_defs) do
-    decode_binary_resultset_rows(data, column_defs, 0, [])
-  end
-
-  def decode_binary_resultset_rows(data, column_defs, row_count, rows) do
-    case take_packet(data) do
-      # EOF packet
-      {packet(payload: <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>), ""} ->
-        {row_count, Enum.reverse(rows), warning_count, status_flags}
-
-      {packet(payload: payload), rest} ->
-        row = MyXQL.RowValue.decode_binary_row(payload, column_defs)
-        decode_binary_resultset_rows(rest, column_defs, row_count + 1, [row | rows])
-    end
+  defp decode_resultset(payload, {:rows, column_defs, acc}, row_decoder) do
+    row = row_decoder.(payload, column_defs)
+    {:cont, {:rows, column_defs, [row | acc]}}
   end
 end

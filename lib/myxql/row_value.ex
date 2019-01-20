@@ -51,6 +51,26 @@ defmodule MyXQL.RowValue do
 
   # Text values
 
+  def decode_text_row(values, column_defs) do
+    column_types = Enum.map(column_defs, &elem(&1, 2))
+    decode_text_row(values, column_types, [])
+  end
+
+  # null value
+  defp decode_text_row(<<0xFB, rest::binary>>, [_type | tail], acc) do
+    decode_text_row(rest, tail, [nil | acc])
+  end
+
+  defp decode_text_row(<<values::binary>>, [type | tail], acc) do
+    {string, rest} = take_string_lenenc(values)
+    value = decode_text_value(string, type)
+    decode_text_row(rest, tail, [value | acc])
+  end
+
+  defp decode_text_row("", _column_type, acc) do
+    Enum.reverse(acc)
+  end
+
   @spec decode_text_value(term(), type()) :: term()
   def decode_text_value(value, type)
       when type in [
