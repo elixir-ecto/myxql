@@ -47,8 +47,6 @@ defmodule MyXQL.RowValue do
   @mysql_type_string 0xFE
   # @mysql_type_geometry 0xFF
 
-  @typep null_bitmap() :: non_neg_integer()
-
   @typep type() :: non_neg_integer()
 
   # Text values
@@ -109,67 +107,72 @@ defmodule MyXQL.RowValue do
 
   # Binary values
 
-  @spec take_binary_value(binary(), null_bitmap(), type()) :: {term(), binary()}
-  def take_binary_value(value, null_bitmap, type) do
-    if (null_bitmap &&& 1) == 1 do
-      {nil, value}
-    else
-      take_binary_value(value, type)
-    end
+  def decode_binary_row(payload, column_defs) do
+    size = div(length(column_defs) + 7 + 2, 8)
+    <<0x00, null_bitmap::int(size), values::binary>> = payload
+    null_bitmap = null_bitmap >>> 2
+    column_types = Enum.map(column_defs, &elem(&1, 2))
+    decode_binary_row(values, null_bitmap, column_types, [])
   end
 
-  defp take_binary_value(<<value::signed-int(1), rest::binary>>, @mysql_type_tiny) do
-    {value, rest}
+  defp decode_binary_row(<<rest::binary>>, null_bitmap, [_type | tail], acc)
+       when (null_bitmap &&& 1) == 1 do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [nil | acc])
   end
 
-  defp take_binary_value(<<value::signed-int(2), rest::binary>>, type)
+  defp decode_binary_row(
+         <<value::signed-int(1), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_tiny | tail],
+         acc
+       ) do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(<<value::signed-int(2), rest::binary>>, null_bitmap, [type | tail], acc)
        when type in [@mysql_type_short, @mysql_type_year] do
-    {value, rest}
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_long) do
-    {value, rest}
+  defp decode_binary_row(<<value::signed-int(4), rest::binary>>, null_bitmap, [type | tail], acc)
+       when type in [@mysql_type_long, @mysql_type_int24] do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(<<value::signed-int(8), rest::binary>>, @mysql_type_longlong) do
-    {value, rest}
+  defp decode_binary_row(
+         <<value::signed-int(8), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_longlong | tail],
+         acc
+       ) do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(<<value::signed-int(4), rest::binary>>, @mysql_type_int24) do
-    {value, rest}
+  defp decode_binary_row(
+         <<value::little-signed-float-size(32), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_float | tail],
+         acc
+       ) do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(<<value::little-signed-float-size(32), rest::binary>>, @mysql_type_float) do
-    {value, rest}
-  end
-
-  defp take_binary_value(
+  defp decode_binary_row(
          <<value::little-signed-float-size(64), rest::binary>>,
-         @mysql_type_double
+         null_bitmap,
+         [@mysql_type_double | tail],
+         acc
        ) do
-    {value, rest}
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(data, @mysql_type_newdecimal) do
+  defp decode_binary_row(<<data::binary>>, null_bitmap, [@mysql_type_newdecimal | tail], acc) do
     {string, rest} = take_string_lenenc(data)
-    decimal = Decimal.new(string)
-    {decimal, rest}
+    value = Decimal.new(string)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(
-         <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
-         @mysql_type_date
-       ) do
-    {:ok, date} = Date.new(year, month, day)
-    {date, rest}
-  end
-
-  defp take_binary_value(binary, @mysql_type_time), do: take_binary_time(binary)
-
-  defp take_binary_value(binary, type) when type in [@mysql_type_datetime, @mysql_type_timestamp],
-    do: take_binary_datetime(binary)
-
-  defp take_binary_value(data, type)
+  defp decode_binary_row(<<data::binary>>, null_bitmap, [type | tail], acc)
        when type in [
               @mysql_type_var_string,
               @mysql_type_string,
@@ -177,13 +180,89 @@ defmodule MyXQL.RowValue do
               @mysql_type_long_blob
               # @mysql_type_bit
             ] do
-    take_string_lenenc(data)
+    {value, rest} = take_string_lenenc(data)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp take_binary_value(data, @mysql_type_json) do
+  defp decode_binary_row(
+         <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_date | tail],
+         acc
+       ) do
+    {:ok, value} = Date.new(year, month, day)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_time | tail],
+         acc
+       ) do
+    {:ok, value} = Time.new(hour, minute, second)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
+           microsecond::int(4), rest::binary>>,
+         null_bitmap,
+         [@mysql_type_time | tail],
+         acc
+       ) do
+    {:ok, value} = Time.new(hour, minute, second, {microsecond, 6})
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(<<0, rest::binary>>, null_bitmap, [@mysql_type_time | tail], acc) do
+    value = ~T[00:00:00]
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
+         null_bitmap,
+         [type | tail],
+         acc
+       )
+       when type in [@mysql_type_datetime, @mysql_type_timestamp] do
+    {:ok, value} = NaiveDateTime.new(year, month, day, 0, 0, 0)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+           second::int(1), rest::binary>>,
+         null_bitmap,
+         [type | tail],
+         acc
+       )
+       when type in [@mysql_type_datetime, @mysql_type_timestamp] do
+    {:ok, value} = NaiveDateTime.new(year, month, day, hour, minute, second)
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
+           second::int(1), microsecond::int(4), rest::binary>>,
+         null_bitmap,
+         [type | tail],
+         acc
+       )
+       when type in [@mysql_type_datetime, @mysql_type_timestamp] do
+    {:ok, value} = NaiveDateTime.new(year, month, day, hour, minute, second, {microsecond, 6})
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(<<data::binary>>, null_bitmap, [@mysql_type_json | tail], acc) do
     {json, rest} = take_string_lenenc(data)
     value = MyXQL.json_library().decode!(json)
-    {value, rest}
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row("", _null_bitmap, [], acc) do
+    Enum.reverse(acc)
   end
 
   @spec encode_binary_value(term()) :: {type(), term()}
@@ -230,47 +309,6 @@ defmodule MyXQL.RowValue do
 
   # MySQL supports negative time and days, we don't.
   # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
-  defp take_binary_time(
-         <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>
-       ) do
-    {:ok, time} = Time.new(hour, minute, second)
-    {time, rest}
-  end
-
-  defp take_binary_time(
-         <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
-           microsecond::int(4), rest::binary>>
-       ) do
-    {:ok, time} = Time.new(hour, minute, second, {microsecond, 6})
-    {time, rest}
-  end
-
-  defp take_binary_time(<<0, rest::binary>>) do
-    {~T[00:00:00], rest}
-  end
-
-  defp take_binary_datetime(<<4, year::int(2), month::int(1), day::int(1), rest::binary>>) do
-    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, 0, 0, 0)
-    {naive_datetime, rest}
-  end
-
-  defp take_binary_datetime(
-         <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-           second::int(1), rest::binary>>
-       ) do
-    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, hour, minute, second)
-    {naive_datetime, rest}
-  end
-
-  defp take_binary_datetime(
-         <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-           second::int(1), microsecond::int(4), rest::binary>>
-       ) do
-    {:ok, naive_datetime} =
-      NaiveDateTime.new(year, month, day, hour, minute, second, {microsecond, 6})
-
-    {naive_datetime, rest}
-  end
 
   defp encode_binary_time(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
     {@mysql_type_time, <<0>>}
