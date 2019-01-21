@@ -19,6 +19,9 @@ defmodule MyXQL do
     * `:socket` - Connect to MySQL via UNIX domain socket in the given path
       (default: `MYSQL_UNIX_PORT` env variable, then `"/tmp/mysql.sock"`)
 
+    * `:socket_options` - Options to be given to the underlying socket, applies to both TCP and
+      UNIX sockets. See `:gen_tcp.connect/3` for more information.  (default: `[]`)
+
     * `:hostname` - Server hostname (default: `"localhost"`)
 
     * `:port` - Server port (default: `MYSQL_TCP_PORT` env variable, then `3306`)

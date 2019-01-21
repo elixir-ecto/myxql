@@ -36,12 +36,7 @@ defmodule MyXQL.Protocol do
   defp do_connect(opts) do
     {address, port} = address_and_port(opts)
     connect_timeout = Keyword.get(opts, :connect_timeout, 15000)
-
-    socket_opts = [
-      :binary,
-      active: false
-    ]
-
+    socket_opts = Keyword.merge([mode: :binary, active: false], opts[:socket_options] || [])
     :gen_tcp.connect(address, port, socket_opts, connect_timeout)
   end
 
