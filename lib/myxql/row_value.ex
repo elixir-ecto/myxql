@@ -349,7 +349,8 @@ defmodule MyXQL.RowValue do
   end
 
   @spec encode_binary_value(term()) :: {type(), term()}
-  def encode_binary_value(value) when is_integer(value) and value >= (-1 <<< 63) and value < (1 <<< 64) do
+  def encode_binary_value(value)
+      when is_integer(value) and value >= -1 <<< 63 and value < 1 <<< 64 do
     {@mysql_type_longlong, <<value::signed-int(8)>>}
   end
 
