@@ -11,36 +11,83 @@ defmodule MyXQL.RowValueTest do
       end
 
       test "MYSQL_TYPE_TINY", c do
-        assert_roundtrip(c, "my_tinyint", -127)
+        assert_roundtrip(c, "my_tinyint", -128)
         assert_roundtrip(c, "my_tinyint", 127)
+        assert_out_of_range(c, "my_tinyint", -129)
+        assert_out_of_range(c, "my_tinyint", 128)
+
+        assert_roundtrip(c, "my_unsigned_tinyint", 0)
+        assert_roundtrip(c, "my_unsigned_tinyint", 255)
+        assert_out_of_range(c, "my_unsigned_tinyint", -1)
+        assert_out_of_range(c, "my_unsigned_tinyint", 256)
       end
 
       test "MYSQL_TYPE_SHORT - SQL SMALLINT", c do
-        assert_roundtrip(c, "my_smallint", -32767)
+        assert_roundtrip(c, "my_smallint", -32768)
         assert_roundtrip(c, "my_smallint", 32767)
+        assert_out_of_range(c, "my_smallint", -32769)
+        assert_out_of_range(c, "my_smallint", 32768)
+
+        assert_roundtrip(c, "my_unsigned_smallint", 0)
+        assert_roundtrip(c, "my_unsigned_smallint", 65535)
+        assert_out_of_range(c, "my_unsigned_smallint", -1)
+        assert_out_of_range(c, "my_unsigned_smallint", 65536)
       end
 
-      test "MYSQL_TYPE_LONG - SQL MEDIUMINT, SQL INT", c do
+      test "MYSQL_TYPE_LONG - SQL INT", c do
+        assert_roundtrip(c, "my_int", -2_147_483_648)
+        assert_roundtrip(c, "my_int", 2_147_483_647)
+        assert_out_of_range(c, "my_int", -2_147_483_649)
+        assert_out_of_range(c, "my_int", 2_147_483_648)
+
+        assert_roundtrip(c, "my_unsigned_int", 0)
+        assert_roundtrip(c, "my_unsigned_int", 4_294_967_295)
+        assert_out_of_range(c, "my_unsigned_int", -1)
+        assert_out_of_range(c, "my_unsigned_int", 4_294_967_296)
+      end
+
+      test "MYSQL_TYPE_INT24 - SQL MEDIUMINT", c do
         assert_roundtrip(c, "my_mediumint", -8_388_608)
         assert_roundtrip(c, "my_mediumint", 8_388_607)
+        assert_out_of_range(c, "my_mediumint", -8_388_609)
+        assert_out_of_range(c, "my_mediumint", 8_388_608)
 
-        assert_roundtrip(c, "my_int", -2_147_483_647)
-        assert_roundtrip(c, "my_int", 2_147_483_647)
+        assert_roundtrip(c, "my_unsigned_mediumint", 0)
+        assert_roundtrip(c, "my_unsigned_mediumint", 16_777_215)
+        assert_out_of_range(c, "my_unsigned_mediumint", -1)
+        assert_out_of_range(c, "my_unsigned_mediumint", 16_777_216)
       end
 
       test "MYSQL_TYPE_LONGLONG - SQL BIGINT", c do
         assert_roundtrip(c, "my_bigint", -1 <<< 63)
         assert_roundtrip(c, "my_bigint", (1 <<< 63) - 1)
+        assert_out_of_range(c, "my_bigint", 1 <<< 63)
+
+        assert_roundtrip(c, "my_unsigned_bigint", 0)
+        assert_out_of_range(c, "my_unsigned_bigint", -1)
+      end
+
+      # can't make these assertions for binary protocol as we crash when we try to encode these
+      # values, so inserting them is not possible
+      if @protocol == :text do
+        test "MYSQL_TYPE_LONGLONG - out of range", c do
+          assert_out_of_range(c, "my_bigint", (-1 <<< 63) - 1)
+          assert_out_of_range(c, "my_unsigned_bigint", 1 <<< 64)
+        end
       end
 
       test "MYSQL_TYPE_FLOAT", c do
         assert Float.round(insert_and_get(c, "my_float", -13.37), 2) == -13.37
         assert Float.round(insert_and_get(c, "my_float", 13.37), 2) == 13.37
+
+        assert Float.round(insert_and_get(c, "my_unsigned_float", 13.37), 2) == 13.37
       end
 
       test "MYSQL_TYPE_DOUBLE", c do
         assert_roundtrip(c, "my_double", -13.37)
         assert_roundtrip(c, "my_double", 13.37)
+
+        assert_roundtrip(c, "my_unsigned_double", 13.37)
       end
 
       test "MYSQL_TYPE_DATE", c do
@@ -110,8 +157,12 @@ defmodule MyXQL.RowValueTest do
         assert_roundtrip(c, "my_decimal", Decimal.new(-13))
         assert insert_and_get(c, "my_decimal", Decimal.new("-13.37")) == Decimal.new(-13)
 
+        assert_roundtrip(c, "my_unsigned_decimal", Decimal.new(0))
+        assert insert_and_get(c, "my_decimal", Decimal.new("13.37")) == Decimal.new(13)
+
         assert_roundtrip(c, "my_decimal52", Decimal.new("-999.99"))
         assert_roundtrip(c, "my_decimal52", Decimal.new("999.99"))
+        assert_roundtrip(c, "my_unsigned_decimal52", Decimal.new("999.99"))
       end
 
       test "MYSQL_TYPE_BLOB", c do
@@ -198,6 +249,12 @@ defmodule MyXQL.RowValueTest do
     value
   end
 
+  defp assert_out_of_range(c, field, value) do
+    assert_raise MyXQL.Error, "Out of range value for column '#{field}' at row 1", fn ->
+      insert_and_get(c, field, value)
+    end
+  end
+
   defp insert_and_get(c, field, value) do
     id = insert(c, field, value)
     get(c, field, id)
@@ -257,7 +314,7 @@ defmodule MyXQL.RowValueTest do
           MyXQL.query!(c.conn, statement)
 
         :binary ->
-          {:ok, _, result} = MyXQL.prepare_execute(c.conn, "", statement)
+          {_query, result} = MyXQL.prepare_execute!(c.conn, "", statement)
           result
       end
 

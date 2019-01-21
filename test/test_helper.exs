@@ -112,8 +112,19 @@ CREATE TABLE test_types (
   my_bigint BIGINT,
   my_float FLOAT,
   my_double DOUBLE,
-  my_decimal DECIMAL /* same as: DECIMAL(10, 0) */,
+  my_decimal DECIMAL, /* same as: DECIMAL(10, 0) */
   my_decimal52 DECIMAL(5,2),
+
+  my_unsigned_tinyint TINYINT UNSIGNED,
+  my_unsigned_smallint SMALLINT UNSIGNED,
+  my_unsigned_mediumint MEDIUMINT UNSIGNED,
+  my_unsigned_int INT UNSIGNED,
+  my_unsigned_bigint BIGINT UNSIGNED,
+  my_unsigned_float FLOAT UNSIGNED,
+  my_unsigned_double DOUBLE UNSIGNED,
+  my_unsigned_decimal DECIMAL UNSIGNED,
+  my_unsigned_decimal52 DECIMAL(5, 2) UNSIGNED,
+
   my_bit2 BIT(2),
   my_bit8 BIT(8),
   my_date DATE,

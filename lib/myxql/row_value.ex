@@ -1,6 +1,7 @@
 defmodule MyXQL.RowValue do
   @moduledoc false
   import MyXQL.Types
+  import MyXQL.Messages, only: [column_def: 1]
   use Bitwise
 
   # Text & Binary row value encoding/decoding
@@ -131,11 +132,10 @@ defmodule MyXQL.RowValue do
     size = div(length(column_defs) + 7 + 2, 8)
     <<0x00, null_bitmap::int(size), values::binary>> = payload
     null_bitmap = null_bitmap >>> 2
-    column_types = Enum.map(column_defs, &elem(&1, 2))
-    decode_binary_row(values, null_bitmap, column_types, [])
+    decode_binary_row(values, null_bitmap, column_defs, [])
   end
 
-  defp decode_binary_row(<<rest::binary>>, null_bitmap, [_type | tail], acc)
+  defp decode_binary_row(<<rest::binary>>, null_bitmap, [_column_def | tail], acc)
        when (null_bitmap &&& 1) == 1 do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [nil | acc])
   end
@@ -143,18 +143,57 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<value::signed-int(1), rest::binary>>,
          null_bitmap,
-         [@mysql_type_tiny | tail],
+         [column_def(type: @mysql_type_tiny, unsigned?: false) | tail],
          acc
        ) do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<value::signed-int(2), rest::binary>>, null_bitmap, [type | tail], acc)
+  defp decode_binary_row(
+         <<value::unsigned-int(1), rest::binary>>,
+         null_bitmap,
+         [column_def(type: @mysql_type_tiny, unsigned?: true) | tail],
+         acc
+       ) do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<value::signed-int(2), rest::binary>>,
+         null_bitmap,
+         [column_def(type: type, unsigned?: false) | tail],
+         acc
+       )
        when type in [@mysql_type_short, @mysql_type_year] do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<value::signed-int(4), rest::binary>>, null_bitmap, [type | tail], acc)
+  defp decode_binary_row(
+         <<value::unsigned-int(2), rest::binary>>,
+         null_bitmap,
+         [column_def(type: type, unsigned?: true) | tail],
+         acc
+       )
+       when type in [@mysql_type_short, @mysql_type_year] do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<value::signed-int(4), rest::binary>>,
+         null_bitmap,
+         [column_def(type: type, unsigned?: false) | tail],
+         acc
+       )
+       when type in [@mysql_type_long, @mysql_type_int24] do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<value::unsigned-int(4), rest::binary>>,
+         null_bitmap,
+         [column_def(type: type, unsigned?: true) | tail],
+         acc
+       )
        when type in [@mysql_type_long, @mysql_type_int24] do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
@@ -162,7 +201,16 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<value::signed-int(8), rest::binary>>,
          null_bitmap,
-         [@mysql_type_longlong | tail],
+         [column_def(type: @mysql_type_longlong, unsigned?: false) | tail],
+         acc
+       ) do
+    decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
+  end
+
+  defp decode_binary_row(
+         <<value::unsigned-int(8), rest::binary>>,
+         null_bitmap,
+         [column_def(type: @mysql_type_longlong, unsigned?: true) | tail],
          acc
        ) do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
@@ -171,7 +219,7 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<value::little-signed-float-size(32), rest::binary>>,
          null_bitmap,
-         [@mysql_type_float | tail],
+         [column_def(type: @mysql_type_float) | tail],
          acc
        ) do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
@@ -180,19 +228,24 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<value::little-signed-float-size(64), rest::binary>>,
          null_bitmap,
-         [@mysql_type_double | tail],
+         [column_def(type: @mysql_type_double) | tail],
          acc
        ) do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<data::binary>>, null_bitmap, [@mysql_type_newdecimal | tail], acc) do
+  defp decode_binary_row(
+         <<data::binary>>,
+         null_bitmap,
+         [column_def(type: @mysql_type_newdecimal) | tail],
+         acc
+       ) do
     {string, rest} = take_string_lenenc(data)
     value = Decimal.new(string)
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<data::binary>>, null_bitmap, [type | tail], acc)
+  defp decode_binary_row(<<data::binary>>, null_bitmap, [column_def(type: type) | tail], acc)
        when type in [
               @mysql_type_var_string,
               @mysql_type_string,
@@ -207,7 +260,7 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
          null_bitmap,
-         [@mysql_type_date | tail],
+         [column_def(type: @mysql_type_date) | tail],
          acc
        ) do
     {:ok, value} = Date.new(year, month, day)
@@ -217,7 +270,7 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>,
          null_bitmap,
-         [@mysql_type_time | tail],
+         [column_def(type: @mysql_type_time) | tail],
          acc
        ) do
     {:ok, value} = Time.new(hour, minute, second)
@@ -228,14 +281,19 @@ defmodule MyXQL.RowValue do
          <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
            microsecond::int(4), rest::binary>>,
          null_bitmap,
-         [@mysql_type_time | tail],
+         [column_def(type: @mysql_type_time) | tail],
          acc
        ) do
     {:ok, value} = Time.new(hour, minute, second, {microsecond, 6})
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<0, rest::binary>>, null_bitmap, [@mysql_type_time | tail], acc) do
+  defp decode_binary_row(
+         <<0, rest::binary>>,
+         null_bitmap,
+         [column_def(type: @mysql_type_time) | tail],
+         acc
+       ) do
     value = ~T[00:00:00]
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
@@ -243,7 +301,7 @@ defmodule MyXQL.RowValue do
   defp decode_binary_row(
          <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
          null_bitmap,
-         [type | tail],
+         [column_def(type: type) | tail],
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
@@ -255,7 +313,7 @@ defmodule MyXQL.RowValue do
          <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
            second::int(1), rest::binary>>,
          null_bitmap,
-         [type | tail],
+         [column_def(type: type) | tail],
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
@@ -267,7 +325,7 @@ defmodule MyXQL.RowValue do
          <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
            second::int(1), microsecond::int(4), rest::binary>>,
          null_bitmap,
-         [type | tail],
+         [column_def(type: type) | tail],
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
@@ -275,7 +333,12 @@ defmodule MyXQL.RowValue do
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
-  defp decode_binary_row(<<data::binary>>, null_bitmap, [@mysql_type_json | tail], acc) do
+  defp decode_binary_row(
+         <<data::binary>>,
+         null_bitmap,
+         [column_def(type: @mysql_type_json) | tail],
+         acc
+       ) do
     {json, rest} = take_string_lenenc(data)
     value = MyXQL.json_library().decode!(json)
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
@@ -286,7 +349,7 @@ defmodule MyXQL.RowValue do
   end
 
   @spec encode_binary_value(term()) :: {type(), term()}
-  def encode_binary_value(value) when is_integer(value) do
+  def encode_binary_value(value) when is_integer(value) and value >= (-1 <<< 63) and value < (1 <<< 64) do
     {@mysql_type_longlong, <<value::signed-int(8)>>}
   end
 

@@ -398,7 +398,6 @@ defmodule MyXQL.Messages do
 
   defp encode_params(params) do
     null_type = 0x06
-    unsigned_flag = 0x00
 
     {count, null_bitmap, types, values} =
       Enum.reduce(params, {0, 0, <<>>, <<>>}, fn
@@ -407,18 +406,21 @@ defmodule MyXQL.Messages do
           null_bitmap = null_bitmap ||| null_value <<< idx
 
           if value == nil do
-            {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag>>, values}
+            {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag(value)>>, values}
           else
-            {type, value} = MyXQL.RowValue.encode_binary_value(value)
+            {type, binary} = MyXQL.RowValue.encode_binary_value(value)
 
-            {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag>>,
-             <<values::binary, value::binary>>}
+            {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag(value)>>,
+             <<values::binary, binary::binary>>}
           end
       end)
 
     null_bitmap_size = div(count + 7, 8)
     {<<null_bitmap::int(null_bitmap_size)>>, types, values}
   end
+
+  defp unsigned_flag(value) when is_integer(value) and value >= 1 <<< 63, do: 0x80
+  defp unsigned_flag(_), do: 0x00
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
   def decode_com_stmt_execute_response(<<header, rest::binary>>, :initial)
@@ -439,8 +441,39 @@ defmodule MyXQL.Messages do
     >>
   end
 
+  # Column flags (non-internal)
+  # https://dev.mysql.com/doc/dev/mysql-server/8.0.11/group__group__cs__column__definition__flags.html
+  @column_flags %{
+    not_null_flag: 0x0001,
+    pri_key_flag: 0x0002,
+    unique_key_flag: 0x0004,
+    multiple_key_flag: 0x0008,
+    blob_flag: 0x0010,
+    unsigned_flag: 0x0020,
+    zerofill_flag: 0x0040,
+    binary_flag: 0x0080,
+    enum_flag: 0x0100,
+    auto_increment_flag: 0x0200,
+    timestamp_flag: 0x0400,
+    set_flag: 0x0800,
+    no_default_value_flag: 0x1000,
+    on_update_now_flag: 0x2000,
+    num_flag: 0x4000
+  }
+
+  def has_column_flag?(flags, name) when is_integer(flags) do
+    value = Map.fetch!(@column_flags, name)
+    (flags &&& value) == value
+  end
+
+  def list_column_flags(flags) do
+    @column_flags
+    |> Map.keys()
+    |> Enum.filter(&has_column_flag?(flags, &1))
+  end
+
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def, [:name, :type]
+  defrecord :column_def, [:name, :type, :flags, :unsigned?]
 
   def decode_column_def(<<3, "def", rest::binary>>) do
     {_schema, rest} = take_string_lenenc(rest)
@@ -454,12 +487,17 @@ defmodule MyXQL.Messages do
       _character_set::int(2),
       _column_length::int(4),
       <<type>>,
-      _flags::int(2),
+      flags::int(2),
       _decimals::int(1),
       0::int(2)
     >> = rest
 
-    column_def(name: name, type: type)
+    column_def(
+      name: name,
+      type: type,
+      flags: flags,
+      unsigned?: has_column_flag?(flags, :unsigned_flag)
+    )
   end
 
   defp decode_resultset(payload, :initial, _row_decoder) do
