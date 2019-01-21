@@ -83,14 +83,13 @@ decimal         #Decimal<42.0> *
 date            ~D[2013-10-12]
 time            ~T[00:37:14]
 datetime        ~N[2013-10-12 00:37:14] **
-timestamp       ~N[2013-10-12 00:37:14] **
+timestamp       #DateTime<2013-10-12 00:37:14Z>
 json            %{"foo" => "bar"}
 ```
 
 \* See [Decimal](https://github.com/ericmj/decimal)
 
-\*\* datetime/timestamp fields are always decoded as `NaiveDateTime`, however a UTC `DateTime` can
-be used for encoding as well
+\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
 
 ## JSON support
 
