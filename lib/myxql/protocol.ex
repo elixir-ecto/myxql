@@ -239,8 +239,8 @@ defmodule MyXQL.Protocol do
         handle_transaction("ROLLBACK", s)
 
       :savepoint when status == :transaction ->
-        {:ok, _result, s} = handle_transaction("ROLLBACK TO SAVEPOINT myxql_savepoint", s)
-        handle_transaction("RELEASE SAVEPOINT myxql_savepoint", s)
+        statement = "ROLLBACK TO SAVEPOINT myxql_savepoint; RELEASE SAVEPOINT myxql_savepoint"
+        handle_transaction(statement, s)
 
       mode when mode in [:transaction, :savepoint] ->
         {status, s}
