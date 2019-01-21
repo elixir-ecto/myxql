@@ -115,26 +115,6 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
   ###########################################################
 
-  # https://dev.mysql.com/doc/internals/en/mysql-packet.html
-  defrecord :packet, [:sequence_id, :payload_length, :payload]
-
-  def decode_packet(data) do
-    <<payload_length::int(3), sequence_id::int(1), payload::binary>> = data
-    packet(payload_length: payload_length, sequence_id: sequence_id, payload: payload)
-  end
-
-  def take_packet(data) do
-    <<
-      payload_length::int(3),
-      sequence_id::int(1),
-      payload::string(payload_length),
-      rest::binary
-    >> = data
-
-    packet = packet(payload: payload, payload_length: payload_length, sequence_id: sequence_id)
-    {packet, rest}
-  end
-
   def encode_packet(payload, sequence_id) do
     payload_length = IO.iodata_length(payload)
     [<<payload_length::int(3), sequence_id::int(1)>>, payload]
