@@ -2,6 +2,10 @@ defmodule MyXQL.RowValueTest do
   use ExUnit.Case, async: true
   use Bitwise
 
+  defmacrop sigil_Z({:<<>>, _, [string]}, _) do
+    Macro.escape(DateTime.from_naive!(NaiveDateTime.from_iso8601!(string), "Etc/UTC"))
+  end
+
   for protocol <- [:text, :binary] do
     @protocol protocol
 
@@ -133,14 +137,14 @@ defmodule MyXQL.RowValueTest do
       end
 
       test "MYSQL_TYPE_TIMESTAMP", c do
-        assert_roundtrip(c, "my_timestamp", ~N[1999-12-31 09:10:20])
+        assert_roundtrip(c, "my_timestamp", ~Z[1999-12-31 09:10:20])
       end
 
       test "MYSQL_TYPE_TIMESTAMP - time zones", c do
         query!(c, "SET time_zone = '+00:00'")
-        id = insert(c, "my_timestamp", ~N[1999-12-31 09:10:20])
+        id = insert(c, "my_timestamp", ~Z[1999-12-31 09:10:20])
         query!(c, "SET time_zone = '+08:00'")
-        assert get(c, "my_timestamp", id) == ~N[1999-12-31 17:10:20]
+        assert get(c, "my_timestamp", id) == ~Z[1999-12-31 17:10:20]
       end
 
       test "MYSQL_TYPE_YEAR", c do

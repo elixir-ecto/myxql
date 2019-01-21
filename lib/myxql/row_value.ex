@@ -107,7 +107,9 @@ defmodule MyXQL.RowValue do
   end
 
   def decode_text_value(value, @mysql_type_timestamp) do
-    NaiveDateTime.from_iso8601!(value)
+    value
+    |> NaiveDateTime.from_iso8601!()
+    |> DateTime.from_naive!("Etc/UTC")
   end
 
   def decode_text_value(value, type)
@@ -305,7 +307,7 @@ defmodule MyXQL.RowValue do
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
-    {:ok, value} = NaiveDateTime.new(year, month, day, 0, 0, 0)
+    value = new_datetime(type, year, month, day, 0, 0, 0, {0, 0})
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
@@ -317,7 +319,7 @@ defmodule MyXQL.RowValue do
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
-    {:ok, value} = NaiveDateTime.new(year, month, day, hour, minute, second)
+    value = new_datetime(type, year, month, day, hour, minute, second, {0, 0})
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
@@ -329,7 +331,7 @@ defmodule MyXQL.RowValue do
          acc
        )
        when type in [@mysql_type_datetime, @mysql_type_timestamp] do
-    {:ok, value} = NaiveDateTime.new(year, month, day, hour, minute, second, {microsecond, 6})
+    value = new_datetime(type, year, month, day, hour, minute, second, {microsecond, 6})
     decode_binary_row(rest, null_bitmap >>> 1, tail, [value | acc])
   end
 
@@ -457,5 +459,15 @@ defmodule MyXQL.RowValue do
 
   defp encode_binary_datetime(%DateTime{} = datetime) do
     raise ArgumentError, "#{inspect(datetime)} is not in UTC"
+  end
+
+  defp new_datetime(@mysql_type_datetime, year, month, day, hour, minute, second, microsecond) do
+    {:ok, naive_datetime} = NaiveDateTime.new(year, month, day, hour, minute, second, microsecond)
+    naive_datetime
+  end
+
+  defp new_datetime(@mysql_type_timestamp, year, month, day, hour, minute, second, microsecond) do
+    new_datetime(@mysql_type_datetime, year, month, day, hour, minute, second, microsecond)
+    |> DateTime.from_naive!("Etc/UTC")
   end
 end
