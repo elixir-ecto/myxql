@@ -290,14 +290,33 @@ defmodule MyXQL.Protocol do
         if :server_status_cursor_exists in list_status_flags(status_flags) do
           {:cont, result, s}
         else
+          true = :server_status_last_row_sent in list_status_flags(status_flags)
           {:halt, result, s}
         end
     end
   end
 
   @impl true
-  def handle_deallocate(_query, %Cursor{}, _opts, s) do
-    {:ok, nil, s}
+  def handle_deallocate(query, %Cursor{}, _opts, state) do
+    with {:ok, statement_id} <- fetch_statement_id(state, query),
+         payload = encode_com_stmt_reset(statement_id),
+         data = encode_packet(payload, 0),
+         :ok <- sock_send(state, data),
+         {:ok, packet} <- recv_packet(&decode_generic_response/1, state) do
+      case packet do
+        ok_packet(status_flags: status_flags) ->
+          {:ok, nil, put_status(state, status_flags)}
+
+        err_packet() = err_packet ->
+          {:error, mysql_error(err_packet, query.statement), state}
+      end
+    else
+      {:error, reason} ->
+        {:error, socket_error(reason)}
+
+      :error ->
+        {:ok, nil, state}
+    end
   end
 
   ## Internals
@@ -308,8 +327,10 @@ defmodule MyXQL.Protocol do
   end
 
   def recv_packets(decoder, decoder_state, state) do
-    {:ok, data} = sock_recv(state)
-    recv_packets(data, decoder, decoder_state, state)
+    case sock_recv(state) do
+      {:ok, data} -> recv_packets(data, decoder, decoder_state, state)
+      {:error, _} = error -> error
+    end
   end
 
   defp recv_packets(
@@ -326,8 +347,10 @@ defmodule MyXQL.Protocol do
 
   # If we didn't match on a full packet, receive more data and try again
   defp recv_packets(rest, decoder, decoder_state, state) do
-    {:ok, data} = sock_recv(state)
-    recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, state)
+    case sock_recv(state) do
+      {:ok, data} -> recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, state)
+      {:error, _} = error -> error
+    end
   end
 
   ## Handshake

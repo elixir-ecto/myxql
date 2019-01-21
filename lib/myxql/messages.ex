@@ -310,6 +310,11 @@ defmodule MyXQL.Messages do
     encode_com(0x19, <<statement_id::int(4)>>)
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-stmt-reset.html
+  def encode_com_stmt_reset(statement_id) do
+    encode_com(0x1A, <<statement_id::int(4)>>)
+  end
+
   defp encode_com(command, iodata) when is_integer(command) do
     [command, iodata]
   end
