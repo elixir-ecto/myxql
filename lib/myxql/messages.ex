@@ -123,9 +123,10 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
 
-  def decode_ok_packet(data) do
-    <<0x00, rest::binary>> = data
+  # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
+  defrecord :err_packet, [:error_code, :sql_state_marker, :sql_state, :error_message]
 
+  def decode_generic_response(<<0x00, rest::binary>>) do
     {affected_rows, rest} = take_int_lenenc(rest)
     {last_insert_id, rest} = take_int_lenenc(rest)
 
@@ -144,18 +145,7 @@ defmodule MyXQL.Messages do
     )
   end
 
-  # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
-  defrecord :err_packet, [:error_code, :sql_state_marker, :sql_state, :error_message]
-
-  def decode_err_packet(<<0xFF, rest::binary>>) do
-    decode_err_packet(0xFF, rest)
-  end
-
-  def decode_err_packet(
-        0xFF,
-        <<error_code::int(2), sql_state_marker::string(1), sql_state::string(5),
-          error_message::binary>>
-      ) do
+  def decode_generic_response(<<0xFF, error_code::int(2), sql_state_marker::string(1), sql_state::string(5), error_message::binary>>) do
     err_packet(
       error_code: error_code,
       sql_state_marker: sql_state_marker,
@@ -164,26 +154,9 @@ defmodule MyXQL.Messages do
     )
   end
 
-  def decode_generic_response(<<header, rest::binary>>) do
-    decode_generic_response(header, rest)
-  end
-
-  def decode_generic_response(header, rest)
-
-  def decode_generic_response(0x00, rest) do
-    decode_ok_packet(<<0x00, rest::binary>>)
-  end
-
-  def decode_generic_response(
-        0xFF,
-        <<code::int(2), state_marker::string(1), state::string(5), message::binary>>
-      ) do
-    err_packet(
-      error_code: code,
-      sql_state_marker: state_marker,
-      sql_state: state,
-      error_message: message
-    )
+  # Note: header is last argument to allow binary optimization
+  def decode_generic_response(<<rest::binary>>, header) do
+    decode_generic_response(<<header, rest::binary>>)
   end
 
   ##############################################################
@@ -293,7 +266,7 @@ defmodule MyXQL.Messages do
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
   def decode_handshake_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
-    decode_generic_response(header, rest)
+    decode_generic_response(rest, header)
   end
 
   def decode_handshake_response(<<0x01, 0x04>>) do
@@ -354,7 +327,7 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(<<header, rest::binary>>, :initial)
       when header in [0x00, 0xFF] do
-    {:halt, decode_generic_response(header, rest)}
+    {:halt, decode_generic_response(rest, header)}
   end
 
   def decode_com_query_response(payload, state) do
@@ -383,8 +356,8 @@ defmodule MyXQL.Messages do
       ), num_columns + num_params}}
   end
 
-  def decode_com_stmt_prepare_response(<<0xFF, rest::binary>>, :initial) do
-    {:halt, decode_err_packet(0xFF, rest)}
+  def decode_com_stmt_prepare_response(<<rest::binary>>, :initial) do
+    {:halt, decode_generic_response(rest)}
   end
 
   # for now, we're simply consuming column_definition packets for params and columns,
@@ -447,7 +420,7 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
   def decode_com_stmt_execute_response(<<header, rest::binary>>, :initial)
       when header in [0x00, 0xFF] do
-    {:halt, decode_generic_response(header, rest)}
+    {:halt, decode_generic_response(rest, header)}
   end
 
   def decode_com_stmt_execute_response(payload, state) do
