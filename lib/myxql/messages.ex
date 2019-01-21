@@ -145,7 +145,10 @@ defmodule MyXQL.Messages do
     )
   end
 
-  def decode_generic_response(<<0xFF, error_code::int(2), sql_state_marker::string(1), sql_state::string(5), error_message::binary>>) do
+  def decode_generic_response(
+        <<0xFF, error_code::int(2), sql_state_marker::string(1), sql_state::string(5),
+          error_message::binary>>
+      ) do
     err_packet(
       error_code: error_code,
       sql_state_marker: sql_state_marker,
