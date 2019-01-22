@@ -103,6 +103,13 @@ defmodule MyXQL do
 
   To force using binary protocol, use `prepare_execute/5`.
 
+  ## Multiple results
+
+  If a query returns multiple results (the query has multiple statements or is calling a procedure that returns multiple results)
+  currently only the first result is returned. This behaviour may change in future releases.
+
+  If a query may return multiple results it's recommended to use `stream/4`.
+
   ## Options
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
@@ -195,6 +202,13 @@ defmodule MyXQL do
 
   @doc """
   Prepares and executes a query in a single step.
+
+  ## Multiple results
+
+  If a query returns multiple results (e.g. it's calling a procedure that returns multiple results)
+  currently only the first result is returned. This behaviour may change in future releases.
+
+  If a query may return multiple results it's recommended to use `stream/4`.
 
   ## Options
 
