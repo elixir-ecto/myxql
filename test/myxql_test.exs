@@ -153,6 +153,13 @@ defmodule MyXQLTest do
       MyXQL.query!(conn, "SELECT 1, 2, NOW()")
       MyXQL.prepare_execute!(conn, "", "SELECT 1, 2, NOW()")
     end
+
+    test "after_connect callback" do
+      pid = self()
+      opts = Keyword.merge(@opts, after_connect: fn conn -> send(pid, {:connected, conn}) end)
+      MyXQL.start_link(opts)
+      assert_receive {:connected, _}
+    end
   end
 
   describe "query" do

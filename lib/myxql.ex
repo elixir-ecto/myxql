@@ -34,7 +34,7 @@ defmodule MyXQL do
 
     * `:ssl` - Set to `true` if SSL should be used (default: `false`)
 
-    * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
+    * `:ssl_options` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
 
     * `:pool` - The pool module to use (default: `DBConnection.ConnectionPool`)
 
@@ -43,10 +43,11 @@ defmodule MyXQL do
       included with all requests contacting the pool
 
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
-      `15000`)
+      `15_000`)
 
-  Options are passed to `DBConnection.start_link/2`, see it's documentation for
-  other available options.
+  MyXQL uses the `DBConnection` library and supports all `DBConnection`
+  options like `:pool_size`, `:after_connect` etc. See `DBConnection.start_link/2`
+  for more information.
 
   ## Examples
 
@@ -58,6 +59,11 @@ defmodule MyXQL do
   Start connection over TCP:
 
       iex> {:ok, pid} = MyXQL.start_link(protocol: :tcp)
+      {:ok, #PID<0.69.0>}
+
+  Run a query after connection has been established:
+
+      iex> {:ok, pid} = MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
       {:ok, #PID<0.69.0>}
 
   """
