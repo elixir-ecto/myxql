@@ -106,7 +106,7 @@ defmodule MyXQL.Protocol do
             rows: rows
           }
 
-          {:ok, query, result, put_status(s, status_flags)}
+          maybe_close(query, statement_id, result, put_status(s, status_flags))
 
         {:ok,
          ok_packet(
