@@ -123,7 +123,7 @@ defmodule MyXQL.Protocol do
             last_insert_id: last_insert_id
           }
 
-          {:ok, query, result, put_status(s, status_flags)}
+          maybe_close(query, statement_id, result, put_status(s, status_flags))
 
         {:ok, err_packet() = err_packet} ->
           {:error, mysql_error(err_packet, query.statement), s}
@@ -178,13 +178,7 @@ defmodule MyXQL.Protocol do
   def handle_close(%Query{} = query, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        payload = encode_com_stmt_close(statement_id)
-        data = encode_packet(payload, 0)
-
-        # No response is sent back to the client.
-        :ok = sock_send(state, data)
-
-        state = delete_statement_id(state, query)
+        state = close(query, statement_id, state)
         {:ok, nil, state}
 
       :error ->
@@ -629,6 +623,26 @@ defmodule MyXQL.Protocol do
     with {:ok, query, statement_id, state} <- prepare(query, state) do
       {:ok, query, statement_id, state}
     end
+  end
+
+  # Close unnamed queries after executing them
+  defp maybe_close(%Query{name: ""} = query, statement_id, result, state) do
+    state = close(query, statement_id, state)
+    {:ok, query, result, state}
+  end
+
+  defp maybe_close(query, _statement_id, result, state) do
+    {:ok, query, result, state}
+  end
+
+  defp close(query, statement_id, state) do
+    payload = encode_com_stmt_close(statement_id)
+    data = encode_packet(payload, 0)
+
+    # No response is sent back to the client.
+    :ok = sock_send(state, data)
+
+    delete_statement_id(state, query)
   end
 
   defp mysql_error(err_packet(error_code: code, error_message: message), statement) do
