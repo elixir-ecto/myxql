@@ -462,6 +462,18 @@ defmodule MyXQLTest do
     end
   end
 
+  describe "stored procedures" do
+    setup :connect
+
+    test "text queries", c do
+      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL multi()")
+    end
+
+    test "prepared statement", c do
+      assert {_, %MyXQL.Result{rows: [[1]]}} = MyXQL.prepare_execute!(c.conn, "", "CALL multi()")
+    end
+  end
+
   defp assert_start_and_killed(opts) do
     Process.flag(:trap_exit, true)
 

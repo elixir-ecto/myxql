@@ -355,13 +355,19 @@ defmodule MyXQL.Messages do
       _rest::binary
     >> = rest
 
-    {:cont,
-     {com_stmt_prepare_ok(
+    result =
+      com_stmt_prepare_ok(
         statement_id: statement_id,
         num_columns: num_columns,
         num_params: num_params,
         warning_count: warning_count
-      ), num_columns + num_params}}
+      )
+
+    if num_columns + num_params > 0 do
+      {:cont, {result, num_columns + num_params}}
+    else
+      {:halt, result}
+    end
   end
 
   def decode_com_stmt_prepare_response(<<rest::binary>>, :initial) do
