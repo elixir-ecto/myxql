@@ -227,34 +227,25 @@ defmodule MyXQLTest do
       assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
     end
 
-    test "prepare, execute, close, and execute", c do
-      {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT 42")
-      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query, [])
-      :ok = MyXQL.close(c.conn, query)
+    test "query is re-prepared if executed after being closed", c do
+      {:ok, query1} = MyXQL.prepare(c.conn, "", "SELECT 42")
+      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
+      :ok = MyXQL.close(c.conn, query1)
 
-      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query, [])
+      assert {:ok, query2, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
+      assert query1.ref != query2.ref
     end
 
-    test "prepare from different connection and close", c do
-      conn1 = c.conn
-      {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
-
-      {:ok, conn2} = MyXQL.start_link(@opts)
-      :ok = MyXQL.close(conn2, query1)
-
-      assert {:ok, _, %{rows: [[42]]}} = MyXQL.execute(conn1, query1, [])
-    end
-
-    test "prepared query from different connection is re-prepared", c do
+    test "query is re-prepared if executed from different connection", c do
       conn1 = c.conn
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
       {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
-
       assert query1.ref != query2.ref
     end
 
+    # This test is just describing existing behaviour, we may want to change it in the future.
     test "prepared query is not re-prepared after schema change", c do
       MyXQL.query!(c.conn, "CREATE TABLE test_prepared_schema_change (x integer)")
       MyXQL.query!(c.conn, "INSERT INTO test_prepared_schema_change VALUES (1)")

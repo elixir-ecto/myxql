@@ -180,7 +180,10 @@ defmodule MyXQL.Protocol do
       {:ok, statement_id} ->
         payload = encode_com_stmt_close(statement_id)
         data = encode_packet(payload, 0)
+
+        # No response is sent back to the client.
         :ok = sock_send(state, data)
+
         state = delete_statement_id(state, query)
         {:ok, nil, state}
 
