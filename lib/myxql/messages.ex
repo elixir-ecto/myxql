@@ -347,7 +347,7 @@ defmodule MyXQL.Messages do
 
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
-          warning_count::int(2), _rest::binary>>,
+          warning_count::int(2)>>,
         :initial
       ) do
     result =
