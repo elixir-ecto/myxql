@@ -284,6 +284,29 @@ defmodule MyXQLTest do
       assert List.flatten(result.rows) == Enum.to_list(1..num)
       assert result.num_rows == num
     end
+
+    test "named and unnamed queries" do
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
+      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query)
+      assert query.ref == query2.ref
+      {:ok, query3, _} = MyXQL.execute(pid, query)
+      assert query.ref == query3.ref
+
+      # unnamed queries are closed
+      {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query)
+      assert query.ref == query2.ref
+      {:ok, query3, _} = MyXQL.execute(pid, query)
+      assert query2.ref != query3.ref
+
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
+      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query)
+      assert query.ref == query2.ref
+      {:ok, query3, _} = MyXQL.execute(pid, query)
+      assert query2.ref != query3.ref
+    end
   end
 
   describe "transactions" do

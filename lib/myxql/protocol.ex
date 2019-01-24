@@ -10,9 +10,9 @@ defmodule MyXQL.Protocol do
     :sock,
     :sock_mod,
     :connection_id,
-    transaction_status: :idle,
+    prepare: :named,
     prepared_statements: %{},
-    cursors: %{}
+    transaction_status: :idle
   ]
 
   @impl true
@@ -24,10 +24,11 @@ defmodule MyXQL.Protocol do
     database = Keyword.get(opts, :database)
     ssl? = Keyword.get(opts, :ssl, false)
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
+    prepare = Keyword.get(opts, :prepare, :named)
 
     case do_connect(opts) do
       {:ok, sock} ->
-        state = %__MODULE__{sock: sock, sock_mod: :gen_tcp}
+        state = %__MODULE__{sock: sock, sock_mod: :gen_tcp, prepare: prepare}
         handshake(state, username, password, database, ssl?, ssl_opts)
 
       {:error, reason} ->
@@ -83,6 +84,8 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_prepare(query, _opts, state) do
+    query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
+
     with {:ok, query, _statement_id, state} <- prepare(query, state) do
       {:ok, query, state}
     end

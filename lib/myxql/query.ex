@@ -16,6 +16,14 @@ defmodule MyXQL.Query do
   given to `execute` and the one returned are the same, it
   means the cached prepared query was used. If the `ref` field
   is not the same, it means the query had to be re-prepared.
+
+  ## Named and Unnamed Queries
+
+  Named queries are identified by the non-empty value in `:name` field
+  and are meant to be re-used.
+
+  Unnamed queries, with `:name` equal to `""`, are automatically closed
+  after being executed.
   """
 
   @type t :: %__MODULE__{

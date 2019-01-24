@@ -45,6 +45,12 @@ defmodule MyXQL do
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
 
+    * `:prepare` - How to prepare queries, either `:named` to use named queries or `:unnamed` to
+       force unnamed queries (default: :named)
+
+       See "Named and Unnamed Queries" section of the `MyXQL.Query` documentation for more
+       information
+
   MyXQL uses the `DBConnection` library and supports all `DBConnection`
   options like `:pool_size`, `:after_connect` etc. See `DBConnection.start_link/2`
   for more information.
