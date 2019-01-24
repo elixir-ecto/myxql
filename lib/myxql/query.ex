@@ -43,6 +43,10 @@ defmodule MyXQL.Query do
       query
     end
 
+    def encode(%{ref: nil} = query, _params, _opts) do
+      raise ArgumentError, "query #{inspect(query)} has not been prepared"
+    end
+
     def encode(%{num_params: num_params} = query, params, _opts)
         when num_params != length(params) do
       raise ArgumentError,
