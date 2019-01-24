@@ -685,8 +685,8 @@ defmodule MyXQL.Protocol do
         query = %{query | num_params: num_params}
         {:ok, query, statement_id, state}
 
-      {:ok, err_packet() = err_packet} ->
-        {:error, mysql_error(err_packet, query.statement), state}
+      result ->
+        result(result, query, state)
     end
   end
 
