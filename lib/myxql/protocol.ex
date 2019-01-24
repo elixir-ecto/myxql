@@ -386,7 +386,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp result({:ok, err_packet() = err_packet}, query, state) do
-    {:error, mysql_error(err_packet, query.statement), state}
+    maybe_disconnect(mysql_error(err_packet, query.statement), state)
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
@@ -395,6 +395,20 @@ defmodule MyXQL.Protocol do
 
   defp result({:error, reason}, _query, state) do
     {:error, socket_error(reason), state}
+  end
+
+  defp maybe_disconnect(exception, state) do
+    %MyXQL.Error{mysql: %{name: error_name}} = exception
+
+    disconnect_on_errors = [
+      :ER_MAX_PREPARED_STMT_COUNT_REACHED
+    ]
+
+    if error_name in disconnect_on_errors do
+      {:disconnect, exception, state}
+    else
+      {:error, exception, state}
+    end
   end
 
   ## Handshake
