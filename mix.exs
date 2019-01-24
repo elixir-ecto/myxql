@@ -1,12 +1,19 @@
 defmodule MyXQL.MixProject do
   use Mix.Project
 
+  @version "0.1.1"
+  @source_url "https://github.com/elixir-ecto/myxql"
+
   def project() do
     [
       app: :myxql,
-      version: "0.1.1",
+      version: @version,
       elixir: "~> 1.4",
       start_permanent: Mix.env() == :prod,
+      description: "MySQL 5.7+ driver for Elixir",
+      source_url: @source_url,
+      package: package(),
+      docs: docs(),
       deps: deps()
     ]
   end
@@ -14,6 +21,21 @@ defmodule MyXQL.MixProject do
   def application() do
     [
       extra_applications: [:logger, :crypto, :ssl]
+    ]
+  end
+
+  defp package() do
+    [
+      licenses: ["Apache 2.0"],
+      links: %{"GitHub" => @source_url}
+    ]
+  end
+
+  defp docs() do
+    [
+      source_ref: "v#{@version}",
+      main: "readme",
+      extras: ["README.md"]
     ]
   end
 
