@@ -266,17 +266,56 @@ defmodule MyXQL.Protocol do
     :ok = sock_send(s, data)
 
     case recv_packets(&decode_com_stmt_execute_response/3, :initial, s) do
-      {:ok, resultset(column_defs: column_defs, rows: [], status_flags: status_flags)} ->
-        true = :server_status_cursor_exists in list_status_flags(status_flags)
-        cursor = %Cursor{column_defs: column_defs}
-        {:ok, query, cursor, put_status(s, status_flags)}
+      {:ok,
+       resultset(
+         column_defs: column_defs,
+         row_count: row_count,
+         rows: rows,
+         status_flags: status_flags
+       )} ->
+        if :server_status_cursor_exists in list_status_flags(status_flags) do
+          cursor = %Cursor{column_defs: column_defs}
+          {:ok, query, cursor, put_status(s, status_flags)}
+        else
+          columns = Enum.map(column_defs, &elem(&1, 1))
+
+          result = %MyXQL.Result{
+            connection_id: s.connection_id,
+            rows: rows,
+            num_rows: row_count,
+            columns: columns
+          }
+
+          {:ok, query, result, put_status(s, status_flags)}
+        end
+
+      {:ok,
+       ok_packet(
+         status_flags: status_flags,
+         affected_rows: affected_rows,
+         last_insert_id: last_insert_id,
+         info: _info
+       )} ->
+        result = %Result{
+          connection_id: s.connection_id,
+          columns: [],
+          rows: nil,
+          num_rows: affected_rows,
+          last_insert_id: last_insert_id
+        }
+
+        {:ok, query, result, put_status(s, status_flags)}
     end
   end
 
   @impl true
+  def handle_fetch(_query, %Result{} = result, _opts, s) do
+    {:halt, result, s}
+  end
+
   def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, s) do
     %{connection_id: connection_id} = s
-    max_rows = Keyword.fetch!(opts, :max_rows)
+    max_rows = Keyword.get(opts, :max_rows, 500)
     {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
     payload = encode_com_stmt_fetch(statement_id, max_rows)
     data = encode_packet(payload, 0)
@@ -303,7 +342,7 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_deallocate(query, %Cursor{}, _opts, state) do
+  def handle_deallocate(query, _cursor, _opts, state) do
     with {:ok, statement_id} <- fetch_statement_id(state, query),
          payload = encode_com_stmt_reset(statement_id),
          data = encode_packet(payload, 0),
@@ -613,15 +652,15 @@ defmodule MyXQL.Protocol do
     %{state | transaction_status: transaction_status(status_flags)}
   end
 
-  defp put_statement_id(state, %Query{ref: ref}, statement_id) do
+  defp put_statement_id(state, %{ref: ref}, statement_id) do
     %{state | prepared_statements: Map.put(state.prepared_statements, ref, statement_id)}
   end
 
-  defp fetch_statement_id(state, %Query{ref: ref}) do
+  defp fetch_statement_id(state, %{ref: ref}) do
     Map.fetch(state.prepared_statements, ref)
   end
 
-  defp delete_statement_id(state, %Query{ref: ref}) do
+  defp delete_statement_id(state, %{ref: ref}) do
     %{state | prepared_statements: Map.delete(state.prepared_statements, ref)}
   end
 
