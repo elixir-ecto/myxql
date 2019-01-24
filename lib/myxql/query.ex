@@ -9,8 +9,6 @@ defmodule MyXQL.Query do
     * `:ref` - A reference used to identify prepared queries;
     * `:statement` - The prepared statement
 
-  ## Prepared queries
-
   Once a query is prepared with `MyXQL.prepare/4`, the
   returned query will have its `ref` field set to a reference.
   When `MyXQL.execute/4` is called with the prepared query,
@@ -21,15 +19,13 @@ defmodule MyXQL.Query do
   """
 
   @type t :: %__MODULE__{
-          columns: [String.t()],
           name: iodata(),
           num_params: non_neg_integer(),
           ref: reference(),
           statement: iodata()
         }
 
-  defstruct columns: [],
-            name: "",
+  defstruct name: "",
             num_params: nil,
             ref: nil,
             statement: nil
