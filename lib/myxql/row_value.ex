@@ -391,6 +391,10 @@ defmodule MyXQL.RowValue do
     {@mysql_type_tiny, <<0>>}
   end
 
+  def encode_binary_value(other) do
+    raise ArgumentError, "query has invalid parameter #{inspect(other)}"
+  end
+
   ## Time/DateTime
 
   # MySQL supports negative time and days, we don't.
