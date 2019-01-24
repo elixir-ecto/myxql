@@ -89,97 +89,36 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_execute(%Query{} = query, params, _opts, s) do
-    %{connection_id: connection_id} = s
-
-    with {:ok, query, statement_id, s} <- maybe_reprepare(query, s) do
+  def handle_execute(%Query{} = query, params, _opts, state) do
+    with {:ok, query, statement_id, state} <- maybe_reprepare(query, state) do
       payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
       data = encode_packet(payload, 0)
-      :ok = sock_send(s, data)
 
-      case recv_packets(&decode_com_stmt_execute_response/3, :initial, s) do
-        {:ok, resultset(column_defs: column_defs, rows: rows, status_flags: status_flags)} ->
-          columns = Enum.map(column_defs, &elem(&1, 1))
+      case sock_send(state, data) do
+        :ok ->
+          result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
 
-          result = %Result{
-            connection_id: connection_id,
-            columns: columns,
-            num_rows: length(rows),
-            rows: rows
-          }
+          with {:ok, query, result, state} <- result(result, query, state) do
+            maybe_close(query, statement_id, result, state)
+          end
 
-          maybe_close(query, statement_id, result, put_status(s, status_flags))
-
-        {:ok,
-         ok_packet(
-           status_flags: status_flags,
-           affected_rows: affected_rows,
-           last_insert_id: last_insert_id,
-           info: _info
-         )} ->
-          result = %Result{
-            connection_id: connection_id,
-            columns: [],
-            rows: nil,
-            num_rows: affected_rows,
-            last_insert_id: last_insert_id
-          }
-
-          maybe_close(query, statement_id, result, put_status(s, status_flags))
-
-        {:ok, err_packet() = err_packet} ->
-          {:error, mysql_error(err_packet, query.statement), s}
-
-        {:error, :multiple_results} ->
-          raise ArgumentError,
-                "expected a single result, got multiple; use MyXQL.stream/4 instead"
+        {:error, reason} ->
+          {:error, socket_error(reason), state}
       end
     end
   end
 
-  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, s) do
-    %{connection_id: connection_id} = s
+  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
     payload = encode_com_query(statement)
     data = encode_packet(payload, 0)
-    :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_query_response/3, :initial, s) do
-      {:ok,
-       ok_packet(
-         last_insert_id: last_insert_id,
-         affected_rows: affected_rows,
-         status_flags: status_flags
-       )} ->
-        {:ok, query,
-         %MyXQL.Result{
-           connection_id: connection_id,
-           last_insert_id: last_insert_id,
-           num_rows: affected_rows
-         }, put_status(s, status_flags)}
+    case sock_send(state, data) do
+      :ok ->
+        recv_packets(&decode_com_query_response/3, :initial, state)
+        |> result(query, state)
 
-      {:ok,
-       resultset(
-         column_defs: column_defs,
-         row_count: num_rows,
-         rows: rows,
-         status_flags: status_flags
-       )} ->
-        columns = Enum.map(column_defs, &elem(&1, 1))
-
-        result = %MyXQL.Result{
-          connection_id: connection_id,
-          columns: columns,
-          num_rows: num_rows,
-          rows: rows
-        }
-
-        {:ok, query, result, put_status(s, status_flags)}
-
-      {:ok, err_packet() = err_packet} ->
-        {:error, mysql_error(err_packet, query.statement), s}
-
-      {:error, :multiple_results} ->
-        raise ArgumentError, "expected a single result, got multiple; use MyXQL.stream/4 instead"
+      {:error, reason} ->
+        {:error, socket_error(reason), state}
     end
   end
 
@@ -199,14 +138,19 @@ defmodule MyXQL.Protocol do
   def ping(state) do
     payload = encode_com_ping()
     data = encode_packet(payload, 0)
-    :ok = sock_send(state, data)
 
-    case recv_packet(&decode_generic_response/1, state) do
-      {:ok, ok_packet(status_flags: status_flags)} ->
-        {:ok, put_status(state, status_flags)}
+    case sock_send(state, data) do
+      :ok ->
+        case recv_packet(&decode_generic_response/1, state) do
+          {:ok, ok_packet(status_flags: status_flags)} ->
+            {:ok, put_status(state, status_flags)}
+
+          {:error, reason} ->
+            {:disconnect, socket_error(reason), state}
+        end
 
       {:error, reason} ->
-        {:disconnect, socket_error(reason), state}
+        {:error, socket_error(reason), state}
     end
   end
 
@@ -259,52 +203,31 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_declare(query, params, _opts, s) do
-    {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
+  def handle_declare(query, params, _opts, state) do
+    {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
     payload = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
     data = encode_packet(payload, 0)
-    :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_stmt_execute_response/3, :initial, s) do
-      {:ok,
-       resultset(
-         column_defs: column_defs,
-         row_count: row_count,
-         rows: rows,
-         status_flags: status_flags
-       )} ->
-        if :server_status_cursor_exists in list_status_flags(status_flags) do
-          cursor = %Cursor{column_defs: column_defs}
-          {:ok, query, cursor, put_status(s, status_flags)}
-        else
-          columns = Enum.map(column_defs, &elem(&1, 1))
+    case sock_send(state, data) do
+      :ok ->
+        case recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
+          {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
+            if has_status_flag?(status_flags, :server_status_cursor_exists) do
+              cursor = %Cursor{column_defs: column_defs}
+              {:ok, query, cursor, put_status(state, status_flags)}
+            else
+              result(result, query, state)
+            end
 
-          result = %MyXQL.Result{
-            connection_id: s.connection_id,
-            rows: rows,
-            num_rows: row_count,
-            columns: columns
-          }
+          {:ok, _} = result ->
+            result(result, query, state)
 
-          {:ok, query, result, put_status(s, status_flags)}
+          {:error, _} = result ->
+            result(result, query, state)
         end
 
-      {:ok,
-       ok_packet(
-         status_flags: status_flags,
-         affected_rows: affected_rows,
-         last_insert_id: last_insert_id,
-         info: _info
-       )} ->
-        result = %Result{
-          connection_id: s.connection_id,
-          columns: [],
-          rows: nil,
-          num_rows: affected_rows,
-          last_insert_id: last_insert_id
-        }
-
-        {:ok, query, result, put_status(s, status_flags)}
+      {:error, reason} ->
+        {:error, socket_error(reason), state}
     end
   end
 
@@ -313,31 +236,28 @@ defmodule MyXQL.Protocol do
     {:halt, result, s}
   end
 
-  def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, s) do
-    %{connection_id: connection_id} = s
+  def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, state) do
     max_rows = Keyword.get(opts, :max_rows, 500)
-    {:ok, _query, statement_id, s} = maybe_reprepare(query, s)
+    {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
     payload = encode_com_stmt_fetch(statement_id, max_rows)
     data = encode_packet(payload, 0)
-    :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, s) do
-      {:ok, resultset(row_count: row_count, rows: rows, status_flags: status_flags)} ->
-        columns = Enum.map(column_defs, &elem(&1, 1))
+    case sock_send(state, data) do
+      :ok ->
+        case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state) do
+          {:ok, resultset(status_flags: status_flags)} = result ->
+            {:ok, _query, result, state} = result(result, query, state)
 
-        result = %MyXQL.Result{
-          connection_id: connection_id,
-          rows: rows,
-          num_rows: row_count,
-          columns: columns
-        }
-
-        if :server_status_cursor_exists in list_status_flags(status_flags) do
-          {:cont, result, s}
-        else
-          true = :server_status_last_row_sent in list_status_flags(status_flags)
-          {:halt, result, s}
+            if :server_status_cursor_exists in list_status_flags(status_flags) do
+              {:cont, result, state}
+            else
+              true = :server_status_last_row_sent in list_status_flags(status_flags)
+              {:halt, result, state}
+            end
         end
+
+      {:error, reason} ->
+        {:error, socket_error(reason), state}
     end
   end
 
@@ -421,6 +341,60 @@ defmodule MyXQL.Protocol do
       {:ok, data} -> recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, state)
       {:error, _} = error -> error
     end
+  end
+
+  defp result(
+         {:ok,
+          ok_packet(
+            last_insert_id: last_insert_id,
+            affected_rows: affected_rows,
+            status_flags: status_flags
+          )},
+         query,
+         state
+       ) do
+    result = %MyXQL.Result{
+      connection_id: state.connection_id,
+      last_insert_id: last_insert_id,
+      num_rows: affected_rows
+    }
+
+    {:ok, query, result, put_status(state, status_flags)}
+  end
+
+  defp result(
+         {:ok,
+          resultset(
+            column_defs: column_defs,
+            row_count: num_rows,
+            rows: rows,
+            status_flags: status_flags
+          )},
+         query,
+         state
+       ) do
+    columns = Enum.map(column_defs, &elem(&1, 1))
+
+    result = %MyXQL.Result{
+      connection_id: state.connection_id,
+      columns: columns,
+      num_rows: num_rows,
+      rows: rows
+    }
+
+    {:ok, query, result, put_status(state, status_flags)}
+  end
+
+  defp result({:ok, err_packet() = err_packet}, query, state) do
+    {:error, mysql_error(err_packet, query.statement), state}
+  end
+
+  defp result({:error, :multiple_results}, _query, _state) do
+    raise ArgumentError, "expected a single result, got multiple; use MyXQL.stream/4 instead"
+  end
+
+  defp result({:error, reason}, _query, state) do
+    {:error, socket_error(reason), state}
   end
 
   ## Handshake
