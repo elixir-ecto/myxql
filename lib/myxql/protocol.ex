@@ -246,7 +246,7 @@ defmodule MyXQL.Protocol do
 
       :savepoint when status == :transaction ->
         statement = "ROLLBACK TO SAVEPOINT myxql_savepoint; RELEASE SAVEPOINT myxql_savepoint"
-        handle_transaction(statement, s)
+        handle_transaction_multi(statement, s)
 
       mode when mode in [:transaction, :savepoint] ->
         {status, s}
@@ -614,24 +614,43 @@ defmodule MyXQL.Protocol do
     sock_mod.close(sock)
   end
 
-  defp handle_transaction(statement, s) do
-    :ok = send_text_query(s, statement)
-    transaction_recv(statement, s)
-  end
+  defp handle_transaction(statement, state) do
+    :ok = send_text_query(state, statement)
 
-  defp transaction_recv(statement, s) do
-    case recv_packet(&decode_generic_response/1, s) do
+    case recv_packet(&decode_generic_response/1, state) do
       {:ok, ok_packet(status_flags: status_flags)} ->
-        if has_status_flag?(status_flags, :server_more_results_exists) do
-          transaction_recv(statement, s)
-        else
-          result = :todo
-          {:ok, result, put_status(s, status_flags)}
-        end
+        {:ok, nil, put_status(state, status_flags)}
 
       {:ok, err_packet() = err_packet} ->
-        {:disconnect, mysql_error(err_packet, statement), s}
+        {:disconnect, mysql_error(err_packet, statement), state}
     end
+  end
+
+  defp handle_transaction_multi(statement, state) do
+    :ok = send_text_query(state, statement)
+
+    case recv_packets(&decode_multi_results/3, :first, state) do
+      {:ok, ok_packet(status_flags: status_flags)} ->
+        {:ok, nil, put_status(state, status_flags)}
+
+      {:ok, err_packet() = err_packet} ->
+        {:disconnect, mysql_error(err_packet, statement), state}
+    end
+  end
+
+  defp decode_multi_results(payload, _next, :first) do
+    case decode_generic_response(payload) do
+      ok_packet(status_flags: status_flags) ->
+        true = has_status_flag?(status_flags, :server_more_results_exists)
+        {:cont, :next}
+
+      err_packet() = err_packet ->
+        {:halt, err_packet}
+    end
+  end
+
+  defp decode_multi_results(payload, "", :next) do
+    {:halt, decode_generic_response(payload)}
   end
 
   defp send_text_query(s, statement) do
