@@ -4,6 +4,8 @@ defmodule MyXQL.Protocol do
   import MyXQL.{Messages, Types}
   alias MyXQL.{Cursor, Query, TextQuery, Result}
 
+  @typep t() :: %__MODULE__{}
+
   defstruct [
     :sock,
     :sock_mod,
@@ -95,7 +97,7 @@ defmodule MyXQL.Protocol do
       data = encode_packet(payload, 0)
       :ok = sock_send(s, data)
 
-      case recv_packets(&decode_com_stmt_execute_response/2, :initial, s) do
+      case recv_packets(&decode_com_stmt_execute_response/3, :initial, s) do
         {:ok, resultset(column_defs: column_defs, rows: rows, status_flags: status_flags)} ->
           columns = Enum.map(column_defs, &elem(&1, 1))
 
@@ -127,6 +129,10 @@ defmodule MyXQL.Protocol do
 
         {:ok, err_packet() = err_packet} ->
           {:error, mysql_error(err_packet, query.statement), s}
+
+        {:error, :multiple_results} ->
+          raise ArgumentError,
+                "expected a single result, got multiple; use MyXQL.stream/4 instead"
       end
     end
   end
@@ -137,7 +143,7 @@ defmodule MyXQL.Protocol do
     data = encode_packet(payload, 0)
     :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_query_response/2, :initial, s) do
+    case recv_packets(&decode_com_query_response/3, :initial, s) do
       {:ok,
        ok_packet(
          last_insert_id: last_insert_id,
@@ -171,6 +177,9 @@ defmodule MyXQL.Protocol do
 
       {:ok, err_packet() = err_packet} ->
         {:error, mysql_error(err_packet, query.statement), s}
+
+      {:error, :multiple_results} ->
+        raise ArgumentError, "expected a single result, got multiple; use MyXQL.stream/4 instead"
     end
   end
 
@@ -256,7 +265,7 @@ defmodule MyXQL.Protocol do
     data = encode_packet(payload, 0)
     :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_stmt_execute_response/2, :initial, s) do
+    case recv_packets(&decode_com_stmt_execute_response/3, :initial, s) do
       {:ok, resultset(column_defs: column_defs, rows: [], status_flags: status_flags)} ->
         true = :server_status_cursor_exists in list_status_flags(status_flags)
         cursor = %Cursor{column_defs: column_defs}
@@ -273,7 +282,7 @@ defmodule MyXQL.Protocol do
     data = encode_packet(payload, 0)
     :ok = sock_send(s, data)
 
-    case recv_packets(&decode_com_stmt_execute_response/2, {:rows, column_defs, []}, s) do
+    case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, s) do
       {:ok, resultset(row_count: row_count, rows: rows, status_flags: status_flags)} ->
         columns = Enum.map(column_defs, &elem(&1, 1))
 
@@ -318,15 +327,34 @@ defmodule MyXQL.Protocol do
 
   ## Internals
 
+  # next_data is `""` if there is no more data after parsed packet that we know of.
+  # There might still be more data in the socket though, in that case the decoder
+  # function needs to return `{:cont, ...}`.
+  #
+  # Pattern matching on next_data = "" is useful for OK packets etc.
+  # Looking at next_data is useful for debugging.
+  @typep decoder ::
+           (payload :: binary(), next_data :: binary(), state :: term() ->
+              {:cont, state :: term()}
+              | {:halt, result :: term()}
+              | {:error, term()})
+
+  @spec recv_packet((payload :: binary() -> term()), t()) ::
+          {:ok, term()} | {:error, :inet.posix() | term()}
   def recv_packet(decoder, state) do
-    new_decoder = fn payload, nil -> {:halt, decoder.(payload)} end
+    new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
     recv_packets(new_decoder, nil, state)
   end
 
-  def recv_packets(decoder, decoder_state, state) do
+  @spec recv_packets(decoder, decoder_state :: term(), %__MODULE__{}) ::
+          {:ok, term()} | {:error, :inet.posix() | term()}
+  defp recv_packets(decoder, decoder_state, state) do
     case sock_recv(state) do
-      {:ok, data} -> recv_packets(data, decoder, decoder_state, state)
-      {:error, _} = error -> error
+      {:ok, data} ->
+        recv_packets(data, decoder, decoder_state, state)
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -336,9 +364,15 @@ defmodule MyXQL.Protocol do
          decoder_state,
          state
        ) do
-    case decoder.(payload, decoder_state) do
-      {:cont, decoder_state} -> recv_packets(rest, decoder, decoder_state, state)
-      {:halt, result} -> {:ok, result}
+    case decoder.(payload, rest, decoder_state) do
+      {:cont, decoder_state} ->
+        recv_packets(rest, decoder, decoder_state, state)
+
+      {:halt, result} ->
+        {:ok, result}
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -596,7 +630,7 @@ defmodule MyXQL.Protocol do
     data = encode_packet(payload, 0)
     :ok = sock_send(state, data)
 
-    case recv_packets(&decode_com_stmt_prepare_response/2, :initial, state) do
+    case recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         state = put_statement_id(state, query, statement_id)
         query = %{query | num_params: num_params}

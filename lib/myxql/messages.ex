@@ -333,13 +333,13 @@ defmodule MyXQL.Messages do
   ]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
-  def decode_com_query_response(<<header, rest::binary>>, :initial)
+  def decode_com_query_response(<<header, rest::binary>>, "", :initial)
       when header in [0x00, 0xFF] do
     {:halt, decode_generic_response(rest, header)}
   end
 
-  def decode_com_query_response(payload, state) do
-    decode_resultset(payload, state, &MyXQL.RowValue.decode_text_row/2)
+  def decode_com_query_response(payload, next_data, state) do
+    decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_text_row/2)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
@@ -348,6 +348,7 @@ defmodule MyXQL.Messages do
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
           warning_count::int(2)>>,
+        next_data,
         :initial
       ) do
     result =
@@ -361,20 +362,22 @@ defmodule MyXQL.Messages do
     if num_columns + num_params > 0 do
       {:cont, {result, num_columns + num_params}}
     else
+      "" = next_data
       {:halt, result}
     end
   end
 
-  def decode_com_stmt_prepare_response(<<rest::binary>>, :initial) do
+  def decode_com_stmt_prepare_response(<<rest::binary>>, "", :initial) do
     {:halt, decode_generic_response(rest)}
   end
 
   # for now, we're simply consuming column_definition packets for params and columns,
   # we might decode them in the future.
-  def decode_com_stmt_prepare_response(_payload, {com_stmt_prepare_ok, packets_left}) do
+  def decode_com_stmt_prepare_response(_payload, next_data, {com_stmt_prepare_ok, packets_left}) do
     if packets_left > 1 do
       {:cont, {com_stmt_prepare_ok, packets_left - 1}}
     else
+      "" = next_data
       {:halt, com_stmt_prepare_ok}
     end
   end
@@ -429,13 +432,13 @@ defmodule MyXQL.Messages do
   defp unsigned_flag(_), do: 0x00
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
-  def decode_com_stmt_execute_response(<<header, rest::binary>>, :initial)
+  def decode_com_stmt_execute_response(<<header, rest::binary>>, "", :initial)
       when header in [0x00, 0xFF] do
     {:halt, decode_generic_response(rest, header)}
   end
 
-  def decode_com_stmt_execute_response(payload, state) do
-    decode_resultset(payload, state, &MyXQL.RowValue.decode_binary_row/2)
+  def decode_com_stmt_execute_response(payload, next_data, state) do
+    decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_binary_row/2)
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
@@ -506,11 +509,11 @@ defmodule MyXQL.Messages do
     )
   end
 
-  defp decode_resultset(payload, :initial, _row_decoder) do
+  defp decode_resultset(payload, _next_data, :initial, _row_decoder) do
     {:cont, {:column_defs, decode_int_lenenc(payload), []}}
   end
 
-  defp decode_resultset(payload, {:column_defs, num_columns, acc}, _row_decoder) do
+  defp decode_resultset(payload, _next_data, {:column_defs, num_columns, acc}, _row_decoder) do
     column_def = decode_column_def(payload)
     acc = [column_def | acc]
 
@@ -523,6 +526,7 @@ defmodule MyXQL.Messages do
 
   defp decode_resultset(
          <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>,
+         _next_data,
          {:rows, column_defs, acc},
          _row_decoder
        ) do
@@ -535,11 +539,24 @@ defmodule MyXQL.Messages do
         status_flags: status_flags
       )
 
-    {:halt, resultset}
+    if has_status_flag?(status_flags, :server_more_results_exists) do
+      {:cont, {:trailing_ok_packet, resultset}}
+    else
+      {:halt, resultset}
+    end
   end
 
-  defp decode_resultset(payload, {:rows, column_defs, acc}, row_decoder) do
+  defp decode_resultset(payload, _next_data, {:rows, column_defs, acc}, row_decoder) do
     row = row_decoder.(payload, column_defs)
     {:cont, {:rows, column_defs, [row | acc]}}
+  end
+
+  defp decode_resultset(payload, "", {:trailing_ok_packet, resultset}, _row_decoder) do
+    ok_packet(status_flags: status_flags) = decode_generic_response(payload)
+    {:halt, resultset(resultset, status_flags: status_flags)}
+  end
+
+  defp decode_resultset(_payload, _next_data, {:trailing_ok_packet, _resultset}, _row_decoder) do
+    {:error, :multiple_results}
   end
 end

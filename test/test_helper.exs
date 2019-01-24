@@ -144,9 +144,17 @@ CREATE TABLE test_types (
   my_char CHAR
 );
 
-DROP PROCEDURE IF EXISTS multi;
+DROP PROCEDURE IF EXISTS single_procedure;
 DELIMITER $$
-CREATE PROCEDURE multi()
+CREATE PROCEDURE single_procedure()
+BEGIN
+  SELECT 1;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS multi_procedure;
+DELIMITER $$
+CREATE PROCEDURE multi_procedure()
 BEGIN
   SELECT 1;
   SELECT 2;

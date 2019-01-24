@@ -466,11 +466,24 @@ defmodule MyXQLTest do
     setup :connect
 
     test "text queries", c do
-      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL multi()")
+      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
+      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
+
+      assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
+        assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL multi_procedure()")
+      end
     end
 
     test "prepared statement", c do
-      assert {_, %MyXQL.Result{rows: [[1]]}} = MyXQL.prepare_execute!(c.conn, "", "CALL multi()")
+      assert {_, %MyXQL.Result{rows: [[1]]}} =
+               MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
+
+      assert {_, %MyXQL.Result{rows: [[1]]}} =
+               MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
+
+      assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
+        MyXQL.prepare_execute!(c.conn, "", "CALL multi_procedure()")
+      end
     end
   end
 

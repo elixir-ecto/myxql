@@ -106,9 +106,7 @@ defmodule MyXQL do
   ## Multiple results
 
   If a query returns multiple results (the query has multiple statements or is calling a procedure that returns multiple results)
-  currently only the first result is returned. This behaviour may change in future releases.
-
-  If a query may return multiple results it's recommended to use `stream/4`.
+  an error is raised. If a query may return multiple results it's recommended to use `stream/4` instead.
 
   ## Options
 
@@ -206,9 +204,7 @@ defmodule MyXQL do
   ## Multiple results
 
   If a query returns multiple results (e.g. it's calling a procedure that returns multiple results)
-  currently only the first result is returned. This behaviour may change in future releases.
-
-  If a query may return multiple results it's recommended to use `stream/4`.
+  an error is raised. If a query may return multiple results it's recommended to use `stream/4` instead.
 
   ## Options
 
