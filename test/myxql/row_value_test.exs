@@ -254,9 +254,11 @@ defmodule MyXQL.RowValueTest do
   end
 
   defp assert_out_of_range(c, field, value) do
-    assert_raise MyXQL.Error, "Out of range value for column '#{field}' at row 1", fn ->
-      insert_and_get(c, field, value)
-    end
+    assert_raise MyXQL.Error,
+                 "(1264) (ER_WARN_DATA_OUT_OF_RANGE) Out of range value for column '#{field}' at row 1",
+                 fn ->
+                   insert_and_get(c, field, value)
+                 end
   end
 
   defp insert_and_get(c, field, value) do

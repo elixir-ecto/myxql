@@ -542,7 +542,7 @@ defmodule MyXQL.Protocol do
     name = :CR_AUTH_PLUGIN_ERR
 
     message =
-      "ERROR #{code} (HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
+      "(HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
 
     {:error, mysql_error(code, name, message, nil)}
   end
@@ -732,7 +732,7 @@ defmodule MyXQL.Protocol do
 
   defp mysql_error(code, name, message, statement) when is_integer(code) and is_atom(name) do
     mysql = %{code: code, name: name}
-    %MyXQL.Error{message: message, mysql: mysql, statement: statement}
+    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: mysql, statement: statement}
   end
 
   defp socket_error(reason) do

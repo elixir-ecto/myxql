@@ -25,7 +25,7 @@ defmodule MyXQLTest do
         "caching_sha2_password" ->
           assert capture_log(fn ->
                    assert_start_and_killed(opts)
-                 end) =~ "** (MyXQL.Error) ERROR 2061 (HY000)"
+                 end) =~ "** (MyXQL.Error) (2061) (CR_AUTH_PLUGIN_ERR)"
       end
     end
 
@@ -40,7 +40,7 @@ defmodule MyXQLTest do
       assert capture_log(fn ->
                opts = Keyword.merge(@opts, username: "mysql_native_password", password: "bad")
                assert_start_and_killed(opts)
-             end) =~ "** (MyXQL.Error) Access denied for user 'mysql_native_password'"
+             end) =~ "** (MyXQL.Error) (1045) (ER_ACCESS_DENIED_ERROR)"
     end
 
     @tag auth_plugin: "sha256_password"
@@ -58,7 +58,7 @@ defmodule MyXQLTest do
                  Keyword.merge(@opts, username: "sha256_password", password: "bad", ssl: true)
 
                assert_start_and_killed(opts)
-             end) =~ "** (MyXQL.Error) Access denied for user 'sha256_password'"
+             end) =~ "** (MyXQL.Error) (1045) (ER_ACCESS_DENIED_ERROR)"
     end
 
     @tag auth_plugin: "sha256_password"
@@ -418,7 +418,7 @@ defmodule MyXQLTest do
     end
 
     test "bad query", c do
-      assert_raise MyXQL.Error, "Unknown column 'bad' in 'field list'", fn ->
+      assert_raise MyXQL.Error, ~r"\(1054\) \(ER_BAD_FIELD_ERROR\)", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT bad")
           Enum.to_list(stream)
