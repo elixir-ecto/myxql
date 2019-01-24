@@ -5,7 +5,7 @@ defmodule MyXQL.Result do
   Its public fields are:
 
     * `:columns` - The column names;
-    * `:connection_id` - The column names;
+    * `:connection_id` - The connection ID;
     * `:last_insert_id` - The ID of the last inserted row;
     * `:num_rows` - The number of fetched or affected rows;
     * `:rows` - The result set. A list of lists, each inner list corresponding to a
