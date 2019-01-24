@@ -345,16 +345,11 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
   defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
 
-  def decode_com_stmt_prepare_response(<<0x00, rest::binary>>, :initial) do
-    <<
-      statement_id::int(4),
-      num_columns::int(2),
-      num_params::int(2),
-      0,
-      warning_count::int(2),
-      _rest::binary
-    >> = rest
-
+  def decode_com_stmt_prepare_response(
+        <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
+          warning_count::int(2), _rest::binary>>,
+        :initial
+      ) do
     result =
       com_stmt_prepare_ok(
         statement_id: statement_id,
