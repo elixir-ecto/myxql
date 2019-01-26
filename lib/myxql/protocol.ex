@@ -93,21 +93,9 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_execute(%Query{} = query, params, _opts, state) do
-    with {:ok, query, statement_id, state} <- maybe_reprepare(query, state) do
-      payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
-      data = encode_packet(payload, 0)
-
-      case sock_send(state, data) do
-        :ok ->
-          result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
-
-          with {:ok, query, result, state} <- result(result, query, state) do
-            maybe_close(query, statement_id, result, state)
-          end
-
-        {:error, reason} ->
-          {:error, socket_error(reason), state}
-      end
+    with {:ok, query, statement_id, state} <- maybe_reprepare(query, state),
+         {:ok, query, result, state} <- execute_binary(query, params, statement_id, state) do
+      maybe_close(query, statement_id, result, state)
     end
   end
 
@@ -343,6 +331,20 @@ defmodule MyXQL.Protocol do
     case sock_recv(state) do
       {:ok, data} -> recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, state)
       {:error, _} = error -> error
+    end
+  end
+
+  defp execute_binary(query, params, statement_id, state) do
+    payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
+    data = encode_packet(payload, 0)
+
+    case sock_send(state, data) do
+      :ok ->
+        result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
+        result(result, query, state)
+
+      {:error, reason} ->
+        {:error, socket_error(reason), state}
     end
   end
 
