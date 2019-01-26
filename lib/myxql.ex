@@ -408,8 +408,7 @@ defmodule MyXQL do
   @doc """
   Returns the configured JSON library.
 
-  To customize the JSON library, including the following
-  in your `config/config.exs`:
+  To customize the JSON library, include the following in your `config/config.exs`:
 
       config :myxql, :json_library, SomeJSONModule
 
