@@ -99,18 +99,8 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
-    payload = encode_com_query(statement)
-    data = encode_packet(payload, 0)
-
-    case sock_send(state, data) do
-      :ok ->
-        recv_packets(&decode_com_query_response/3, :initial, state)
-        |> result(query, state)
-
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
-    end
+  def handle_execute(%TextQuery{} = query, [], _opts, state) do
+    execute_text(query, state)
   end
 
   @impl true
@@ -342,6 +332,20 @@ defmodule MyXQL.Protocol do
       :ok ->
         result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
         result(result, query, state)
+
+      {:error, reason} ->
+        {:error, socket_error(reason), state}
+    end
+  end
+
+  defp execute_text(%{statement: statement} = query, state) do
+    payload = encode_com_query(statement)
+    data = encode_packet(payload, 0)
+
+    case sock_send(state, data) do
+      :ok ->
+        recv_packets(&decode_com_query_response/3, :initial, state)
+        |> result(query, state)
 
       {:error, reason} ->
         {:error, socket_error(reason), state}
