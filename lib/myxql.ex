@@ -265,7 +265,7 @@ defmodule MyXQL do
 
   """
   @spec execute(conn(), MyXQL.Query.t(), list(), keyword()) ::
-          {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
+          {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   defdelegate execute(conn, query, params \\ [], opts \\ []), to: DBConnection
 
   @doc """
