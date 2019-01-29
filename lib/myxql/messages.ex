@@ -291,32 +291,60 @@ defmodule MyXQL.Messages do
   #################################################################
 
   # https://dev.mysql.com/doc/internals/en/com-ping.html
-  def encode_com_ping() do
-    encode_com(0x0E, <<>>)
+  def encode_com(:com_ping) do
+    <<0x0E>>
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query.html
-  def encode_com_query(query) do
-    encode_com(0x03, query)
+  def encode_com({:com_query, query}) do
+    [0x03, query]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html#packet-COM_STMT_PREPARE
-  def encode_com_stmt_prepare(query) do
-    encode_com(0x16, query)
+  def encode_com({:com_stmt_prepare, query}) do
+    [0x16, query]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-close.html
-  def encode_com_stmt_close(statement_id) do
-    encode_com(0x19, <<statement_id::int(4)>>)
+  def encode_com({:com_stmt_close, statement_id}) do
+    [0x19, <<statement_id::int(4)>>]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-reset.html
-  def encode_com_stmt_reset(statement_id) do
-    encode_com(0x1A, <<statement_id::int(4)>>)
+  def encode_com({:com_stmt_reset, statement_id}) do
+    [0x1A, <<statement_id::int(4)>>]
   end
 
-  defp encode_com(command, iodata) when is_integer(command) do
-    [command, iodata]
+  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
+  def encode_com({:com_stmt_execute, statement_id, params, cursor_type}) do
+    command = 0x17
+    flags = Map.fetch!(@cursor_types, cursor_type)
+
+    # Always 0x01
+    iteration_count = 0x01
+
+    new_params_bound_flag = 1
+    {null_bitmap, types, values} = encode_params(params)
+
+    <<
+      command,
+      statement_id::int(4),
+      flags::size(8),
+      iteration_count::int(4),
+      null_bitmap::bitstring,
+      new_params_bound_flag::int(1),
+      types::binary,
+      values::binary
+    >>
+  end
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
+  def encode_com({:com_stmt_fetch, statement_id, num_rows}) do
+    <<
+      0x1C,
+      statement_id::int(4),
+      num_rows::int(4)
+    >>
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
@@ -382,29 +410,6 @@ defmodule MyXQL.Messages do
     end
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-  def encode_com_stmt_execute(statement_id, params, cursor_type) do
-    command = 0x17
-    flags = Map.fetch!(@cursor_types, cursor_type)
-
-    # Always 0x01
-    iteration_count = 0x01
-
-    new_params_bound_flag = 1
-    {null_bitmap, types, values} = encode_params(params)
-
-    <<
-      command,
-      statement_id::int(4),
-      flags::size(8),
-      iteration_count::int(4),
-      null_bitmap::bitstring,
-      new_params_bound_flag::int(1),
-      types::binary,
-      values::binary
-    >>
-  end
-
   defp encode_params(params) do
     null_type = 0x06
 
@@ -439,15 +444,6 @@ defmodule MyXQL.Messages do
 
   def decode_com_stmt_execute_response(payload, next_data, state) do
     decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_binary_row/2)
-  end
-
-  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
-  def encode_com_stmt_fetch(statement_id, num_rows) do
-    <<
-      0x1C,
-      statement_id::int(4),
-      num_rows::int(4)
-    >>
   end
 
   # Column flags (non-internal)

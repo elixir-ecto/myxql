@@ -117,9 +117,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def ping(state) do
-    payload = encode_com_ping()
-
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com(:com_ping, state) do
       case recv_packet(&decode_generic_response/1, state) do
         {:ok, ok_packet(status_flags: status_flags)} ->
           {:ok, put_status(state, status_flags)}
@@ -181,9 +179,9 @@ defmodule MyXQL.Protocol do
   @impl true
   def handle_declare(query, params, _opts, state) do
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
-    payload = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
+    com = {:com_stmt_execute, statement_id, params, :cursor_type_read_only}
 
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com(com, state) do
       case recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
         {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
           if has_status_flag?(status_flags, :server_status_cursor_exists) do
@@ -210,9 +208,8 @@ defmodule MyXQL.Protocol do
   def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, state) do
     max_rows = Keyword.get(opts, :max_rows, 500)
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
-    payload = encode_com_stmt_fetch(statement_id, max_rows)
 
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
       case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state) do
         {:ok, resultset(status_flags: status_flags)} = result ->
           {:ok, _query, result, state} = result(result, query, state)
@@ -231,9 +228,7 @@ defmodule MyXQL.Protocol do
   def handle_deallocate(query, _cursor, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        payload = encode_com_stmt_reset(statement_id)
-
-        with :ok <- send_packet(payload, 0, state),
+        with :ok <- send_com({:com_stmt_reset, statement_id}, state),
              {:ok, packet} <- recv_packet(&decode_generic_response/1, state) do
           case packet do
             ok_packet(status_flags: status_flags) ->
@@ -308,24 +303,25 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  def send_com(com, state) do
+    payload = encode_com(com)
+    send_packet(payload, 0, state)
+  end
+
   def send_packet(payload, sequence_id, state) do
     data = encode_packet(payload, sequence_id)
     send_data(state, data)
   end
 
   defp execute_binary(query, params, statement_id, state) do
-    payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
-
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com({:com_stmt_execute, statement_id, params, :cursor_type_no_cursor}, state) do
       result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
       result(result, query, state)
     end
   end
 
   defp execute_text(%{statement: statement} = query, state) do
-    payload = encode_com_query(statement)
-
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com({:com_query, statement}, state) do
       recv_packets(&decode_com_query_response/3, :initial, state)
       |> result(query, state)
     end
@@ -594,7 +590,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp handle_transaction(statement, state) do
-    :ok = send_text_query(state, statement)
+    :ok = send_com({:com_query, statement}, state)
 
     case recv_packet(&decode_generic_response/1, state) do
       {:ok, ok_packet(status_flags: status_flags)} ->
@@ -606,7 +602,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp handle_transaction_multi(statement, state) do
-    :ok = send_text_query(state, statement)
+    :ok = send_com({:com_query, statement}, state)
 
     case recv_packets(&decode_multi_results/3, :first, state) do
       {:ok, ok_packet(status_flags: status_flags)} ->
@@ -630,11 +626,6 @@ defmodule MyXQL.Protocol do
 
   defp decode_multi_results(payload, "", :next) do
     {:halt, decode_generic_response(payload)}
-  end
-
-  defp send_text_query(state, statement) do
-    payload = encode_com_query(statement)
-    send_packet(payload, 0, state)
   end
 
   defp transaction_status(status_flags) do
@@ -662,9 +653,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp prepare(%Query{ref: ref} = query, state) when is_reference(ref) do
-    payload = encode_com_stmt_prepare(query.statement)
-
-    with :ok <- send_packet(payload, 0, state) do
+    with :ok <- send_com({:com_stmt_prepare, query.statement}, state) do
       case recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
         {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
           state = put_statement_id(state, query, statement_id)
@@ -707,8 +696,7 @@ defmodule MyXQL.Protocol do
 
   defp close(query, statement_id, state) do
     # No response is sent back to the client.
-    payload = encode_com_stmt_close(statement_id)
-    :ok = send_packet(payload, 0, state)
+    :ok = send_com({:com_stmt_close, statement_id}, state)
 
     delete_statement_id(state, query)
   end
