@@ -118,20 +118,15 @@ defmodule MyXQL.Protocol do
   @impl true
   def ping(state) do
     payload = encode_com_ping()
-    data = encode_packet(payload, 0)
 
-    case send_data(state, data) do
-      :ok ->
-        case recv_packet(&decode_generic_response/1, state) do
-          {:ok, ok_packet(status_flags: status_flags)} ->
-            {:ok, put_status(state, status_flags)}
+    with :ok <- send_packet(payload, 0, state) do
+      case recv_packet(&decode_generic_response/1, state) do
+        {:ok, ok_packet(status_flags: status_flags)} ->
+          {:ok, put_status(state, status_flags)}
 
-          {:error, reason} ->
-            {:disconnect, socket_error(reason), state}
-        end
-
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
+        {:error, reason} ->
+          {:disconnect, socket_error(reason), state}
+      end
     end
   end
 
@@ -187,28 +182,23 @@ defmodule MyXQL.Protocol do
   def handle_declare(query, params, _opts, state) do
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
     payload = encode_com_stmt_execute(statement_id, params, :cursor_type_read_only)
-    data = encode_packet(payload, 0)
 
-    case send_data(state, data) do
-      :ok ->
-        case recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
-          {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
-            if has_status_flag?(status_flags, :server_status_cursor_exists) do
-              cursor = %Cursor{column_defs: column_defs}
-              {:ok, query, cursor, put_status(state, status_flags)}
-            else
-              result(result, query, state)
-            end
-
-          {:ok, _} = result ->
+    with :ok <- send_packet(payload, 0, state) do
+      case recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
+        {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
+          if has_status_flag?(status_flags, :server_status_cursor_exists) do
+            cursor = %Cursor{column_defs: column_defs}
+            {:ok, query, cursor, put_status(state, status_flags)}
+          else
             result(result, query, state)
+          end
 
-          {:error, _} = result ->
-            result(result, query, state)
-        end
+        {:ok, _} = result ->
+          result(result, query, state)
 
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
+        {:error, _} = result ->
+          result(result, query, state)
+      end
     end
   end
 
@@ -221,44 +211,38 @@ defmodule MyXQL.Protocol do
     max_rows = Keyword.get(opts, :max_rows, 500)
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
     payload = encode_com_stmt_fetch(statement_id, max_rows)
-    data = encode_packet(payload, 0)
 
-    case send_data(state, data) do
-      :ok ->
-        case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state) do
-          {:ok, resultset(status_flags: status_flags)} = result ->
-            {:ok, _query, result, state} = result(result, query, state)
+    with :ok <- send_packet(payload, 0, state) do
+      case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state) do
+        {:ok, resultset(status_flags: status_flags)} = result ->
+          {:ok, _query, result, state} = result(result, query, state)
 
-            if :server_status_cursor_exists in list_status_flags(status_flags) do
-              {:cont, result, state}
-            else
-              true = :server_status_last_row_sent in list_status_flags(status_flags)
-              {:halt, result, state}
-            end
-        end
-
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
+          if :server_status_cursor_exists in list_status_flags(status_flags) do
+            {:cont, result, state}
+          else
+            true = :server_status_last_row_sent in list_status_flags(status_flags)
+            {:halt, result, state}
+          end
+      end
     end
   end
 
   @impl true
   def handle_deallocate(query, _cursor, _opts, state) do
-    with {:ok, statement_id} <- fetch_statement_id(state, query),
-         payload = encode_com_stmt_reset(statement_id),
-         data = encode_packet(payload, 0),
-         :ok <- send_data(state, data),
-         {:ok, packet} <- recv_packet(&decode_generic_response/1, state) do
-      case packet do
-        ok_packet(status_flags: status_flags) ->
-          {:ok, nil, put_status(state, status_flags)}
+    case fetch_statement_id(state, query) do
+      {:ok, statement_id} ->
+        payload = encode_com_stmt_reset(statement_id)
 
-        err_packet() = err_packet ->
-          {:error, mysql_error(err_packet, query.statement), state}
-      end
-    else
-      {:error, reason} ->
-        {:error, socket_error(reason)}
+        with :ok <- send_packet(payload, 0, state),
+             {:ok, packet} <- recv_packet(&decode_generic_response/1, state) do
+          case packet do
+            ok_packet(status_flags: status_flags) ->
+              {:ok, nil, put_status(state, status_flags)}
+
+            err_packet() = err_packet ->
+              {:error, mysql_error(err_packet, query.statement), state}
+          end
+        end
 
       :error ->
         {:ok, nil, state}
@@ -324,31 +308,26 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  def send_packet(payload, sequence_id, state) do
+    data = encode_packet(payload, sequence_id)
+    send_data(state, data)
+  end
+
   defp execute_binary(query, params, statement_id, state) do
     payload = encode_com_stmt_execute(statement_id, params, :cursor_type_no_cursor)
-    data = encode_packet(payload, 0)
 
-    case send_data(state, data) do
-      :ok ->
-        result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
-        result(result, query, state)
-
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
+    with :ok <- send_packet(payload, 0, state) do
+      result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
+      result(result, query, state)
     end
   end
 
   defp execute_text(%{statement: statement} = query, state) do
     payload = encode_com_query(statement)
-    data = encode_packet(payload, 0)
 
-    case send_data(state, data) do
-      :ok ->
-        recv_packets(&decode_com_query_response/3, :initial, state)
-        |> result(query, state)
-
-      {:error, reason} ->
-        {:error, socket_error(reason), state}
+    with :ok <- send_packet(payload, 0, state) do
+      recv_packets(&decode_com_query_response/3, :initial, state)
+      |> result(query, state)
     end
   end
 
@@ -476,47 +455,44 @@ defmodule MyXQL.Protocol do
         ssl?
       )
 
-    data = encode_packet(payload, sequence_id)
-    :ok = send_data(state, data)
+    with :ok <- send_packet(payload, sequence_id, state) do
+      case recv_packet(&decode_handshake_response/1, state) do
+        {:ok, ok_packet()} ->
+          {:ok, state}
 
-    case recv_packet(&decode_handshake_response/1, state) do
-      {:ok, ok_packet()} ->
-        {:ok, state}
+        {:ok, err_packet() = err_packet} ->
+          {:error, mysql_error(err_packet, nil)}
 
-      {:ok, err_packet() = err_packet} ->
-        {:error, mysql_error(err_packet, nil)}
+        {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
+          with {:ok, auth_response} <-
+                 auth_switch_response(plugin_name, password, plugin_data, ssl?),
+               :ok <- send_packet(auth_response, sequence_id + 2, state) do
+            case recv_packet(&decode_handshake_response/1, state) do
+              {:ok, ok_packet(warning_count: 0)} ->
+                {:ok, state}
 
-      {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
-        with {:ok, auth_response} <-
-               auth_switch_response(plugin_name, password, plugin_data, ssl?) do
-          data = encode_packet(auth_response, sequence_id + 2)
-          :ok = send_data(state, data)
-
-          case recv_packet(&decode_handshake_response/1, state) do
-            {:ok, ok_packet(warning_count: 0)} ->
-              {:ok, state}
-
-            {:ok, err_packet() = err_packet} ->
-              {:error, mysql_error(err_packet, nil)}
+              {:ok, err_packet() = err_packet} ->
+                {:error, mysql_error(err_packet, nil)}
+            end
           end
-        end
 
-      {:ok, :full_auth} ->
-        if ssl? do
-          auth_response = password <> <<0x00>>
-          data = encode_packet(auth_response, sequence_id + 2)
-          :ok = send_data(state, data)
+        {:ok, :full_auth} ->
+          if ssl? do
+            auth_response = password <> <<0x00>>
 
-          case recv_packet(&decode_handshake_response/1, state) do
-            {:ok, ok_packet(warning_count: 0)} ->
-              {:ok, state}
+            with :ok <- send_packet(auth_response, sequence_id + 2, state) do
+              case recv_packet(&decode_handshake_response/1, state) do
+                {:ok, ok_packet(warning_count: 0)} ->
+                  {:ok, state}
 
-            {:ok, err_packet() = err_packet} ->
-              {:error, mysql_error(err_packet, nil)}
+                {:ok, err_packet() = err_packet} ->
+                  {:error, mysql_error(err_packet, nil)}
+              end
+            end
+          else
+            auth_plugin_secure_connection_error(auth_plugin_name)
           end
-        else
-          auth_plugin_secure_connection_error(auth_plugin_name)
-        end
+      end
     end
   end
 
@@ -600,7 +576,13 @@ defmodule MyXQL.Protocol do
   # end
 
   defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
-    sock_mod.send(sock, data)
+    case sock_mod.send(sock, data) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        {:error, socket_error(reason)}
+    end
   end
 
   defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout \\ :infinity) do
@@ -650,10 +632,9 @@ defmodule MyXQL.Protocol do
     {:halt, decode_generic_response(payload)}
   end
 
-  defp send_text_query(s, statement) do
+  defp send_text_query(state, statement) do
     payload = encode_com_query(statement)
-    data = encode_packet(payload, 0)
-    send_data(s, data)
+    send_packet(payload, 0, state)
   end
 
   defp transaction_status(status_flags) do
@@ -682,17 +663,17 @@ defmodule MyXQL.Protocol do
 
   defp prepare(%Query{ref: ref} = query, state) when is_reference(ref) do
     payload = encode_com_stmt_prepare(query.statement)
-    data = encode_packet(payload, 0)
-    :ok = send_data(state, data)
 
-    case recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
-      {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
-        state = put_statement_id(state, query, statement_id)
-        query = %{query | num_params: num_params}
-        {:ok, query, statement_id, state}
+    with :ok <- send_packet(payload, 0, state) do
+      case recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
+        {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
+          state = put_statement_id(state, query, statement_id)
+          query = %{query | num_params: num_params}
+          {:ok, query, statement_id, state}
 
-      result ->
-        result(result, query, state)
+        result ->
+          result(result, query, state)
+      end
     end
   end
 
@@ -725,11 +706,9 @@ defmodule MyXQL.Protocol do
   end
 
   defp close(query, statement_id, state) do
-    payload = encode_com_stmt_close(statement_id)
-    data = encode_packet(payload, 0)
-
     # No response is sent back to the client.
-    :ok = send_data(state, data)
+    payload = encode_com_stmt_close(statement_id)
+    :ok = send_packet(payload, 0, state)
 
     delete_statement_id(state, query)
   end
