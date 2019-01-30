@@ -51,6 +51,10 @@ defmodule MyXQL do
        See "Named and Unnamed Queries" section of the `MyXQL.Query` documentation for more
        information
 
+    * `:disconnect_on_error_codes` - List of error code atoms that when encountered
+       will disconnect the connection. See "Disconnecting on Errors" section below for more
+       information.
+
   MyXQL uses the `DBConnection` library and supports all `DBConnection`
   options like `:pool_size`, `:after_connect` etc. See `DBConnection.start_link/2`
   for more information.
@@ -71,6 +75,32 @@ defmodule MyXQL do
 
       iex> {:ok, pid} = MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
       {:ok, #PID<0.69.0>}
+
+  ## Disconnecting on Errors
+
+  Sometimes the connection becomes unusable. For example, some services, such as AWS Aurora,
+  support failover. This means the database you are currently connected to may suddenly become
+  read-only, and an attempt to do any write operation, such as INSERT/UPDATE/DELETE will lead to
+  errors such as:
+
+      ** (MyXQL.Error) (1792) (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION) Cannot execute statement in a READ ONLY transaction.
+
+  Luckily, you can instruct MyXQL to disconnect in such cases by using the following configuration:
+
+      disconnect_on_error_codes: [:ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION]
+
+  This cause the connection process to attempt to reconnect according to the backoff configuration.
+
+  MyXQL automatically disconnects the connection on the following error codes and they don't have
+  to be configured:
+
+      * `ER_MAX_PREPARED_STMT_COUNT_REACHED`
+
+  To convert error code number to error code name you can use `perror` command-line utility that
+  ships with MySQL client installation, e.g.:
+
+      bash$ perror 1792
+      MySQL error code 1792 (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION): Cannot execute statement in a READ ONLY transaction.
 
   """
   @spec start_link(keyword()) :: {:ok, pid()} | {:error, MyXQL.Error.t()}

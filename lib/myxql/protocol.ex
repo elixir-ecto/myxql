@@ -6,10 +6,15 @@ defmodule MyXQL.Protocol do
 
   @typep t() :: %__MODULE__{}
 
+  @disconnect_on_error_codes [
+    :ER_MAX_PREPARED_STMT_COUNT_REACHED
+  ]
+
   defstruct [
     :sock,
     :sock_mod,
     :connection_id,
+    disconnect_on_error_codes: [],
     prepare: :named,
     prepared_statements: %{},
     transaction_status: :idle
@@ -26,9 +31,18 @@ defmodule MyXQL.Protocol do
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
     prepare = Keyword.get(opts, :prepare, :named)
 
+    disconnect_on_error_codes =
+      @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
+
     case do_connect(opts) do
       {:ok, sock} ->
-        state = %__MODULE__{sock: sock, sock_mod: :gen_tcp, prepare: prepare}
+        state = %__MODULE__{
+          sock: sock,
+          sock_mod: :gen_tcp,
+          prepare: prepare,
+          disconnect_on_error_codes: disconnect_on_error_codes
+        }
+
         handshake(state, username, password, database, ssl?, ssl_opts)
 
       {:error, reason} ->
@@ -384,11 +398,7 @@ defmodule MyXQL.Protocol do
   defp maybe_disconnect(exception, state) do
     %MyXQL.Error{mysql: %{name: error_name}} = exception
 
-    disconnect_on_errors = [
-      :ER_MAX_PREPARED_STMT_COUNT_REACHED
-    ]
-
-    if error_name in disconnect_on_errors do
+    if error_name in state.disconnect_on_error_codes do
       {:disconnect, exception, state}
     else
       {:error, exception, state}
