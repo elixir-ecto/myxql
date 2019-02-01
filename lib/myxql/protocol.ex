@@ -550,25 +550,29 @@ defmodule MyXQL.Protocol do
 
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, connect_timeout, database, sequence_id) do
     payload = encode_ssl_request(database)
-    data = encode_packet(payload, sequence_id)
-    :ok = :gen_tcp.send(state.sock, data)
 
-    case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
-      {:ok, ssl_sock} ->
-        {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
+    case send_packet(payload, sequence_id, state) do
+      :ok ->
+        case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
+          {:ok, ssl_sock} ->
+            {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
 
-      {:error, {:tls_alert, 'bad record mac'} = reason} ->
-        versions = :ssl.versions()[:supported]
+          {:error, {:tls_alert, 'bad record mac'} = reason} ->
+            versions = :ssl.versions()[:supported]
 
-        extra_message = """
-        You might be using TLS version not supported by the server.
-        Protocol versions reported by the :ssl application: #{inspect(versions)}.
-        Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
-        versions.
-        """
+            extra_message = """
+            You might be using TLS version not supported by the server.
+            Protocol versions reported by the :ssl application: #{inspect(versions)}.
+            Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
+            versions.
+            """
 
-        error = socket_error(reason)
-        {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
+            error = socket_error(reason)
+            {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
+
+          {:error, reason} ->
+            {:error, socket_error(reason)}
+        end
 
       {:error, reason} ->
         {:error, socket_error(reason)}
