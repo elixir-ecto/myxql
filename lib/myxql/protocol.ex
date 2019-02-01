@@ -6,6 +6,18 @@ defmodule MyXQL.Protocol do
 
   @typep t() :: %__MODULE__{}
 
+  # next_data is `""` if there is no more data after parsed packet that we know of.
+  # There might still be more data in the socket though, in that case the decoder
+  # function needs to return `{:cont, ...}`.
+  #
+  # Pattern matching on next_data = "" is useful for OK packets etc.
+  # Looking at next_data is useful for debugging.
+  @typep decoder ::
+           (payload :: binary(), next_data :: binary(), state :: term() ->
+              {:cont, state :: term()}
+              | {:halt, result :: term()}
+              | {:error, term()})
+
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
   ]
@@ -259,18 +271,6 @@ defmodule MyXQL.Protocol do
   end
 
   ## Internals
-
-  # next_data is `""` if there is no more data after parsed packet that we know of.
-  # There might still be more data in the socket though, in that case the decoder
-  # function needs to return `{:cont, ...}`.
-  #
-  # Pattern matching on next_data = "" is useful for OK packets etc.
-  # Looking at next_data is useful for debugging.
-  @typep decoder ::
-           (payload :: binary(), next_data :: binary(), state :: term() ->
-              {:cont, state :: term()}
-              | {:halt, result :: term()}
-              | {:error, term()})
 
   @spec recv_packet((payload :: binary() -> term()), t()) ::
           {:ok, term()} | {:error, :inet.posix() | term()}
