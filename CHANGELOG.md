@@ -1,5 +1,13 @@
 # Changelog
 
+## HEAD
+
+* Actually disconnect on `ER_MAX_PREPARED_STMT_COUNT_REACHED`
+* Add `:disconnect_on_error_codes` option
+* Add `:ping_timeout` option
+* Use `:connect_timeout` option for connecting to SSL socket
+* Improve handshake socket errors handling
+
 ## v0.1.1 (2019-01-24)
 
 * Raise better error message when a parameter cannot be encoded
