@@ -47,12 +47,13 @@ defmodule MyXQL.Protocol do
     ssl? = Keyword.get(opts, :ssl, false)
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
     prepare = Keyword.get(opts, :prepare, :named)
+    connect_timeout = Keyword.get(opts, :connect_timeout, 15_000)
     ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
 
     disconnect_on_error_codes =
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
 
-    case do_connect(opts) do
+    case do_connect(opts, connect_timeout) do
       {:ok, sock} ->
         state = %__MODULE__{
           sock: sock,
@@ -62,16 +63,15 @@ defmodule MyXQL.Protocol do
           ping_timeout: ping_timeout
         }
 
-        handshake(state, username, password, database, ssl?, ssl_opts)
+        handshake(state, username, password, database, ssl?, ssl_opts, connect_timeout)
 
       {:error, reason} ->
         {:error, socket_error(reason)}
     end
   end
 
-  defp do_connect(opts) do
+  defp do_connect(opts, connect_timeout) do
     {address, port} = address_and_port(opts)
-    connect_timeout = Keyword.get(opts, :connect_timeout, 15000)
     socket_opts = Keyword.merge([mode: :binary, active: false], opts[:socket_options] || [])
     :gen_tcp.connect(address, port, socket_opts, connect_timeout)
   end
@@ -417,7 +417,7 @@ defmodule MyXQL.Protocol do
 
   ## Handshake
 
-  defp handshake(state, username, password, database, ssl?, ssl_opts) do
+  defp handshake(state, username, password, database, ssl?, ssl_opts, connect_timeout) do
     {:ok,
      handshake_v10(
        conn_id: conn_id,
@@ -430,7 +430,7 @@ defmodule MyXQL.Protocol do
     state = %{state | connection_id: conn_id}
     sequence_id = 1
 
-    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, database, sequence_id) do
+    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, connect_timeout, database, sequence_id) do
       {:ok, state, sequence_id} ->
         auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
 
@@ -548,12 +548,12 @@ defmodule MyXQL.Protocol do
     {:error, mysql_error(code, name, message, nil)}
   end
 
-  defp maybe_upgrade_to_ssl(state, true, ssl_opts, database, sequence_id) do
+  defp maybe_upgrade_to_ssl(state, true, ssl_opts, connect_timeout, database, sequence_id) do
     payload = encode_ssl_request(database)
     data = encode_packet(payload, sequence_id)
     :ok = :gen_tcp.send(state.sock, data)
 
-    case :ssl.connect(state.sock, ssl_opts) do
+    case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
       {:ok, ssl_sock} ->
         {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
 
@@ -579,6 +579,7 @@ defmodule MyXQL.Protocol do
          state,
          false,
          _ssl_opts,
+         _connect_timeout,
          _database,
          sequence_id
        ) do
