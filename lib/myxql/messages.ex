@@ -521,7 +521,7 @@ defmodule MyXQL.Messages do
   end
 
   defp decode_resultset(
-         <<0xFE, warning_count::int(2), status_flags::int(2), 0::int(2)>>,
+         <<0xFE, 0, 0, status_flags::int(2), warning_count::int(2)>>,
          _next_data,
          {:rows, column_defs, acc},
          _row_decoder
