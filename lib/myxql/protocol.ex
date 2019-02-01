@@ -18,6 +18,8 @@ defmodule MyXQL.Protocol do
               | {:halt, result :: term()}
               | {:error, term()})
 
+  @typep socket_reason() :: :inet.posix() | {:tls_alert, term()} | :timeout
+
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
   ]
@@ -27,6 +29,7 @@ defmodule MyXQL.Protocol do
     :sock_mod,
     :connection_id,
     disconnect_on_error_codes: [],
+    ping_timeout: 15_000,
     prepare: :named,
     prepared_statements: %{},
     transaction_status: :idle
@@ -42,6 +45,7 @@ defmodule MyXQL.Protocol do
     ssl? = Keyword.get(opts, :ssl, false)
     ssl_opts = Keyword.get(opts, :ssl_opts, [])
     prepare = Keyword.get(opts, :prepare, :named)
+    ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
 
     disconnect_on_error_codes =
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
@@ -52,7 +56,8 @@ defmodule MyXQL.Protocol do
           sock: sock,
           sock_mod: :gen_tcp,
           prepare: prepare,
-          disconnect_on_error_codes: disconnect_on_error_codes
+          disconnect_on_error_codes: disconnect_on_error_codes,
+          ping_timeout: ping_timeout
         }
 
         handshake(state, username, password, database, ssl?, ssl_opts)
@@ -143,14 +148,13 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def ping(state) do
-    with :ok <- send_com(:com_ping, state) do
-      case recv_packet(&decode_generic_response/1, state) do
-        {:ok, ok_packet(status_flags: status_flags)} ->
-          {:ok, put_status(state, status_flags)}
-
-        {:error, reason} ->
-          {:disconnect, socket_error(reason), state}
-      end
+    with :ok <- send_com(:com_ping, state),
+         {:ok, ok_packet(status_flags: status_flags)} <-
+           recv_packet(&decode_generic_response/1, state.ping_timeout, state) do
+      {:ok, put_status(state, status_flags)}
+    else
+      {:error, reason} ->
+        {:disconnect, socket_error(reason), state}
     end
   end
 
@@ -272,19 +276,19 @@ defmodule MyXQL.Protocol do
 
   ## Internals
 
-  @spec recv_packet((payload :: binary() -> term()), t()) ::
-          {:ok, term()} | {:error, :inet.posix() | term()}
-  def recv_packet(decoder, state) do
+  @spec recv_packet((payload :: binary() -> term()), timeout(), t()) ::
+          {:ok, term()} | {:error, socket_reason()}
+  def recv_packet(decoder, timeout \\ :infinity, state) do
     new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
-    recv_packets(new_decoder, nil, state)
+    recv_packets(new_decoder, nil, timeout, state)
   end
 
-  @spec recv_packets(decoder, decoder_state :: term(), %__MODULE__{}) ::
-          {:ok, term()} | {:error, :inet.posix() | term()}
-  defp recv_packets(decoder, decoder_state, state) do
-    case recv_data(state) do
+  @spec recv_packets(decoder, decoder_state :: term(), timeout(), %__MODULE__{}) ::
+          {:ok, term()} | {:error, socket_reason()}
+  defp recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
+    case recv_data(state, timeout) do
       {:ok, data} ->
-        recv_packets(data, decoder, decoder_state, state)
+        recv_packets(data, decoder, decoder_state, timeout, state)
 
       {:error, _} = error ->
         error
@@ -295,11 +299,12 @@ defmodule MyXQL.Protocol do
          <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
+         timeout,
          state
        ) do
     case decoder.(payload, rest, decoder_state) do
       {:cont, decoder_state} ->
-        recv_packets(rest, decoder, decoder_state, state)
+        recv_packets(rest, decoder, decoder_state, timeout, state)
 
       {:halt, result} ->
         {:ok, result}
@@ -310,10 +315,13 @@ defmodule MyXQL.Protocol do
   end
 
   # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, state) do
-    case recv_data(state) do
-      {:ok, data} -> recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, state)
-      {:error, _} = error -> error
+  defp recv_packets(rest, decoder, decoder_state, timeout, state) do
+    case recv_data(state, timeout) do
+      {:ok, data} ->
+        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, state)
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -575,12 +583,6 @@ defmodule MyXQL.Protocol do
     {:ok, state, sequence_id}
   end
 
-  # # inside connect/1 callback we need to handle timeout ourselves
-  # defp connect_send_and_recv(state, data) do
-  #   :ok = send_data(state, data)
-  #   recv_data(state, 5000)
-  # end
-
   defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
     case sock_mod.send(sock, data) do
       :ok ->
@@ -591,7 +593,7 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout \\ :infinity) do
+  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
     sock_mod.recv(sock, 0, timeout)
   end
 
@@ -719,6 +721,10 @@ defmodule MyXQL.Protocol do
   defp mysql_error(code, name, message, statement) when is_integer(code) and is_atom(name) do
     mysql = %{code: code, name: name}
     %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: mysql, statement: statement}
+  end
+
+  defp socket_error(%MyXQL.Error{} = exception) do
+    exception
   end
 
   defp socket_error(reason) do

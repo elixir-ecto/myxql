@@ -207,16 +207,28 @@ defmodule MyXQLTest do
       assert List.flatten(result.rows) == Enum.to_list(1..num)
       assert result.num_rows == num
     end
+  end
 
-    test "query before and after idle ping" do
+  describe "idle ping" do
+    test "query before and after" do
       opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
       {:ok, pid} = MyXQL.start_link(opts)
 
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
-      :timer.sleep(20)
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
-      :timer.sleep(20)
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42", [])
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+      Process.sleep(5)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+      Process.sleep(5)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+    end
+
+    test "socket receive timeout" do
+      Process.flag(:trap_exit, true)
+      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1, ping_timeout: 0)
+      {:ok, pid} = MyXQL.start_link(opts)
+
+      assert capture_log(fn ->
+               assert_receive {:EXIT, ^pid, :killed}, 500
+             end) =~ "disconnected: ** (MyXQL.Error) Unexpected error: timeout"
     end
   end
 

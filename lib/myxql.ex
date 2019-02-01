@@ -45,6 +45,9 @@ defmodule MyXQL do
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
 
+    * `:ping_timeout` - Socket receive timeout when idle in milliseconds (default:
+      `15_000`). See `c:DBConnection.ping/1` for more information
+
     * `:prepare` - How to prepare queries, either `:named` to use named queries or `:unnamed` to
        force unnamed queries (default: :named)
 
