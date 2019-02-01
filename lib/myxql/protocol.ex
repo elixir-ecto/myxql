@@ -24,6 +24,8 @@ defmodule MyXQL.Protocol do
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
   ]
 
+  @handshake_recv_timeout 5_000
+
   defstruct [
     :sock,
     :sock_mod,
@@ -423,7 +425,7 @@ defmodule MyXQL.Protocol do
        auth_plugin_data1: auth_plugin_data1,
        auth_plugin_data2: auth_plugin_data2,
        status_flags: _status_flags
-     )} = recv_packet(&decode_handshake_v10/1, state)
+     )} = recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
 
     state = %{state | connection_id: conn_id}
     sequence_id = 1
@@ -470,7 +472,7 @@ defmodule MyXQL.Protocol do
       )
 
     with :ok <- send_packet(payload, sequence_id, state) do
-      case recv_packet(&decode_handshake_response/1, state) do
+      case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
         {:ok, ok_packet()} ->
           {:ok, state}
 
@@ -481,7 +483,7 @@ defmodule MyXQL.Protocol do
           with {:ok, auth_response} <-
                  auth_switch_response(plugin_name, password, plugin_data, ssl?),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
-            case recv_packet(&decode_handshake_response/1, state) do
+            case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
               {:ok, ok_packet(warning_count: 0)} ->
                 {:ok, state}
 
@@ -495,7 +497,7 @@ defmodule MyXQL.Protocol do
             auth_response = password <> <<0x00>>
 
             with :ok <- send_packet(auth_response, sequence_id + 2, state) do
-              case recv_packet(&decode_handshake_response/1, state) do
+              case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
                 {:ok, ok_packet(warning_count: 0)} ->
                   {:ok, state}
 
