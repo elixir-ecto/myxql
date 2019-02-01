@@ -356,15 +356,17 @@ defmodule MyXQL.Protocol do
           ok_packet(
             last_insert_id: last_insert_id,
             affected_rows: affected_rows,
-            status_flags: status_flags
+            status_flags: status_flags,
+            warning_count: warning_count
           )},
          query,
          state
        ) do
-    result = %MyXQL.Result{
+    result = %Result{
       connection_id: state.connection_id,
       last_insert_id: last_insert_id,
-      num_rows: affected_rows
+      num_rows: affected_rows,
+      num_warnings: warning_count
     }
 
     {:ok, query, result, put_status(state, status_flags)}
@@ -376,18 +378,20 @@ defmodule MyXQL.Protocol do
             column_defs: column_defs,
             row_count: num_rows,
             rows: rows,
-            status_flags: status_flags
+            status_flags: status_flags,
+            warning_count: warning_count
           )},
          query,
          state
        ) do
     columns = Enum.map(column_defs, &elem(&1, 1))
 
-    result = %MyXQL.Result{
+    result = %Result{
       connection_id: state.connection_id,
       columns: columns,
       num_rows: num_rows,
-      rows: rows
+      rows: rows,
+      num_warnings: warning_count
     }
 
     {:ok, query, result, put_status(state, status_flags)}

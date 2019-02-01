@@ -540,6 +540,11 @@ defmodule MyXQLTest do
     end
   end
 
+  test "warnings" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    assert %MyXQL.Result{num_warnings: 1, rows: [[nil]]} = MyXQL.query!(conn, "SELECT 1/0")
+  end
+
   defp assert_start_and_killed(opts) do
     Process.flag(:trap_exit, true)
 
