@@ -172,16 +172,22 @@ defmodule MyXQLTest do
 
     test "iodata in text protocol", c do
       statement = ["SELECT", [" ", ["42"]]]
-      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement)
+
+      assert {:ok, %{rows: [[42]]}} =
+               MyXQL.query(c.conn, statement, [], query_type: :text, log: &send(self(), &1))
+
+      assert_received %DBConnection.LogEntry{} = entry
+      assert %MyXQL.TextQuery{} = entry.query
     end
 
     test "iodata in binary protocol", c do
-      statement = ["SELECT", [" ", ["?"]]]
-      assert {:ok, %{rows: [[42]]}} = MyXQL.query(c.conn, statement, [42])
+      statement = ["SELECT", [" ", ["42"]]]
 
-      {query, result} = MyXQL.prepare_execute!(c.conn, "", statement, [42])
-      assert to_string(query) == "SELECT ?"
-      assert %{rows: [[42]]} = result
+      assert {:ok, %{rows: [[42]]}} =
+               MyXQL.query(c.conn, statement, [], query_type: :binary, log: &send(self(), &1))
+
+      assert_received %DBConnection.LogEntry{} = entry
+      assert %MyXQL.Query{} = entry.query
     end
 
     test "invalid query", c do
@@ -537,24 +543,6 @@ defmodule MyXQLTest do
       assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
         MyXQL.prepare_execute!(c.conn, "", "CALL multi_procedure()")
       end
-    end
-  end
-
-  describe "log entry" do
-    setup :connect
-
-    test "text query", c do
-      MyXQL.query!(c.conn, "SELECT 42", [], log: &send(self(), &1))
-
-      assert_received %DBConnection.LogEntry{} = entry
-      assert %MyXQL.TextQuery{statement: "SELECT 42"} = entry.query
-    end
-
-    test "prepared query", c do
-      MyXQL.prepare_execute!(c.conn, "", "SELECT 42", [], log: &send(self(), &1))
-
-      assert_received %DBConnection.LogEntry{} = entry
-      assert %MyXQL.Query{statement: "SELECT 42"} = entry.query
     end
   end
 

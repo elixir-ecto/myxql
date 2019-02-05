@@ -138,9 +138,8 @@ defmodule MyXQL do
         * requires two roundtrips to the DB server: one for preparing the statement and one for executing it.
           This can be alleviated by holding on to prepared statement and executing it multiple times.
 
-  The `query/4` function, when called with empty list of parameters uses the text protocol, otherwise uses the binary protocol.
-
-  To force using binary protocol, use `prepare_execute/5`.
+  `query/4`, when called with empty list of parameters uses the text protocol, otherwise uses the binary protocol.
+  To force using binary protocol, set `query_type: :binary` or use `prepare_execute/5`.
 
   ## Multiple results
 
@@ -148,6 +147,9 @@ defmodule MyXQL do
   an error is raised. If a query may return multiple results it's recommended to use `stream/4` instead.
 
   ## Options
+
+    * `:query_type` - use `:text` for text protocol or `:binary` for binary protocol.
+      Defaults to `:text` if `params` is an empty list, otherwise to `:binary`
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
@@ -169,16 +171,28 @@ defmodule MyXQL do
           {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   def query(conn, statement, params \\ [], opts \\ [])
 
-  def query(conn, statement, [], opts) when is_binary(statement) or is_list(statement) do
-    query = %MyXQL.TextQuery{statement: statement}
+  def query(conn, statement, params, opts) when is_binary(statement) or is_list(statement) do
+    query_type = query_type(params, opts)
 
-    DBConnection.execute(conn, query, [], opts)
+    case query_type do
+      :text ->
+        DBConnection.execute(conn, %MyXQL.TextQuery{statement: statement}, params, opts)
+
+      :binary ->
+        prepare_execute(conn, "", statement, params, opts)
+    end
     |> query_result()
   end
 
-  def query(conn, statement, params, opts) when is_binary(statement) or is_list(statement) do
-    prepare_execute(conn, "", statement, params, opts)
-    |> query_result()
+  defp query_type([], opts) do
+    Keyword.get(opts, :query_type, :text)
+  end
+
+  defp query_type(_params, opts) do
+    case Keyword.get(opts, :query_type, :binary) do
+      :binary -> :binary
+      :text -> raise ArgumentError, "cannot pass params to text queries, use binary query instead"
+    end
   end
 
   defp query_result({:ok, _query, result}), do: {:ok, result}
