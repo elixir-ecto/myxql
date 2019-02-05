@@ -232,7 +232,7 @@ defmodule MyXQLTest do
     end
   end
 
-  describe "prepared statements" do
+  describe "prepared queries" do
     setup [:connect, :truncate]
 
     test "prepare and execute", c do
@@ -518,7 +518,7 @@ defmodule MyXQLTest do
   describe "stored procedures" do
     setup :connect
 
-    test "text queries", c do
+    test "text query", c do
       assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
       assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
 
@@ -527,7 +527,7 @@ defmodule MyXQLTest do
       end
     end
 
-    test "prepared statement", c do
+    test "prepared query", c do
       assert {_, %MyXQL.Result{rows: [[1]]}} =
                MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
 
@@ -537,6 +537,24 @@ defmodule MyXQLTest do
       assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
         MyXQL.prepare_execute!(c.conn, "", "CALL multi_procedure()")
       end
+    end
+  end
+
+  describe "log entry" do
+    setup :connect
+
+    test "text query", c do
+      MyXQL.query!(c.conn, "SELECT 42", [], log: &send(self(), &1))
+
+      assert_received %DBConnection.LogEntry{} = entry
+      assert %MyXQL.TextQuery{statement: "SELECT 42"} = entry.query
+    end
+
+    test "prepared query", c do
+      MyXQL.prepare_execute!(c.conn, "", "SELECT 42", [], log: &send(self(), &1))
+
+      assert_received %DBConnection.LogEntry{} = entry
+      assert %MyXQL.Query{statement: "SELECT 42"} = entry.query
     end
   end
 
