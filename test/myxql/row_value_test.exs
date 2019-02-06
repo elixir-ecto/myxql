@@ -299,10 +299,8 @@ defmodule MyXQL.RowValueTest do
        when is_list(fields) and is_list(values) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     placeholders = Enum.map_join(values, ", ", fn _ -> "?" end)
-
-    %MyXQL.Result{last_insert_id: id} =
-      MyXQL.query!(c.conn, "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})", values)
-
+    statement = "INSERT INTO test_types (#{fields}) VALUES (#{placeholders})"
+    %MyXQL.Result{last_insert_id: id} = query!(c, statement, values)
     id
   end
 
@@ -313,17 +311,7 @@ defmodule MyXQL.RowValueTest do
   defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     statement = "SELECT #{fields} FROM test_types WHERE id = '#{id}'"
-
-    %MyXQL.Result{rows: [values]} =
-      case c.protocol do
-        :text ->
-          MyXQL.query!(c.conn, statement)
-
-        :binary ->
-          {_query, result} = MyXQL.prepare_execute!(c.conn, "", statement)
-          result
-      end
-
+    %MyXQL.Result{rows: [values]} = query!(c, statement)
     values
   end
 
@@ -332,7 +320,8 @@ defmodule MyXQL.RowValueTest do
     value
   end
 
-  defp query!(c, statement) do
-    MyXQL.query!(c.conn, statement)
+  defp query!(c, statement, params \\ [], opts \\ []) do
+    opts = Keyword.put_new(opts, :query_type, c.protocol)
+    MyXQL.query!(c.conn, statement, params, opts)
   end
 end
