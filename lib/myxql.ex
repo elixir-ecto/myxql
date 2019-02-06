@@ -239,7 +239,7 @@ defmodule MyXQL do
   """
   @spec prepare(conn(), iodata(), iodata(), keyword()) ::
           {:ok, MyXQL.Query.t()} | {:error, MyXQL.Error.t()}
-  def prepare(conn, name, statement, opts \\ []) when is_iodata(statement) do
+  def prepare(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare(conn, query, opts)
   end
@@ -252,7 +252,7 @@ defmodule MyXQL do
   See `prepare/4`.
   """
   @spec prepare!(conn(), iodata(), iodata(), keyword()) :: MyXQL.Query.t()
-  def prepare!(conn, name, statement, opts \\ []) when is_iodata(statement) do
+  def prepare!(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare!(conn, query, opts)
   end
@@ -280,7 +280,7 @@ defmodule MyXQL do
   @spec prepare_execute(conn, iodata, iodata, list, keyword()) ::
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
-      when is_iodata(statement) do
+      when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare_execute(conn, query, params, opts)
   end
@@ -296,7 +296,7 @@ defmodule MyXQL do
   @spec prepare_execute!(conn, iodata, iodata, list, keyword()) ::
           {MyXQL.Query.t(), MyXQL.Result.t()}
   def prepare_execute!(conn, name, statement, params \\ [], opts \\ [])
-      when is_iodata(statement) do
+      when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare_execute!(conn, query, params, opts)
   end
