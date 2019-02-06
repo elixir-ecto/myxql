@@ -112,6 +112,12 @@ defmodule MyXQL do
     DBConnection.start_link(MyXQL.Protocol, opts)
   end
 
+  defmacrop is_iodata(data) do
+    quote do
+      is_list(unquote(data)) or is_binary(unquote(data))
+    end
+  end
+
   @doc """
   Runs a query.
 
@@ -171,7 +177,7 @@ defmodule MyXQL do
           {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   def query(conn, statement, params \\ [], opts \\ [])
 
-  def query(conn, statement, params, opts) when is_binary(statement) or is_list(statement) do
+  def query(conn, statement, params, opts) when is_iodata(statement) do
     query_type = query_type(params, opts)
 
     case query_type do
@@ -233,7 +239,7 @@ defmodule MyXQL do
   """
   @spec prepare(conn(), iodata(), iodata(), keyword()) ::
           {:ok, MyXQL.Query.t()} | {:error, MyXQL.Error.t()}
-  def prepare(conn, name, statement, opts \\ []) do
+  def prepare(conn, name, statement, opts \\ []) when is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare(conn, query, opts)
   end
@@ -246,7 +252,7 @@ defmodule MyXQL do
   See `prepare/4`.
   """
   @spec prepare!(conn(), iodata(), iodata(), keyword()) :: MyXQL.Query.t()
-  def prepare!(conn, name, statement, opts \\ []) do
+  def prepare!(conn, name, statement, opts \\ []) when is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare!(conn, query, opts)
   end
@@ -274,7 +280,7 @@ defmodule MyXQL do
   @spec prepare_execute(conn, iodata, iodata, list, keyword()) ::
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
-      when is_binary(statement) or is_list(statement) do
+      when is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare_execute(conn, query, params, opts)
   end
@@ -290,7 +296,7 @@ defmodule MyXQL do
   @spec prepare_execute!(conn, iodata, iodata, list, keyword()) ::
           {MyXQL.Query.t(), MyXQL.Result.t()}
   def prepare_execute!(conn, name, statement, params \\ [], opts \\ [])
-      when is_binary(statement) or is_list(statement) do
+      when is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare_execute!(conn, query, params, opts)
   end
@@ -427,8 +433,7 @@ defmodule MyXQL do
           DBConnection.PrepareStream.t()
   def stream(conn, query, params \\ [], opts \\ [])
 
-  def stream(%DBConnection{} = conn, statement, params, opts)
-      when is_binary(statement) or is_list(statement) do
+  def stream(%DBConnection{} = conn, statement, params, opts) when is_iodata(statement) do
     query = %MyXQL.Query{
       name: "",
       ref: make_ref(),
