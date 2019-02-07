@@ -391,6 +391,11 @@ defmodule MyXQL.RowValue do
     {@mysql_type_tiny, <<0>>}
   end
 
+  def encode_binary_value(term) when is_list(term) or is_map(term) do
+    string = MyXQL.json_library().encode!(term)
+    {@mysql_type_var_string, encode_string_lenenc(string)}
+  end
+
   def encode_binary_value(other) do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
   end

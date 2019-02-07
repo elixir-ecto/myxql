@@ -202,10 +202,10 @@ defmodule MyXQL.RowValueTest do
 
       @tag requires_json: true
       test "JSON", c do
-        assert insert_and_get(c, "my_json", "[]") == []
-        assert insert_and_get(c, "my_json", "[1, [2, 3]]") == [1, [2, 3]]
-        assert insert_and_get(c, "my_json", "{}") == %{}
-        assert insert_and_get(c, "my_json", "{\"a\": [\"foo\", 42]}") == %{"a" => ["foo", 42]}
+        assert_roundtrip(c, "my_json", [])
+        assert_roundtrip(c, "my_json", [1, [2, 3]])
+        assert_roundtrip(c, "my_json", %{})
+        assert_roundtrip(c, "my_json", %{"a" => ["foo", 42]})
       end
 
       test "CHAR", c do
@@ -286,6 +286,9 @@ defmodule MyXQL.RowValueTest do
         true -> "TRUE"
         false -> "FALSE"
         %DateTime{} = datetime -> "'#{NaiveDateTime.to_iso8601(datetime)}'"
+        list when is_list(list) -> "'#{Jason.encode!(list)}'"
+        %_{} = struct -> "'#{struct}'"
+        map when is_map(map) -> "'#{Jason.encode!(map)}'"
         value -> "'#{value}'"
       end)
 
