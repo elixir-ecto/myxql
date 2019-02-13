@@ -53,8 +53,7 @@ defmodule MyXQL.Messages do
       :client_found_rows,
       :client_multi_statements,
       :client_multi_results,
-      :client_transactions,
-      :client_session_track
+      :client_transactions
     ])
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_connect_with_db), !is_nil(database))
     |> maybe_put_flag(Map.fetch!(@capability_flags, :client_ssl), ssl?)
