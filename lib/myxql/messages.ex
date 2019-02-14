@@ -123,7 +123,7 @@ defmodule MyXQL.Messages do
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
 
   # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
-  defrecord :err_packet, [:error_code, :sql_state_marker, :sql_state, :error_message]
+  defrecord :err_packet, [:error_code, :error_message]
 
   def decode_generic_response(<<0x00, rest::binary>>) do
     {affected_rows, rest} = take_int_lenenc(rest)
@@ -145,15 +145,10 @@ defmodule MyXQL.Messages do
   end
 
   def decode_generic_response(
-        <<0xFF, error_code::int(2), sql_state_marker::string(1), sql_state::string(5),
+        <<0xFF, error_code::int(2), _sql_state_marker::string(1), _sql_state::string(5),
           error_message::binary>>
       ) do
-    err_packet(
-      error_code: error_code,
-      sql_state_marker: sql_state_marker,
-      sql_state: sql_state,
-      error_message: error_message
-    )
+    err_packet(error_code: error_code, error_message: error_message)
   end
 
   # Note: header is last argument to allow binary optimization
