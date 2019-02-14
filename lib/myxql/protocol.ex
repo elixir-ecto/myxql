@@ -66,7 +66,7 @@ defmodule MyXQL.Protocol do
         handshake(state, username, password, database, ssl?, ssl_opts, connect_timeout)
 
       {:error, reason} ->
-        {:error, socket_error(reason)}
+        {:error, socket_error(reason, %{connection_id: nil})}
     end
   end
 
@@ -156,7 +156,7 @@ defmodule MyXQL.Protocol do
       {:ok, put_status(state, status_flags)}
     else
       {:error, reason} ->
-        {:disconnect, socket_error(reason), state}
+        {:disconnect, socket_error(reason, state), state}
     end
   end
 
@@ -267,7 +267,7 @@ defmodule MyXQL.Protocol do
               {:ok, nil, put_status(state, status_flags)}
 
             err_packet() = err_packet ->
-              {:error, mysql_error(err_packet, query.statement), state}
+              {:error, mysql_error(err_packet, query.statement, state), state}
           end
         end
 
@@ -398,7 +398,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp result({:ok, err_packet() = err_packet}, query, state) do
-    maybe_disconnect(mysql_error(err_packet, query.statement), state)
+    maybe_disconnect(mysql_error(err_packet, query.statement, state), state)
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
@@ -406,7 +406,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp result({:error, reason}, _query, state) do
-    {:error, socket_error(reason), state}
+    {:error, socket_error(reason, state), state}
   end
 
   defp maybe_disconnect(exception, state) do
@@ -478,18 +478,18 @@ defmodule MyXQL.Protocol do
           {:ok, state}
 
         {:ok, err_packet() = err_packet} ->
-          {:error, mysql_error(err_packet, nil)}
+          {:error, mysql_error(err_packet, nil, state)}
 
         {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
           with {:ok, auth_response} <-
-                 auth_switch_response(plugin_name, password, plugin_data, ssl?),
+                 auth_switch_response(plugin_name, password, plugin_data, ssl?, state),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
             case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
               {:ok, ok_packet(warning_count: 0)} ->
                 {:ok, state}
 
               {:ok, err_packet() = err_packet} ->
-                {:error, mysql_error(err_packet, nil)}
+                {:error, mysql_error(err_packet, nil, state)}
             end
           end
 
@@ -503,11 +503,11 @@ defmodule MyXQL.Protocol do
                   {:ok, state}
 
                 {:ok, err_packet() = err_packet} ->
-                  {:error, mysql_error(err_packet, nil)}
+                  {:error, mysql_error(err_packet, nil, state)}
               end
             end
           else
-            auth_plugin_secure_connection_error(auth_plugin_name)
+            auth_plugin_secure_connection_error(auth_plugin_name, state)
           end
       end
     end
@@ -523,30 +523,30 @@ defmodule MyXQL.Protocol do
        when plugin_name in ["sha256_password", "caching_sha2_password"],
        do: MyXQL.Auth.sha256_password(password, plugin_data)
 
-  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
+  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?, _state),
     do: {:ok, <<>>}
 
-  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
+  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?, _state),
     do: {:ok, MyXQL.Auth.mysql_native_password(password, plugin_data)}
 
-  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?)
+  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?, state)
        when plugin_name in ["sha256_password", "caching_sha2_password"] do
     if ssl? do
       {:ok, password <> <<0x00>>}
     else
-      auth_plugin_secure_connection_error(plugin_name)
+      auth_plugin_secure_connection_error(plugin_name, state)
     end
   end
 
   # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
-  defp auth_plugin_secure_connection_error(plugin_name) do
+  defp auth_plugin_secure_connection_error(plugin_name, state) do
     code = 2061
     name = :CR_AUTH_PLUGIN_ERR
 
     message =
       "(HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
 
-    {:error, mysql_error(code, name, message, nil)}
+    {:error, mysql_error(code, name, message, nil, state)}
   end
 
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, connect_timeout, database, sequence_id) do
@@ -568,15 +568,15 @@ defmodule MyXQL.Protocol do
             versions.
             """
 
-            error = socket_error(reason)
+            error = socket_error(reason, state)
             {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
 
           {:error, reason} ->
-            {:error, socket_error(reason)}
+            {:error, socket_error(reason, state)}
         end
 
       {:error, reason} ->
-        {:error, socket_error(reason)}
+        {:error, socket_error(reason, state)}
     end
   end
 
@@ -591,13 +591,13 @@ defmodule MyXQL.Protocol do
     {:ok, state, sequence_id}
   end
 
-  defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
+  defp send_data(%{sock: sock, sock_mod: sock_mod} = state, data) do
     case sock_mod.send(sock, data) do
       :ok ->
         :ok
 
       {:error, reason} ->
-        {:error, socket_error(reason)}
+        {:error, socket_error(reason, state)}
     end
   end
 
@@ -617,7 +617,7 @@ defmodule MyXQL.Protocol do
         {:ok, nil, put_status(state, status_flags)}
 
       {:ok, err_packet() = err_packet} ->
-        {:disconnect, mysql_error(err_packet, statement), state}
+        {:disconnect, mysql_error(err_packet, statement, state), state}
     end
   end
 
@@ -629,7 +629,7 @@ defmodule MyXQL.Protocol do
         {:ok, nil, put_status(state, status_flags)}
 
       {:ok, err_packet() = err_packet} ->
-        {:disconnect, mysql_error(err_packet, statement), state}
+        {:disconnect, mysql_error(err_packet, statement, state), state}
     end
   end
 
@@ -721,22 +721,29 @@ defmodule MyXQL.Protocol do
     delete_statement_id(state, query)
   end
 
-  defp mysql_error(err_packet(error_code: code, error_message: message), statement) do
+  defp mysql_error(err_packet(error_code: code, error_message: message), statement, state) do
     name = MyXQL.ServerErrorCodes.code_to_name(code)
-    mysql_error(code, name, message, statement)
+    mysql_error(code, name, message, statement, state.connection_id)
   end
 
-  defp mysql_error(code, name, message, statement) when is_integer(code) and is_atom(name) do
+  defp mysql_error(code, name, message, statement, connection_id)
+       when is_integer(code) and is_atom(name) do
     mysql = %{code: code, name: name}
-    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: mysql, statement: statement}
+
+    %MyXQL.Error{
+      connection_id: connection_id,
+      message: "(#{code}) (#{name}) " <> message,
+      mysql: mysql,
+      statement: statement
+    }
   end
 
-  defp socket_error(%MyXQL.Error{} = exception) do
+  defp socket_error(%MyXQL.Error{} = exception, _state) do
     exception
   end
 
-  defp socket_error(reason) do
+  defp socket_error(reason, state) do
     message = {:error, reason} |> :ssl.format_error() |> List.to_string()
-    %MyXQL.Error{message: message, socket: reason}
+    %MyXQL.Error{connection_id: state.connection_id, message: message, socket: reason}
   end
 end
