@@ -426,8 +426,7 @@ defmodule MyXQL.Protocol do
      handshake_v10(
        conn_id: conn_id,
        auth_plugin_name: auth_plugin_name,
-       auth_plugin_data1: auth_plugin_data1,
-       auth_plugin_data2: auth_plugin_data2,
+       auth_plugin_data: auth_plugin_data,
        status_flags: _status_flags
      )} = recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
 
@@ -436,8 +435,6 @@ defmodule MyXQL.Protocol do
 
     case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, connect_timeout, database, sequence_id) do
       {:ok, state, sequence_id} ->
-        auth_plugin_data = <<auth_plugin_data1::binary, auth_plugin_data2::binary>>
-
         do_handshake(
           state,
           username,
