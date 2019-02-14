@@ -68,6 +68,10 @@ iex> MyXQL.query!(:myxql, "SELECT NOW()").rows
 [[~N[2018-12-28 13:42:31]]]
 ```
 
+## Mariaex Compatibility
+
+See [Mariaex Compatibility](./MARIAEX_COMPATIBILITY.md) page for transition between drivers.
+
 ## Data representation
 
 ```
