@@ -51,4 +51,4 @@ Error struct:
   * MyXQL.Error struct contains `:mysql` field for MySQL errors (e.g.: `%{mysql: %{code: 1062, name: :ER_DUP_ENTRY}}`) and `:socket` field for socket errors (e.g.: `%{socket: :nxdomain}`) which should make it easier for users to understand and handle the errors.
     Mariaex.Error constains a similar field called `:mariadb` with `:code` and `:message` fields
 
-  * MyXQL.Error does not have :tag, :action, and :reason fields
+  * MyXQL.Error does not have `:tag`, `:action`, and `:reason` fields
