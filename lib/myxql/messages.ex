@@ -100,7 +100,6 @@ defmodule MyXQL.Messages do
       :client_plugin_auth,
       :client_secure_connection,
       :client_found_rows,
-      :client_multi_statements,
       :client_multi_results,
       :client_transactions
     ])

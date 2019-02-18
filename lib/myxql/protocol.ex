@@ -195,8 +195,9 @@ defmodule MyXQL.Protocol do
         handle_transaction("ROLLBACK", s)
 
       :savepoint when status == :transaction ->
-        statement = "ROLLBACK TO SAVEPOINT myxql_savepoint; RELEASE SAVEPOINT myxql_savepoint"
-        handle_transaction_multi(statement, s)
+        with {:ok, _result, s} <- handle_transaction("ROLLBACK TO SAVEPOINT myxql_savepoint", s) do
+          handle_transaction("RELEASE SAVEPOINT myxql_savepoint", s)
+        end
 
       mode when mode in [:transaction, :savepoint] ->
         {status, s}
@@ -619,33 +620,6 @@ defmodule MyXQL.Protocol do
       {:ok, err_packet() = err_packet} ->
         {:disconnect, mysql_error(err_packet, statement, state), state}
     end
-  end
-
-  defp handle_transaction_multi(statement, state) do
-    :ok = send_com({:com_query, statement}, state)
-
-    case recv_packets(&decode_multi_results/3, :first, state) do
-      {:ok, ok_packet(status_flags: status_flags)} ->
-        {:ok, nil, put_status(state, status_flags)}
-
-      {:ok, err_packet() = err_packet} ->
-        {:disconnect, mysql_error(err_packet, statement, state), state}
-    end
-  end
-
-  defp decode_multi_results(payload, _next, :first) do
-    case decode_generic_response(payload) do
-      ok_packet(status_flags: status_flags) ->
-        true = has_status_flag?(status_flags, :server_more_results_exists)
-        {:cont, :next}
-
-      err_packet() = err_packet ->
-        {:halt, err_packet}
-    end
-  end
-
-  defp decode_multi_results(payload, "", :next) do
-    {:halt, decode_generic_response(payload)}
   end
 
   defp transaction_status(status_flags) do
