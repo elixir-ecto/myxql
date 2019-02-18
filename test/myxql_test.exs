@@ -350,29 +350,66 @@ defmodule MyXQLTest do
 
     test "commit", c do
       assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
-      result = make_ref()
+      self = self()
 
-      {:ok, ^result} =
-        MyXQL.transaction(c.conn, fn conn ->
-          MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
-          MyXQL.query!(conn, "INSERT INTO integers VALUES (20)")
-          result
-        end)
+      {:ok, :success} =
+        MyXQL.transaction(
+          c.conn,
+          fn conn ->
+            MyXQL.query!(conn, "INSERT INTO integers VALUES (10)", [], log: &send(self(), &1))
+            MyXQL.query!(conn, "INSERT INTO integers VALUES (20)", [], log: &send(self(), &1))
+            :success
+          end,
+          log: &send(self, &1)
+        )
 
       assert %MyXQL.Result{rows: [[2]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
+
+      assert_receive %DBConnection.LogEntry{} = begin_entry
+      assert_receive %DBConnection.LogEntry{} = query1_entry
+      assert_receive %DBConnection.LogEntry{} = query2_entry
+      assert_receive %DBConnection.LogEntry{} = commit_entry
+
+      assert begin_entry.call == :begin
+      assert begin_entry.query == :begin
+      assert {:ok, _, %MyXQL.Result{}} = begin_entry.result
+
+      assert query1_entry.call == :execute
+      assert query2_entry.call == :execute
+
+      assert commit_entry.call == :commit
+      assert commit_entry.query == :commit
+      assert {:ok, %MyXQL.Result{}} = commit_entry.result
     end
 
     test "rollback", c do
+      self = self()
       assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
       reason = make_ref()
 
       {:error, ^reason} =
-        MyXQL.transaction(c.conn, fn conn ->
-          MyXQL.query!(conn, "INSERT INTO integers VALUES (10)")
-          MyXQL.rollback(conn, reason)
-        end)
+        MyXQL.transaction(
+          c.conn,
+          fn conn ->
+            MyXQL.query!(conn, "INSERT INTO integers VALUES (10)", [], log: &send(self, &1))
+            MyXQL.rollback(conn, reason)
+          end,
+          log: &send(self(), &1)
+        )
 
       assert %MyXQL.Result{rows: [[0]]} = MyXQL.query!(c.conn, "SELECT COUNT(1) FROM integers")
+
+      assert_receive %DBConnection.LogEntry{} = begin_entry
+      assert_receive %DBConnection.LogEntry{} = query_entry
+      assert_receive %DBConnection.LogEntry{} = rollback_entry
+
+      assert begin_entry.call == :begin
+      assert begin_entry.query == :begin
+
+      assert query_entry.call == :execute
+
+      assert rollback_entry.call == :rollback
+      assert rollback_entry.query == :rollback
     end
 
     test "status", c do

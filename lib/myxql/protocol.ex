@@ -164,10 +164,10 @@ defmodule MyXQL.Protocol do
   def handle_begin(opts, %{transaction_status: status} = s) do
     case Keyword.get(opts, :mode, :transaction) do
       :transaction when status == :idle ->
-        handle_transaction("BEGIN", s)
+        handle_transaction(:begin, "BEGIN", s)
 
       :savepoint when status == :transaction ->
-        handle_transaction("SAVEPOINT myxql_savepoint", s)
+        handle_transaction(:begin, "SAVEPOINT myxql_savepoint", s)
 
       mode when mode in [:transaction, :savepoint] ->
         {status, s}
@@ -178,10 +178,10 @@ defmodule MyXQL.Protocol do
   def handle_commit(opts, %{transaction_status: status} = s) do
     case Keyword.get(opts, :mode, :transaction) do
       :transaction when status == :transaction ->
-        handle_transaction("COMMIT", s)
+        handle_transaction(:commit, "COMMIT", s)
 
       :savepoint when status == :transaction ->
-        handle_transaction("RELEASE SAVEPOINT myxql_savepoint", s)
+        handle_transaction(:commit, "RELEASE SAVEPOINT myxql_savepoint", s)
 
       mode when mode in [:transaction, :savepoint] ->
         {status, s}
@@ -192,11 +192,12 @@ defmodule MyXQL.Protocol do
   def handle_rollback(opts, %{transaction_status: status} = s) do
     case Keyword.get(opts, :mode, :transaction) do
       :transaction when status == :transaction ->
-        handle_transaction("ROLLBACK", s)
+        handle_transaction(:rollback, "ROLLBACK", s)
 
       :savepoint when status == :transaction ->
-        with {:ok, _result, s} <- handle_transaction("ROLLBACK TO SAVEPOINT myxql_savepoint", s) do
-          handle_transaction("RELEASE SAVEPOINT myxql_savepoint", s)
+        with {:ok, _result, s} <-
+               handle_transaction(:rollback, "ROLLBACK TO SAVEPOINT myxql_savepoint", s) do
+          handle_transaction(:rollback, "RELEASE SAVEPOINT myxql_savepoint", s)
         end
 
       mode when mode in [:transaction, :savepoint] ->
@@ -610,12 +611,13 @@ defmodule MyXQL.Protocol do
     sock_mod.close(sock)
   end
 
-  defp handle_transaction(statement, state) do
+  defp handle_transaction(call, statement, state) do
     :ok = send_com({:com_query, statement}, state)
 
     case recv_packet(&decode_generic_response/1, state) do
-      {:ok, ok_packet(status_flags: status_flags)} ->
-        {:ok, nil, put_status(state, status_flags)}
+      {:ok, ok_packet()} = ok ->
+        {:ok, _query, result, state} = result(ok, call, state)
+        {:ok, result, state}
 
       {:ok, err_packet() = err_packet} ->
         {:disconnect, mysql_error(err_packet, statement, state), state}
