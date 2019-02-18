@@ -544,6 +544,31 @@ defmodule MyXQLTest do
         MyXQL.prepare_execute!(c.conn, "", "CALL multi_procedure()")
       end
     end
+
+    test "stream procedure with single result", c do
+      statement = "CALL single_procedure()"
+
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, statement, [], max_rows: 2)
+          Enum.to_list(stream)
+        end)
+
+      assert [%MyXQL.Result{rows: [[1]]}] = result
+    end
+
+    @tag :skip
+    test "stream procedure with multiple results", c do
+      statement = "CALL multi_procedure()"
+
+      {:ok, result} =
+        MyXQL.transaction(c.conn, fn conn ->
+          stream = MyXQL.stream(conn, statement, [], max_rows: 2)
+          Enum.to_list(stream)
+        end)
+
+      assert [%MyXQL.Result{rows: [[1]]}] = result
+    end
   end
 
   test "warnings" do
