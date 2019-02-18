@@ -41,12 +41,20 @@ defmodule MyXQL.MixProject do
 
   defp deps() do
     [
-      {:db_connection, "~> 2.0"},
+      {:db_connection, "~> 2.0", db_connection_opts()},
       {:decimal, "~> 1.6"},
       {:jason, "~> 1.0", optional: true},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
+  end
+
+  defp db_connection_opts() do
+    if path = System.get_env("DB_CONNECTION_PATH") do
+      [path: path]
+    else
+      []
+    end
   end
 end
