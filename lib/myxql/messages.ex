@@ -6,6 +6,55 @@ defmodule MyXQL.Messages do
 
   @max_packet_size 65536
 
+  # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
+  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
+
+  # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
+  defrecord :err_packet, [:error_code, :error_message]
+
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
+  defrecord :handshake_v10, [
+    :auth_plugin_data,
+    :auth_plugin_name,
+    :capability_flags,
+    :character_set,
+    :conn_id,
+    :server_version,
+    :status_flags
+  ]
+
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse
+  defrecord :handshake_response_41, [
+    :capability_flags,
+    :max_packet_size,
+    :character_set,
+    :username,
+    :auth_response,
+    :database
+  ]
+
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
+  defrecord :auth_switch_request, [:plugin_name, :plugin_data]
+
+  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
+  defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
+  # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
+  #
+  # both text & binary resultset have the same columns shape, but different rows
+  defrecord :resultset, [
+    :column_count,
+    :column_defs,
+    :row_count,
+    :rows,
+    :warning_count,
+    :status_flags
+  ]
+
+  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
+  defrecord :column_def, [:name, :type, :flags, :unsigned?]
+
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
   @capability_flags %{
     client_long_password: 0x00000001,
@@ -119,12 +168,6 @@ defmodule MyXQL.Messages do
     [<<payload_length::int(3), sequence_id::int(1)>>, payload]
   end
 
-  # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
-  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
-
-  # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
-  defrecord :err_packet, [:error_code, :error_message]
-
   def decode_generic_response(<<0x00, rest::binary>>) do
     {affected_rows, rest} = take_int_lenenc(rest)
     {last_insert_id, rest} = take_int_lenenc(rest)
@@ -162,17 +205,6 @@ defmodule MyXQL.Messages do
   # https://dev.mysql.com/doc/internals/en/connection-phase.html
   ##############################################################
 
-  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
-  defrecord :handshake_v10, [
-    :auth_plugin_data,
-    :auth_plugin_name,
-    :capability_flags,
-    :character_set,
-    :conn_id,
-    :server_version,
-    :status_flags
-  ]
-
   def decode_handshake_v10(payload) do
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
@@ -209,16 +241,6 @@ defmodule MyXQL.Messages do
     )
   end
 
-  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse
-  defrecord :handshake_response_41, [
-    :capability_flags,
-    :max_packet_size,
-    :character_set,
-    :username,
-    :auth_response,
-    :database
-  ]
-
   def encode_handshake_response_41(
         username,
         auth_plugin_name,
@@ -252,9 +274,6 @@ defmodule MyXQL.Messages do
       0::int(23)
     >>
   end
-
-  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
-  defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
   def decode_handshake_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
     decode_generic_response(rest, header)
@@ -335,19 +354,6 @@ defmodule MyXQL.Messages do
     >>
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
-  # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
-  #
-  # both text & binary resultset have the same columns shape, but different rows
-  defrecord :resultset, [
-    :column_count,
-    :column_defs,
-    :row_count,
-    :rows,
-    :warning_count,
-    :status_flags
-  ]
-
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(<<header, rest::binary>>, "", :initial)
       when header in [0x00, 0xFF] do
@@ -357,9 +363,6 @@ defmodule MyXQL.Messages do
   def decode_com_query_response(payload, next_data, state) do
     decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_text_row/2)
   end
-
-  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
-  defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
 
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
@@ -464,9 +467,6 @@ defmodule MyXQL.Messages do
     |> Map.keys()
     |> Enum.filter(&has_column_flag?(flags, &1))
   end
-
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def, [:name, :type, :flags, :unsigned?]
 
   def decode_column_def(<<3, "def", rest::binary>>) do
     {_schema, rest} = take_string_lenenc(rest)
