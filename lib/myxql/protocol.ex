@@ -426,30 +426,42 @@ defmodule MyXQL.Protocol do
   defp handshake(state, username, password, database, ssl?, ssl_opts, connect_timeout) do
     {:ok,
      handshake_v10(
-       conn_id: conn_id,
-       auth_plugin_name: auth_plugin_name,
        auth_plugin_data: auth_plugin_data,
+       auth_plugin_name: auth_plugin_name,
+       capability_flags: capability_flags,
+       conn_id: conn_id,
        status_flags: _status_flags
      )} = recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
 
     state = %{state | connection_id: conn_id}
     sequence_id = 1
 
-    case maybe_upgrade_to_ssl(state, ssl?, ssl_opts, connect_timeout, database, sequence_id) do
-      {:ok, state, sequence_id} ->
-        do_handshake(
-          state,
-          username,
-          password,
-          auth_plugin_name,
-          auth_plugin_data,
-          database,
-          sequence_id,
-          ssl?
-        )
+    with :ok <- ensure_capabilities(capability_flags, state),
+         {:ok, state, sequence_id} <-
+           maybe_upgrade_to_ssl(state, ssl?, ssl_opts, connect_timeout, database, sequence_id) do
+      do_handshake(
+        state,
+        username,
+        password,
+        auth_plugin_name,
+        auth_plugin_data,
+        database,
+        sequence_id,
+        ssl?
+      )
+    end
+  end
 
-      {:error, _} = error ->
-        error
+  defp ensure_capabilities(capability_flags, state) do
+    if has_capability_flag?(capability_flags, :client_deprecate_eof) do
+      :ok
+    else
+      exception = %MyXQL.Error{
+        connection_id: state.connection_id,
+        message: "MyXQL only works with MySQL server 5.7.10+"
+      }
+
+      {:error, exception}
     end
   end
 
