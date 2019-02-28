@@ -2,7 +2,7 @@ defmodule MyXQL.Protocol.Client do
   @moduledoc false
 
   require Logger
-  import MyXQL.Protocol.{Messages, Records, Types}
+  import MyXQL.Protocol.{Flags, Messages, Records, Types}
   alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
 
   @handshake_recv_timeout 5_000

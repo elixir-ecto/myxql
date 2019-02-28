@@ -2,7 +2,7 @@ defmodule MyXQL.Protocol do
   @moduledoc false
 
   use DBConnection
-  import MyXQL.Protocol.{Messages, Records}
+  import MyXQL.Protocol.{Flags, Records}
   alias MyXQL.Protocol.Client
   alias MyXQL.{Cursor, Query, TextQuery, Result}
 
@@ -188,10 +188,10 @@ defmodule MyXQL.Protocol do
     with {:ok, resultset(status_flags: status_flags)} = result <-
            Client.com_stmt_fetch(statement_id, column_defs, max_rows, state),
          {:ok, _query, result, state} <- result(result, query, state) do
-      if :server_status_cursor_exists in list_status_flags(status_flags) do
+      if has_status_flag?(status_flags, :server_status_cursor_exists) do
         {:cont, result, state}
       else
-        true = :server_status_last_row_sent in list_status_flags(status_flags)
+        true = has_status_flag?(status_flags, :server_status_last_row_sent)
         {:halt, result, state}
       end
     end
