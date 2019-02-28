@@ -3,7 +3,26 @@ defmodule MyXQL do
   MySQL driver for Elixir.
   """
 
-  @type conn :: DBConnection.conn()
+  @type conn() :: DBConnection.conn()
+
+  @type start_option() ::
+          {:protocol, :socket | :tcp}
+          | {:socket, Path.t()}
+          | {:socket_options, [:gen_tcp.connect_option()]}
+          | {:hostname, Path.t()}
+          | {:port, :inet.port_number()}
+          | {:database, String.t() | nil}
+          | {:username, String.t()}
+          | {:password, String.t() | nil}
+          | {:ssl, boolean()}
+          | {:ssl_options, [:ssl.ssl_option()]}
+          | {:connect_timeout, timeout()}
+          | {:ping_timeout, timeout()}
+          | {:prepare, :named | :unnamed}
+          | {:disconnect_on_error_codes, [atom()]}
+          | DBConnection.start_option()
+
+  @type option() :: DBConnection.option()
 
   @doc """
   Starts the connection process and connects to a MySQL server.
@@ -106,7 +125,7 @@ defmodule MyXQL do
       MySQL error code 1792 (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION): Cannot execute statement in a READ ONLY transaction.
 
   """
-  @spec start_link(keyword()) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
+  @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
   def start_link(opts) do
     ensure_deps_started!(opts)
     DBConnection.start_link(MyXQL.Protocol, opts)
@@ -173,7 +192,7 @@ defmodule MyXQL do
       {:ok, %MyXQL.Result{last_insert_id: 2, num_rows: 1}}
 
   """
-  @spec query(conn, iodata, list, keyword()) ::
+  @spec query(conn, iodata, list, [option()]) ::
           {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   def query(conn, statement, params \\ [], opts \\ [])
 
@@ -211,7 +230,7 @@ defmodule MyXQL do
 
   See `query/4`.
   """
-  @spec query!(conn, iodata, list, keyword()) :: MyXQL.Result.t()
+  @spec query!(conn, iodata, list, [option()]) :: MyXQL.Result.t()
   def query!(conn, statement, params \\ [], opts \\ []) do
     case query(conn, statement, params, opts) do
       {:ok, result} -> result
@@ -237,7 +256,7 @@ defmodule MyXQL do
       [6]
 
   """
-  @spec prepare(conn(), iodata(), iodata(), keyword()) ::
+  @spec prepare(conn(), iodata(), iodata(), [option()]) ::
           {:ok, MyXQL.Query.t()} | {:error, MyXQL.Error.t()}
   def prepare(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
@@ -251,7 +270,7 @@ defmodule MyXQL do
 
   See `prepare/4`.
   """
-  @spec prepare!(conn(), iodata(), iodata(), keyword()) :: MyXQL.Query.t()
+  @spec prepare!(conn(), iodata(), iodata(), [option()]) :: MyXQL.Query.t()
   def prepare!(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare!(conn, query, opts)
@@ -293,7 +312,7 @@ defmodule MyXQL do
 
   See: `prepare_execute/5`.
   """
-  @spec prepare_execute!(conn, iodata, iodata, list, keyword()) ::
+  @spec prepare_execute!(conn, iodata, iodata, list, [option()]) ::
           {MyXQL.Query.t(), MyXQL.Result.t()}
   def prepare_execute!(conn, name, statement, params \\ [], opts \\ [])
       when is_iodata(name) and is_iodata(statement) do
@@ -317,7 +336,7 @@ defmodule MyXQL do
       [6]
 
   """
-  @spec execute(conn(), MyXQL.Query.t(), list(), keyword()) ::
+  @spec execute(conn(), MyXQL.Query.t(), list(), [option()]) ::
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
   defdelegate execute(conn, query, params \\ [], opts \\ []), to: DBConnection
 
@@ -341,7 +360,7 @@ defmodule MyXQL do
   Options are passed to `DBConnection.close/3`, see it's documentation for
   all available options.
   """
-  @spec close(conn(), MyXQL.Query.t(), keyword()) :: :ok
+  @spec close(conn(), MyXQL.Query.t(), [option()]) :: :ok
   def close(conn, %MyXQL.Query{} = query, opts \\ []) do
     case DBConnection.close(conn, query, opts) do
       {:ok, _} ->
@@ -382,7 +401,7 @@ defmodule MyXQL do
         end)
 
   """
-  @spec transaction(conn, (DBConnection.t() -> result), keyword()) ::
+  @spec transaction(conn, (DBConnection.t() -> result), [option()]) ::
           {:ok, result} | {:error, any}
         when result: var
   defdelegate transaction(conn, fun, opts \\ []), to: DBConnection
@@ -429,7 +448,7 @@ defmodule MyXQL do
         end)
 
   """
-  @spec stream(DBConnection.t(), iodata | MyXQL.Query.t(), list, keyword()) ::
+  @spec stream(DBConnection.t(), iodata | MyXQL.Query.t(), list, [option()]) ::
           DBConnection.PrepareStream.t()
   def stream(conn, query, params \\ [], opts \\ [])
 
