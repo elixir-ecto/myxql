@@ -1,4 +1,4 @@
-defmodule MyXQL.RowValue do
+defmodule MyXQL.Protocol.Values do
   @moduledoc false
   import MyXQL.Protocol.Types
   import MyXQL.Messages, only: [column_def: 1]

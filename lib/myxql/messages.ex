@@ -360,7 +360,7 @@ defmodule MyXQL.Messages do
   end
 
   def decode_com_query_response(payload, next_data, state) do
-    decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_text_row/2)
+    decode_resultset(payload, next_data, state, &MyXQL.Protocol.Values.decode_text_row/2)
   end
 
   def decode_com_stmt_prepare_response(
@@ -412,7 +412,7 @@ defmodule MyXQL.Messages do
           if value == nil do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag(value)>>, values}
           else
-            {type, binary} = MyXQL.RowValue.encode_binary_value(value)
+            {type, binary} = MyXQL.Protocol.Values.encode_binary_value(value)
 
             {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag(value)>>,
              <<values::binary, binary::binary>>}
@@ -433,7 +433,7 @@ defmodule MyXQL.Messages do
   end
 
   def decode_com_stmt_execute_response(payload, next_data, state) do
-    decode_resultset(payload, next_data, state, &MyXQL.RowValue.decode_binary_row/2)
+    decode_resultset(payload, next_data, state, &MyXQL.Protocol.Values.decode_binary_row/2)
   end
 
   # Column flags (non-internal)
