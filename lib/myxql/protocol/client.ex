@@ -70,14 +70,57 @@ defmodule MyXQL.Protocol.Client do
     sock_mod.recv(sock, 0, timeout)
   end
 
-  def send_com(com, state) do
-    payload = encode_com(com)
-    send_packet(payload, 0, state)
+  def com_ping(state) do
+    with :ok <- send_com(:com_ping, state) do
+      recv_packet(&decode_generic_response/1, state.ping_timeout, state)
+    end
+  end
+
+  def com_query(statement, state) do
+    with :ok <- send_com({:com_query, statement}, state) do
+      recv_packets(&decode_com_query_response/3, :initial, state)
+    end
+  end
+
+  def com_stmt_prepare(statement, state) do
+    with :ok <- send_com({:com_stmt_prepare, statement}, state) do
+      recv_packets(&decode_com_stmt_prepare_response/3, :initial, state)
+    end
+  end
+
+  def com_stmt_execute(statement_id, params, cursor_type, state) do
+    with :ok <- send_com({:com_stmt_execute, statement_id, params, cursor_type}, state) do
+      recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
+    end
+  end
+
+  def com_stmt_fetch(statement_id, column_defs, max_rows, state) do
+    with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
+      recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state)
+    end
+  end
+
+  def com_stmt_reset(statement_id, state) do
+    with :ok <- send_com({:com_stmt_reset, statement_id}, state) do
+      recv_packet(&decode_generic_response/1, state)
+    end
+  end
+
+  def com_stmt_close(statement_id, state) do
+    # No response is sent back to the client.
+    :ok = send_com({:com_stmt_close, statement_id}, state)
   end
 
   def send_packet(payload, sequence_id, state) do
     data = encode_packet(payload, sequence_id)
     send_data(state, data)
+  end
+
+  ## Internals
+
+  defp send_com(com, state) do
+    payload = encode_com(com)
+    send_packet(payload, 0, state)
   end
 
   defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
