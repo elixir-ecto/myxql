@@ -138,20 +138,12 @@ defmodule MyXQL.Protocol.Client do
   ## Handshake
 
   defp handshake(config, state) do
-    {:ok,
-     initial_handshake(
-       auth_plugin_data: auth_plugin_data,
-       auth_plugin_name: auth_plugin_name,
-       capability_flags: capability_flags,
-       conn_id: conn_id
-     )} = recv_handshake(state)
-
-    state = %{state | connection_id: conn_id}
-    sequence_id = 1
-
-    with :ok <- ensure_capabilities(capability_flags, state),
+    with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(state),
+         state = %{state | connection_id: conn_id},
+         sequence_id = 1,
+         :ok <- ensure_capabilities(initial_handshake, state),
          {:ok, sequence_id, state} <- maybe_upgrade_to_ssl(config, sequence_id, state) do
-      do_handshake(config, sequence_id, auth_plugin_name, auth_plugin_data, state)
+      do_handshake(config, initial_handshake, sequence_id, state)
     end
   end
 
@@ -159,7 +151,7 @@ defmodule MyXQL.Protocol.Client do
     recv_packet(&decode_initial_handshake/1, @handshake_recv_timeout, state)
   end
 
-  defp ensure_capabilities(capability_flags, state) do
+  defp ensure_capabilities(initial_handshake(capability_flags: capability_flags), state) do
     if has_capability_flag?(capability_flags, :client_deprecate_eof) do
       :ok
     else
@@ -171,12 +163,16 @@ defmodule MyXQL.Protocol.Client do
 
   defp do_handshake(
          config,
+         initial_handshake,
          sequence_id,
-         auth_plugin_name,
-         auth_plugin_data,
          state
        ) do
-    auth_response = auth_response(auth_plugin_name, config.password, auth_plugin_data)
+    initial_handshake(
+      auth_plugin_name: auth_plugin_name,
+      auth_plugin_data: auth_plugin_data
+    ) = initial_handshake
+
+    auth_response = auth_response(auth_plugin_name, auth_plugin_data, config.password)
 
     payload =
       encode_handshake_response_41(
@@ -238,13 +234,13 @@ defmodule MyXQL.Protocol.Client do
     end
   end
 
-  defp auth_response(_plugin_name, nil, _plugin_data),
+  defp auth_response(_plugin_name, _plugin_data, nil),
     do: nil
 
-  defp auth_response("mysql_native_password", password, plugin_data),
+  defp auth_response("mysql_native_password", plugin_data, password),
     do: Auth.mysql_native_password(password, plugin_data)
 
-  defp auth_response(plugin_name, password, plugin_data)
+  defp auth_response(plugin_name, plugin_data, password)
        when plugin_name in ["sha256_password", "caching_sha2_password"],
        do: Auth.sha256_password(password, plugin_data)
 
