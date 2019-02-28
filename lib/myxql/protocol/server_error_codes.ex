@@ -1,6 +1,6 @@
 # Do not edit manually, see build_error_codes.exs at the root.
 
-defmodule MyXQL.ServerErrorCodes do
+defmodule MyXQL.Protocol.ServerErrorCodes do
   @moduledoc false
 
   codes = [

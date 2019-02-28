@@ -3,7 +3,7 @@ defmodule MyXQL.Protocol do
 
   use DBConnection
   import MyXQL.Protocol.{Messages, Records, Types}
-  alias MyXQL.Protocol.Auth
+  alias MyXQL.Protocol.{Auth, ServerErrorCodes}
   alias MyXQL.{Cursor, Query, TextQuery, Result}
 
   @typep t() :: %__MODULE__{}
@@ -712,7 +712,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp mysql_error(err_packet(error_code: code, error_message: message), statement, state) do
-    name = MyXQL.ServerErrorCodes.code_to_name(code)
+    name = ServerErrorCodes.code_to_name(code)
     mysql_error(code, name, message, statement, state.connection_id)
   end
 

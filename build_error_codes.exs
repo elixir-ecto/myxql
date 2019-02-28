@@ -54,7 +54,7 @@ codes = MyXQL.ErrorCodesParser.parse(path)
 code = """
 # Do not edit manually, see build_error_codes.exs at the root.
 
-defmodule MyXQL.ServerErrorCodes do
+defmodule MyXQL.Protocol.ServerErrorCodes do
   @moduledoc false
 
   codes = #{inspect(codes, limit: :infinity)}
@@ -70,4 +70,4 @@ defmodule MyXQL.ServerErrorCodes do
 end
 """
 
-File.write!("lib/myxql/server_error_codes.ex", [Code.format_string!(code), "\n"])
+File.write!("lib/myxql/protocol/server_error_codes.ex", [Code.format_string!(code), "\n"])
