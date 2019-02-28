@@ -36,40 +36,6 @@ defmodule MyXQL.Protocol.Client do
     end
   end
 
-  defp recv_packets(
-         <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
-         decoder,
-         decoder_state,
-         timeout,
-         state
-       ) do
-    case decoder.(payload, rest, decoder_state) do
-      {:cont, decoder_state} ->
-        recv_packets(rest, decoder, decoder_state, timeout, state)
-
-      {:halt, result} ->
-        {:ok, result}
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
-  # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, timeout, state) do
-    case recv_data(state, timeout) do
-      {:ok, data} ->
-        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, state)
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
-  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
-    sock_mod.recv(sock, 0, timeout)
-  end
-
   def com_ping(state) do
     with :ok <- send_com(:com_ping, state) do
       recv_packet(&decode_generic_response/1, state.ping_timeout, state)
@@ -125,5 +91,39 @@ defmodule MyXQL.Protocol.Client do
 
   defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
     sock_mod.send(sock, data)
+  end
+
+  defp recv_packets(
+         <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
+         decoder,
+         decoder_state,
+         timeout,
+         state
+       ) do
+    case decoder.(payload, rest, decoder_state) do
+      {:cont, decoder_state} ->
+        recv_packets(rest, decoder, decoder_state, timeout, state)
+
+      {:halt, result} ->
+        {:ok, result}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  # If we didn't match on a full packet, receive more data and try again
+  defp recv_packets(rest, decoder, decoder_state, timeout, state) do
+    case recv_data(state, timeout) do
+      {:ok, data} ->
+        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, state)
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
+    sock_mod.recv(sock, 0, timeout)
   end
 end
