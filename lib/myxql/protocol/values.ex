@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Values do
   @moduledoc false
   import MyXQL.Protocol.Types
-  import MyXQL.Messages, only: [column_def: 1]
+  import MyXQL.Protocol.Records, only: [column_def: 1]
   use Bitwise
 
   # Text & Binary row value encoding/decoding
