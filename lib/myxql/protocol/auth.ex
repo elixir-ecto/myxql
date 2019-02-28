@@ -1,4 +1,4 @@
-defmodule MyXQL.Auth do
+defmodule MyXQL.Protocol.Auth do
   @moduledoc false
   use Bitwise
 

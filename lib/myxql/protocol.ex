@@ -2,6 +2,7 @@ defmodule MyXQL.Protocol do
   @moduledoc false
   use DBConnection
   import MyXQL.{Messages, Protocol.Types}
+  alias MyXQL.Protocol.Auth
   alias MyXQL.{Cursor, Query, TextQuery, Result}
 
   @typep t() :: %__MODULE__{}
@@ -531,17 +532,17 @@ defmodule MyXQL.Protocol do
     do: nil
 
   defp auth_response("mysql_native_password", password, plugin_data),
-    do: MyXQL.Auth.mysql_native_password(password, plugin_data)
+    do: Auth.mysql_native_password(password, plugin_data)
 
   defp auth_response(plugin_name, password, plugin_data)
        when plugin_name in ["sha256_password", "caching_sha2_password"],
-       do: MyXQL.Auth.sha256_password(password, plugin_data)
+       do: Auth.sha256_password(password, plugin_data)
 
   defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?, _state),
     do: {:ok, <<>>}
 
   defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?, _state),
-    do: {:ok, MyXQL.Auth.mysql_native_password(password, plugin_data)}
+    do: {:ok, Auth.mysql_native_password(password, plugin_data)}
 
   defp auth_switch_response(plugin_name, password, _plugin_data, ssl?, state)
        when plugin_name in ["sha256_password", "caching_sha2_password"] do
