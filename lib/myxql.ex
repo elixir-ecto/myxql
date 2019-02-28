@@ -17,6 +17,7 @@ defmodule MyXQL do
           | {:ssl, boolean()}
           | {:ssl_options, [:ssl.ssl_option()]}
           | {:connect_timeout, timeout()}
+          | {:handshake_timeout, timeout()}
           | {:ping_timeout, timeout()}
           | {:prepare, :named | :unnamed}
           | {:disconnect_on_error_codes, [atom()]}
@@ -63,6 +64,8 @@ defmodule MyXQL do
 
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
+
+    * `:handshake_timeout` - Connection handshake timeout in milliseconds (default: `15_000`)
 
     * `:ping_timeout` - Socket receive timeout when idle in milliseconds (default:
       `15_000`). See `c:DBConnection.ping/1` for more information

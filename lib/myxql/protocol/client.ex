@@ -1,8 +1,9 @@
 defmodule MyXQL.Protocol.Client do
   @moduledoc false
 
-  alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
+  require Logger
   import MyXQL.Protocol.{Messages, Records, Types}
+  alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
 
   @handshake_recv_timeout 5_000
 
@@ -137,13 +138,27 @@ defmodule MyXQL.Protocol.Client do
 
   ## Handshake
 
-  defp handshake(config, state) do
+  defp handshake(config, %{sock: {:gen_tcp, sock}} = state) do
+    timer = start_handshake_timer(config.handshake_timeout, sock)
+
+    case do_handshake(config, state) do
+      {:ok, state} ->
+        cancel_handshake_timer(timer)
+        {:ok, state}
+
+      {:error, reason} ->
+        cancel_handshake_timer(timer)
+        {:error, reason}
+    end
+  end
+
+  defp do_handshake(config, state) do
     with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(state),
          state = %{state | connection_id: conn_id},
          sequence_id = 1,
          :ok <- ensure_capabilities(initial_handshake, state),
          {:ok, sequence_id, state} <- maybe_upgrade_to_ssl(config, sequence_id, state) do
-      do_handshake(config, initial_handshake, sequence_id, state)
+      send_handshake_response(config, initial_handshake, sequence_id, state)
     end
   end
 
@@ -161,7 +176,7 @@ defmodule MyXQL.Protocol.Client do
     end
   end
 
-  defp do_handshake(
+  defp send_handshake_response(
          config,
          initial_handshake,
          sequence_id,
@@ -305,6 +320,38 @@ defmodule MyXQL.Protocol.Client do
 
   defp maybe_upgrade_to_ssl(%{ssl?: false}, sequence_id, state) do
     {:ok, sequence_id, state}
+  end
+
+  defp start_handshake_timer(:infinity, _), do: :infinity
+
+  defp start_handshake_timer(timeout, sock) do
+    args = [timeout, self(), sock]
+    {:ok, tref} = :timer.apply_after(timeout, __MODULE__, :handshake_shutdown, args)
+    {:timer, tref}
+  end
+
+  @doc false
+  def handshake_shutdown(timeout, pid, sock) do
+    if Process.alive?(pid) do
+      Logger.error(fn ->
+        [
+          inspect(__MODULE__),
+          " (",
+          inspect(pid),
+          ") timed out because it was handshaking for longer than ",
+          to_string(timeout) | "ms"
+        ]
+      end)
+
+      :gen_tcp.shutdown(sock, :read_write)
+    end
+  end
+
+  def cancel_handshake_timer(:infinity), do: :ok
+
+  def cancel_handshake_timer({:timer, tref}) do
+    {:ok, _} = :timer.cancel(tref)
+    :ok
   end
 
   def mysql_error(err_packet(error_code: code, error_message: message), statement, state) do

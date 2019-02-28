@@ -10,6 +10,7 @@ defmodule MyXQL.Protocol.Config do
     :ssl?,
     :ssl_opts,
     :connect_timeout,
+    :handshake_timeout,
     :socket_options
   ]
 
@@ -26,6 +27,7 @@ defmodule MyXQL.Protocol.Config do
       ssl?: Keyword.get(opts, :ssl, false),
       ssl_opts: Keyword.get(opts, :ssl_opts, []),
       connect_timeout: Keyword.get(opts, :connect_timeout, 15_000),
+      handshake_timeout: Keyword.get(opts, :handshake_timeout, 15_000),
       socket_options: Keyword.merge([mode: :binary, active: false], opts[:socket_options] || [])
     }
   end
