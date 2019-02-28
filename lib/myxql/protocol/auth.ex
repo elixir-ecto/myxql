@@ -1,5 +1,6 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
+
   use Bitwise
 
   # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html

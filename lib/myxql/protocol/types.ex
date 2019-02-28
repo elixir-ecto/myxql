@@ -1,5 +1,6 @@
 defmodule MyXQL.Protocol.Types do
   @moduledoc false
+
   use Bitwise
 
   # https://dev.mysql.com/doc/internals/en/basic-types.html
