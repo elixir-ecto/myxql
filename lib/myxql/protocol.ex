@@ -136,7 +136,7 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def ping(state) do
-    with :ok <- send_com(:com_ping, state),
+    with :ok <- Client.send_com(:com_ping, state),
          {:ok, ok_packet(status_flags: status_flags)} <-
            Client.recv_packet(&decode_generic_response/1, state.ping_timeout, state) do
       {:ok, put_status(state, status_flags)}
@@ -201,7 +201,7 @@ defmodule MyXQL.Protocol do
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
     com = {:com_stmt_execute, statement_id, params, :cursor_type_read_only}
 
-    with :ok <- send_com(com, state) do
+    with :ok <- Client.send_com(com, state) do
       case Client.recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
         {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
           if has_status_flag?(status_flags, :server_status_cursor_exists) do
@@ -229,7 +229,7 @@ defmodule MyXQL.Protocol do
     max_rows = Keyword.get(opts, :max_rows, 500)
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
 
-    with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
+    with :ok <- Client.send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
       case Client.recv_packets(
              &decode_com_stmt_execute_response/3,
              {:rows, column_defs, []},
@@ -252,7 +252,7 @@ defmodule MyXQL.Protocol do
   def handle_deallocate(query, _cursor, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        with :ok <- send_com({:com_stmt_reset, statement_id}, state),
+        with :ok <- Client.send_com({:com_stmt_reset, statement_id}, state),
              {:ok, packet} <- Client.recv_packet(&decode_generic_response/1, state) do
           case packet do
             ok_packet(status_flags: status_flags) ->
@@ -270,25 +270,19 @@ defmodule MyXQL.Protocol do
 
   ## Internals
 
-  def send_com(com, state) do
-    payload = encode_com(com)
-    send_packet(payload, 0, state)
-  end
-
-  def send_packet(payload, sequence_id, state) do
-    data = encode_packet(payload, sequence_id)
-    send_data(state, data)
-  end
-
   defp execute_binary(query, params, statement_id, state) do
-    with :ok <- send_com({:com_stmt_execute, statement_id, params, :cursor_type_no_cursor}, state) do
+    with :ok <-
+           Client.send_com(
+             {:com_stmt_execute, statement_id, params, :cursor_type_no_cursor},
+             state
+           ) do
       result = Client.recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
       result(result, query, state)
     end
   end
 
   defp execute_text(%{statement: statement} = query, state) do
-    with :ok <- send_com({:com_query, statement}, state) do
+    with :ok <- Client.send_com({:com_query, statement}, state) do
       Client.recv_packets(&decode_com_query_response/3, :initial, state)
       |> result(query, state)
     end
@@ -427,7 +421,7 @@ defmodule MyXQL.Protocol do
         ssl?
       )
 
-    with :ok <- send_packet(payload, sequence_id, state) do
+    with :ok <- Client.send_packet(payload, sequence_id, state) do
       case Client.recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
         {:ok, ok_packet()} ->
           {:ok, state}
@@ -438,7 +432,7 @@ defmodule MyXQL.Protocol do
         {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
           with {:ok, auth_response} <-
                  auth_switch_response(plugin_name, password, plugin_data, ssl?, state),
-               :ok <- send_packet(auth_response, sequence_id + 2, state) do
+               :ok <- Client.send_packet(auth_response, sequence_id + 2, state) do
             case Client.recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
               {:ok, ok_packet(warning_count: 0)} ->
                 {:ok, state}
@@ -452,7 +446,7 @@ defmodule MyXQL.Protocol do
           if ssl? do
             auth_response = password <> <<0x00>>
 
-            with :ok <- send_packet(auth_response, sequence_id + 2, state) do
+            with :ok <- Client.send_packet(auth_response, sequence_id + 2, state) do
               case Client.recv_packet(
                      &decode_handshake_response/1,
                      @handshake_recv_timeout,
@@ -511,7 +505,7 @@ defmodule MyXQL.Protocol do
   defp maybe_upgrade_to_ssl(state, true, ssl_opts, connect_timeout, database, sequence_id) do
     payload = encode_ssl_request(database)
 
-    case send_packet(payload, sequence_id, state) do
+    case Client.send_packet(payload, sequence_id, state) do
       :ok ->
         case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
           {:ok, ssl_sock} ->
@@ -550,22 +544,12 @@ defmodule MyXQL.Protocol do
     {:ok, state, sequence_id}
   end
 
-  defp send_data(%{sock: sock, sock_mod: sock_mod} = state, data) do
-    case sock_mod.send(sock, data) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        {:error, socket_error(reason, state)}
-    end
-  end
-
   defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
     sock_mod.close(sock)
   end
 
   defp handle_transaction(call, statement, state) do
-    :ok = send_com({:com_query, statement}, state)
+    :ok = Client.send_com({:com_query, statement}, state)
 
     case Client.recv_packet(&decode_generic_response/1, state) do
       {:ok, ok_packet()} = ok ->
@@ -602,7 +586,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp prepare(%Query{ref: ref} = query, state) when is_reference(ref) do
-    with :ok <- send_com({:com_stmt_prepare, query.statement}, state) do
+    with :ok <- Client.send_com({:com_stmt_prepare, query.statement}, state) do
       case Client.recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
         {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
           state = put_statement_id(state, query, statement_id)
@@ -645,7 +629,7 @@ defmodule MyXQL.Protocol do
 
   defp close(query, statement_id, state) do
     # No response is sent back to the client.
-    :ok = send_com({:com_stmt_close, statement_id}, state)
+    :ok = Client.send_com({:com_stmt_close, statement_id}, state)
 
     delete_statement_id(state, query)
   end

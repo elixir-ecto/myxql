@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Client do
   @moduledoc false
 
-  import MyXQL.Protocol.Types
+  import MyXQL.Protocol.{Messages, Types}
 
   # next_data is `""` if there is no more data after parsed packet that we know of.
   # There might still be more data in the socket though, in that case the decoder
@@ -68,5 +68,19 @@ defmodule MyXQL.Protocol.Client do
 
   defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
     sock_mod.recv(sock, 0, timeout)
+  end
+
+  def send_com(com, state) do
+    payload = encode_com(com)
+    send_packet(payload, 0, state)
+  end
+
+  def send_packet(payload, sequence_id, state) do
+    data = encode_packet(payload, sequence_id)
+    send_data(state, data)
+  end
+
+  defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
+    sock_mod.send(sock, data)
   end
 end
