@@ -22,14 +22,13 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def connect(opts) do
-    config = MyXQL.Protocol.Config.new(opts)
     prepare = Keyword.get(opts, :prepare, :named)
     ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
 
     disconnect_on_error_codes =
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
 
-    case Client.connect(config) do
+    case Client.connect(opts) do
       {:ok, state} ->
         state = %__MODULE__{
           prepare: prepare,

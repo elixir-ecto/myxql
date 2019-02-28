@@ -1,12 +1,14 @@
 defmodule MyXQL.Protocol.Client do
   @moduledoc false
 
-  alias MyXQL.Protocol.{Auth, ServerErrorCodes}
+  alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
   import MyXQL.Protocol.{Messages, Records, Types}
 
   @handshake_recv_timeout 5_000
 
-  def connect(config) do
+  def connect(opts) do
+    config = Config.new(opts)
+
     with {:ok, sock} <-
            :gen_tcp.connect(
              config.address,
