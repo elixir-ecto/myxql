@@ -160,6 +160,19 @@ defmodule MyXQLTest do
       MyXQL.start_link(opts)
       assert_receive {:connected, _}
     end
+
+    test "handshake timeout" do
+      %{port: port} =
+        start_fake_server(fn _ ->
+          Process.sleep(:infinity)
+        end)
+
+      opts = Keyword.merge(@opts, port: port, handshake_timeout: 5)
+
+      assert capture_log(fn ->
+               assert_start_and_killed(opts)
+             end) =~ "timed out because it was handshaking for longer than 5ms"
+    end
   end
 
   describe "query" do
@@ -630,5 +643,18 @@ defmodule MyXQLTest do
   defp truncate(c) do
     MyXQL.query!(c.conn, "TRUNCATE TABLE integers")
     c
+  end
+
+  defp start_fake_server(fun) do
+    {:ok, listen_socket} = :gen_tcp.listen(0, mode: :binary, active: false)
+    {:ok, port} = :inet.port(listen_socket)
+
+    {:ok, pid} =
+      Task.start_link(fn ->
+        {:ok, accept_socket} = :gen_tcp.accept(listen_socket)
+        fun.(%{accept_socket: accept_socket, listen_socket: listen_socket})
+      end)
+
+    %{pid: pid, port: port}
   end
 end
