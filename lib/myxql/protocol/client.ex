@@ -1,38 +1,21 @@
 defmodule MyXQL.Protocol.Client do
   @moduledoc false
 
-  import MyXQL.Protocol.{Messages, Types}
+  alias MyXQL.Protocol.{Auth, ServerErrorCodes}
+  import MyXQL.Protocol.{Messages, Records, Types}
 
-  # next_data is `""` if there is no more data after parsed packet that we know of.
-  # There might still be more data in the socket though, in that case the decoder
-  # function needs to return `{:cont, ...}`.
-  #
-  # Pattern matching on next_data = "" is useful for OK packets etc.
-  # Looking at next_data is useful for debugging.
-  @typep decoder ::
-           (payload :: binary(), next_data :: binary(), state :: term() ->
-              {:cont, state :: term()}
-              | {:halt, result :: term()}
-              | {:error, term()})
+  @handshake_recv_timeout 5_000
 
-  @typep socket_reason() :: :inet.posix() | {:tls_alert, term()} | :timeout
-
-  @spec recv_packet((payload :: binary() -> term()), timeout(), state :: term) ::
-          {:ok, term()} | {:error, socket_reason()}
-  def recv_packet(decoder, timeout \\ :infinity, state) do
-    new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
-    recv_packets(new_decoder, nil, timeout, state)
-  end
-
-  @spec recv_packets(decoder, decoder_state :: term(), timeout(), state :: term) ::
-          {:ok, term()} | {:error, socket_reason()}
-  def recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
-    case recv_data(state, timeout) do
-      {:ok, data} ->
-        recv_packets(data, decoder, decoder_state, timeout, state)
-
-      {:error, _} = error ->
-        error
+  def connect(config) do
+    with {:ok, sock} <-
+           :gen_tcp.connect(
+             config.address,
+             config.port,
+             config.socket_options,
+             config.connect_timeout
+           ) do
+      state = %{sock_mod: :gen_tcp, sock: sock, connection_id: nil}
+      handshake(config, state)
     end
   end
 
@@ -97,6 +80,21 @@ defmodule MyXQL.Protocol.Client do
     sock_mod.send(sock, data)
   end
 
+  def recv_packet(decoder, timeout \\ :infinity, state) do
+    new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
+    recv_packets(new_decoder, nil, timeout, state)
+  end
+
+  def recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
+    case recv_data(state, timeout) do
+      {:ok, data} ->
+        recv_packets(data, decoder, decoder_state, timeout, state)
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
   defp recv_packets(
          <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
          decoder,
@@ -133,5 +131,226 @@ defmodule MyXQL.Protocol.Client do
 
   defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
     sock_mod.close(sock)
+  end
+
+  ## Handshake
+
+  defp handshake(config, state) do
+    {:ok,
+     handshake_v10(
+       auth_plugin_data: auth_plugin_data,
+       auth_plugin_name: auth_plugin_name,
+       capability_flags: capability_flags,
+       conn_id: conn_id,
+       status_flags: _status_flags
+     )} = recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
+
+    state = %{state | connection_id: conn_id}
+    sequence_id = 1
+
+    with :ok <- ensure_capabilities(capability_flags, state),
+         {:ok, state, sequence_id} <-
+           maybe_upgrade_to_ssl(
+             state,
+             config.ssl?,
+             config.ssl_opts,
+             config.connect_timeout,
+             config.database,
+             sequence_id
+           ) do
+      do_handshake(
+        state,
+        config.username,
+        config.password,
+        auth_plugin_name,
+        auth_plugin_data,
+        config.database,
+        sequence_id,
+        config.ssl?
+      )
+    end
+  end
+
+  defp ensure_capabilities(capability_flags, state) do
+    if has_capability_flag?(capability_flags, :client_deprecate_eof) do
+      :ok
+    else
+      exception = %MyXQL.Error{
+        connection_id: state.connection_id,
+        message: "MyXQL only works with MySQL server 5.7.10+"
+      }
+
+      {:error, exception}
+    end
+  end
+
+  defp do_handshake(
+         state,
+         username,
+         password,
+         auth_plugin_name,
+         auth_plugin_data,
+         database,
+         sequence_id,
+         ssl?
+       ) do
+    auth_response = auth_response(auth_plugin_name, password, auth_plugin_data)
+
+    payload =
+      encode_handshake_response_41(
+        username,
+        auth_plugin_name,
+        auth_response,
+        database,
+        ssl?
+      )
+
+    with :ok <- send_packet(payload, sequence_id, state) do
+      case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+        {:ok, ok_packet()} ->
+          {:ok, state}
+
+        {:ok, err_packet() = err_packet} ->
+          {:error, mysql_error(err_packet, nil, state)}
+
+        {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
+          with {:ok, auth_response} <-
+                 auth_switch_response(plugin_name, password, plugin_data, ssl?, state),
+               :ok <- send_packet(auth_response, sequence_id + 2, state) do
+            case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+              {:ok, ok_packet(warning_count: 0)} ->
+                {:ok, state}
+
+              {:ok, err_packet() = err_packet} ->
+                {:error, mysql_error(err_packet, nil, state)}
+            end
+          end
+
+        {:ok, :full_auth} ->
+          if ssl? do
+            auth_response = password <> <<0x00>>
+
+            with :ok <- send_packet(auth_response, sequence_id + 2, state) do
+              case recv_packet(
+                     &decode_handshake_response/1,
+                     @handshake_recv_timeout,
+                     state
+                   ) do
+                {:ok, ok_packet(warning_count: 0)} ->
+                  {:ok, state}
+
+                {:ok, err_packet() = err_packet} ->
+                  {:error, mysql_error(err_packet, nil, state)}
+              end
+            end
+          else
+            auth_plugin_secure_connection_error(auth_plugin_name, state)
+          end
+      end
+    end
+  end
+
+  defp auth_response(_plugin_name, nil, _plugin_data),
+    do: nil
+
+  defp auth_response("mysql_native_password", password, plugin_data),
+    do: Auth.mysql_native_password(password, plugin_data)
+
+  defp auth_response(plugin_name, password, plugin_data)
+       when plugin_name in ["sha256_password", "caching_sha2_password"],
+       do: Auth.sha256_password(password, plugin_data)
+
+  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?, _state),
+    do: {:ok, <<>>}
+
+  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?, _state),
+    do: {:ok, Auth.mysql_native_password(password, plugin_data)}
+
+  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?, state)
+       when plugin_name in ["sha256_password", "caching_sha2_password"] do
+    if ssl? do
+      {:ok, password <> <<0x00>>}
+    else
+      auth_plugin_secure_connection_error(plugin_name, state)
+    end
+  end
+
+  # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
+  defp auth_plugin_secure_connection_error(plugin_name, state) do
+    code = 2061
+    name = :CR_AUTH_PLUGIN_ERR
+
+    message =
+      "(HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
+
+    {:error, mysql_error(code, name, message, nil, state)}
+  end
+
+  defp maybe_upgrade_to_ssl(state, true, ssl_opts, connect_timeout, database, sequence_id) do
+    payload = encode_ssl_request(database)
+
+    case send_packet(payload, sequence_id, state) do
+      :ok ->
+        case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
+          {:ok, ssl_sock} ->
+            {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
+
+          {:error, {:tls_alert, 'bad record mac'} = reason} ->
+            versions = :ssl.versions()[:supported]
+
+            extra_message = """
+            You might be using TLS version not supported by the server.
+            Protocol versions reported by the :ssl application: #{inspect(versions)}.
+            Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
+            versions.
+            """
+
+            error = socket_error(reason, state)
+            {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
+
+          {:error, reason} ->
+            {:error, socket_error(reason, state)}
+        end
+
+      {:error, reason} ->
+        {:error, socket_error(reason, state)}
+    end
+  end
+
+  defp maybe_upgrade_to_ssl(
+         state,
+         false,
+         _ssl_opts,
+         _connect_timeout,
+         _database,
+         sequence_id
+       ) do
+    {:ok, state, sequence_id}
+  end
+
+  def mysql_error(err_packet(error_code: code, error_message: message), statement, state) do
+    name = ServerErrorCodes.code_to_name(code)
+    mysql_error(code, name, message, statement, state.connection_id)
+  end
+
+  def mysql_error(code, name, message, statement, connection_id)
+      when is_integer(code) and is_atom(name) do
+    mysql = %{code: code, name: name}
+
+    %MyXQL.Error{
+      connection_id: connection_id,
+      message: "(#{code}) (#{name}) " <> message,
+      mysql: mysql,
+      statement: statement
+    }
+  end
+
+  def socket_error(%MyXQL.Error{} = exception, _state) do
+    exception
+  end
+
+  def socket_error(reason, state) do
+    message = {:error, reason} |> :ssl.format_error() |> List.to_string()
+    %MyXQL.Error{connection_id: state.connection_id, message: message, socket: reason}
   end
 end
