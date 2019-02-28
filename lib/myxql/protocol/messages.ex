@@ -1,4 +1,4 @@
-defmodule MyXQL.Messages do
+defmodule MyXQL.Protocol.Messages do
   @moduledoc false
   import MyXQL.Protocol.{Records, Types}
   alias MyXQL.Protocol.Values

@@ -1,8 +1,7 @@
 defmodule MyXQL.Protocol do
   @moduledoc false
   use DBConnection
-  import MyXQL.Messages
-  import MyXQL.Protocol.{Records, Types}
+  import MyXQL.Protocol.{Messages, Records, Types}
   alias MyXQL.Protocol.Auth
   alias MyXQL.{Cursor, Query, TextQuery, Result}
 
