@@ -9,7 +9,7 @@ defmodule MyXQL do
           {:protocol, :socket | :tcp}
           | {:socket, Path.t()}
           | {:socket_options, [:gen_tcp.connect_option()]}
-          | {:hostname, Path.t()}
+          | {:hostname, String.t()}
           | {:port, :inet.port_number()}
           | {:database, String.t() | nil}
           | {:username, String.t()}
