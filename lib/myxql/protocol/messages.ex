@@ -155,7 +155,7 @@ defmodule MyXQL.Protocol.Messages do
   # https://dev.mysql.com/doc/internals/en/connection-phase.html
   ##############################################################
 
-  def decode_handshake_v10(payload) do
+  def decode_initial_handshake(payload) do
     protocol_version = 10
     <<^protocol_version, rest::binary>> = payload
     {server_version, rest} = take_string_nul(rest)
@@ -180,7 +180,7 @@ defmodule MyXQL.Protocol.Messages do
 
     <<capability_flags::int(4)>> = <<capability_flags1::int(2), capability_flags2::int(2)>>
 
-    handshake_v10(
+    initial_handshake(
       server_version: server_version,
       conn_id: conn_id,
       auth_plugin_name: auth_plugin_name,

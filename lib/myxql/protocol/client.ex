@@ -139,7 +139,7 @@ defmodule MyXQL.Protocol.Client do
 
   defp handshake(config, state) do
     {:ok,
-     handshake_v10(
+     initial_handshake(
        auth_plugin_data: auth_plugin_data,
        auth_plugin_name: auth_plugin_name,
        capability_flags: capability_flags,
@@ -156,7 +156,7 @@ defmodule MyXQL.Protocol.Client do
   end
 
   defp recv_handshake(state) do
-    recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
+    recv_packet(&decode_initial_handshake/1, @handshake_recv_timeout, state)
   end
 
   defp ensure_capabilities(capability_flags, state) do

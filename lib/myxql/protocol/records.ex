@@ -10,7 +10,7 @@ defmodule MyXQL.Protocol.Records do
   defrecord :err_packet, [:error_code, :error_message]
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
-  defrecord :handshake_v10, [
+  defrecord :initial_handshake, [
     :auth_plugin_data,
     :auth_plugin_name,
     :capability_flags,
