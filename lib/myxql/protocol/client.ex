@@ -82,6 +82,10 @@ defmodule MyXQL.Protocol.Client do
     send_data(state, data)
   end
 
+  def disconnect(state) do
+    sock_close(state)
+  end
+
   ## Internals
 
   defp send_com(com, state) do
@@ -125,5 +129,9 @@ defmodule MyXQL.Protocol.Client do
 
   defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
     sock_mod.recv(sock, 0, timeout)
+  end
+
+  defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
+    sock_mod.close(sock)
   end
 end

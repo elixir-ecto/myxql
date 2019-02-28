@@ -86,8 +86,8 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def disconnect(_reason, s) do
-    sock_close(s)
+  def disconnect(_reason, state) do
+    Client.disconnect(state)
     :ok
   end
 
@@ -513,10 +513,6 @@ defmodule MyXQL.Protocol do
          sequence_id
        ) do
     {:ok, state, sequence_id}
-  end
-
-  defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
-    sock_mod.close(sock)
   end
 
   defp handle_transaction(call, statement, state) do
