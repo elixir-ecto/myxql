@@ -2,25 +2,9 @@ defmodule MyXQL.Protocol do
   @moduledoc false
 
   use DBConnection
-  import MyXQL.Protocol.{Messages, Records, Types}
-  alias MyXQL.Protocol.{Auth, ServerErrorCodes}
+  import MyXQL.Protocol.{Messages, Records}
+  alias MyXQL.Protocol.{Auth, Client, ServerErrorCodes}
   alias MyXQL.{Cursor, Query, TextQuery, Result}
-
-  @typep t() :: %__MODULE__{}
-
-  # next_data is `""` if there is no more data after parsed packet that we know of.
-  # There might still be more data in the socket though, in that case the decoder
-  # function needs to return `{:cont, ...}`.
-  #
-  # Pattern matching on next_data = "" is useful for OK packets etc.
-  # Looking at next_data is useful for debugging.
-  @typep decoder ::
-           (payload :: binary(), next_data :: binary(), state :: term() ->
-              {:cont, state :: term()}
-              | {:halt, result :: term()}
-              | {:error, term()})
-
-  @typep socket_reason() :: :inet.posix() | {:tls_alert, term()} | :timeout
 
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
@@ -154,7 +138,7 @@ defmodule MyXQL.Protocol do
   def ping(state) do
     with :ok <- send_com(:com_ping, state),
          {:ok, ok_packet(status_flags: status_flags)} <-
-           recv_packet(&decode_generic_response/1, state.ping_timeout, state) do
+           Client.recv_packet(&decode_generic_response/1, state.ping_timeout, state) do
       {:ok, put_status(state, status_flags)}
     else
       {:error, reason} ->
@@ -218,7 +202,7 @@ defmodule MyXQL.Protocol do
     com = {:com_stmt_execute, statement_id, params, :cursor_type_read_only}
 
     with :ok <- send_com(com, state) do
-      case recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
+      case Client.recv_packets(&decode_com_stmt_execute_response/3, :initial, state) do
         {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
           if has_status_flag?(status_flags, :server_status_cursor_exists) do
             cursor = %Cursor{column_defs: column_defs}
@@ -246,7 +230,11 @@ defmodule MyXQL.Protocol do
     {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
 
     with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
-      case recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state) do
+      case Client.recv_packets(
+             &decode_com_stmt_execute_response/3,
+             {:rows, column_defs, []},
+             state
+           ) do
         {:ok, resultset(status_flags: status_flags)} = result ->
           {:ok, _query, result, state} = result(result, query, state)
 
@@ -265,7 +253,7 @@ defmodule MyXQL.Protocol do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
         with :ok <- send_com({:com_stmt_reset, statement_id}, state),
-             {:ok, packet} <- recv_packet(&decode_generic_response/1, state) do
+             {:ok, packet} <- Client.recv_packet(&decode_generic_response/1, state) do
           case packet do
             ok_packet(status_flags: status_flags) ->
               {:ok, nil, put_status(state, status_flags)}
@@ -282,55 +270,6 @@ defmodule MyXQL.Protocol do
 
   ## Internals
 
-  @spec recv_packet((payload :: binary() -> term()), timeout(), t()) ::
-          {:ok, term()} | {:error, socket_reason()}
-  def recv_packet(decoder, timeout \\ :infinity, state) do
-    new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
-    recv_packets(new_decoder, nil, timeout, state)
-  end
-
-  @spec recv_packets(decoder, decoder_state :: term(), timeout(), %__MODULE__{}) ::
-          {:ok, term()} | {:error, socket_reason()}
-  defp recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
-    case recv_data(state, timeout) do
-      {:ok, data} ->
-        recv_packets(data, decoder, decoder_state, timeout, state)
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
-  defp recv_packets(
-         <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
-         decoder,
-         decoder_state,
-         timeout,
-         state
-       ) do
-    case decoder.(payload, rest, decoder_state) do
-      {:cont, decoder_state} ->
-        recv_packets(rest, decoder, decoder_state, timeout, state)
-
-      {:halt, result} ->
-        {:ok, result}
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
-  # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, timeout, state) do
-    case recv_data(state, timeout) do
-      {:ok, data} ->
-        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, state)
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
   def send_com(com, state) do
     payload = encode_com(com)
     send_packet(payload, 0, state)
@@ -343,14 +282,14 @@ defmodule MyXQL.Protocol do
 
   defp execute_binary(query, params, statement_id, state) do
     with :ok <- send_com({:com_stmt_execute, statement_id, params, :cursor_type_no_cursor}, state) do
-      result = recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
+      result = Client.recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
       result(result, query, state)
     end
   end
 
   defp execute_text(%{statement: statement} = query, state) do
     with :ok <- send_com({:com_query, statement}, state) do
-      recv_packets(&decode_com_query_response/3, :initial, state)
+      Client.recv_packets(&decode_com_query_response/3, :initial, state)
       |> result(query, state)
     end
   end
@@ -433,7 +372,7 @@ defmodule MyXQL.Protocol do
        capability_flags: capability_flags,
        conn_id: conn_id,
        status_flags: _status_flags
-     )} = recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
+     )} = Client.recv_packet(&decode_handshake_v10/1, @handshake_recv_timeout, state)
 
     state = %{state | connection_id: conn_id}
     sequence_id = 1
@@ -489,7 +428,7 @@ defmodule MyXQL.Protocol do
       )
 
     with :ok <- send_packet(payload, sequence_id, state) do
-      case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+      case Client.recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
         {:ok, ok_packet()} ->
           {:ok, state}
 
@@ -500,7 +439,7 @@ defmodule MyXQL.Protocol do
           with {:ok, auth_response} <-
                  auth_switch_response(plugin_name, password, plugin_data, ssl?, state),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
-            case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+            case Client.recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
               {:ok, ok_packet(warning_count: 0)} ->
                 {:ok, state}
 
@@ -514,7 +453,11 @@ defmodule MyXQL.Protocol do
             auth_response = password <> <<0x00>>
 
             with :ok <- send_packet(auth_response, sequence_id + 2, state) do
-              case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+              case Client.recv_packet(
+                     &decode_handshake_response/1,
+                     @handshake_recv_timeout,
+                     state
+                   ) do
                 {:ok, ok_packet(warning_count: 0)} ->
                   {:ok, state}
 
@@ -617,10 +560,6 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
-    sock_mod.recv(sock, 0, timeout)
-  end
-
   defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
     sock_mod.close(sock)
   end
@@ -628,7 +567,7 @@ defmodule MyXQL.Protocol do
   defp handle_transaction(call, statement, state) do
     :ok = send_com({:com_query, statement}, state)
 
-    case recv_packet(&decode_generic_response/1, state) do
+    case Client.recv_packet(&decode_generic_response/1, state) do
       {:ok, ok_packet()} = ok ->
         {:ok, _query, result, state} = result(ok, call, state)
         {:ok, result, state}
@@ -664,7 +603,7 @@ defmodule MyXQL.Protocol do
 
   defp prepare(%Query{ref: ref} = query, state) when is_reference(ref) do
     with :ok <- send_com({:com_stmt_prepare, query.statement}, state) do
-      case recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
+      case Client.recv_packets(&decode_com_stmt_prepare_response/3, :initial, state) do
         {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
           state = put_statement_id(state, query, statement_id)
           query = %{query | num_params: num_params}
