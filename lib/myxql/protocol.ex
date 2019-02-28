@@ -49,7 +49,6 @@ defmodule MyXQL.Protocol do
   @impl true
   def disconnect(_reason, state) do
     Client.disconnect(state)
-    :ok
   end
 
   @impl true
