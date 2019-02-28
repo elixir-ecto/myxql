@@ -1,6 +1,6 @@
-defmodule MyXQL.TypesTest do
+defmodule MyXQL.Protocol.TypesTest do
   use ExUnit.Case, async: true
-  import MyXQL.Types
+  import MyXQL.Protocol.Types
   use Bitwise
 
   test "int_lenenc" do

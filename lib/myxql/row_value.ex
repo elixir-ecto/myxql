@@ -1,6 +1,6 @@
 defmodule MyXQL.RowValue do
   @moduledoc false
-  import MyXQL.Types
+  import MyXQL.Protocol.Types
   import MyXQL.Messages, only: [column_def: 1]
   use Bitwise
 

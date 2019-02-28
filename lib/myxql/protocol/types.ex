@@ -1,12 +1,8 @@
-defmodule MyXQL.Types do
+defmodule MyXQL.Protocol.Types do
   @moduledoc false
   use Bitwise
 
-  #########################################################
-  # Basic types
-  #
   # https://dev.mysql.com/doc/internals/en/basic-types.html
-  #########################################################
 
   # https://dev.mysql.com/doc/internals/en/integer.html#fixed-length-integer
   defmacro int(size) do

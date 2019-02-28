@@ -1,7 +1,7 @@
 defmodule MyXQL.Messages do
   @moduledoc false
   import Record
-  import MyXQL.Types
+  import MyXQL.Protocol.Types
   use Bitwise
 
   @max_packet_size 65536
