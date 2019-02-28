@@ -14,7 +14,7 @@ defmodule MyXQL.Protocol.Client do
              config.socket_options,
              config.connect_timeout
            ) do
-      state = %{sock_mod: :gen_tcp, sock: sock, connection_id: nil}
+      state = %{sock: {:gen_tcp, sock}, connection_id: nil}
       handshake(config, state)
     end
   end
@@ -76,7 +76,7 @@ defmodule MyXQL.Protocol.Client do
     send_packet(payload, 0, state)
   end
 
-  defp send_data(%{sock: sock, sock_mod: sock_mod}, data) do
+  defp send_data(%{sock: {sock_mod, sock}}, data) do
     sock_mod.send(sock, data)
   end
 
@@ -125,11 +125,11 @@ defmodule MyXQL.Protocol.Client do
     end
   end
 
-  defp recv_data(%{sock: sock, sock_mod: sock_mod}, timeout) do
+  defp recv_data(%{sock: {sock_mod, sock}}, timeout) do
     sock_mod.recv(sock, 0, timeout)
   end
 
-  defp sock_close(%{sock: sock, sock_mod: sock_mod}) do
+  defp sock_close(%{sock: {sock_mod, sock}}) do
     sock_mod.close(sock)
   end
 
@@ -291,9 +291,11 @@ defmodule MyXQL.Protocol.Client do
 
     case send_packet(payload, sequence_id, state) do
       :ok ->
-        case :ssl.connect(state.sock, ssl_opts, connect_timeout) do
+        {_, sock} = state.sock
+
+        case :ssl.connect(sock, ssl_opts, connect_timeout) do
           {:ok, ssl_sock} ->
-            {:ok, %{state | sock: ssl_sock, sock_mod: :ssl}, sequence_id + 1}
+            {:ok, %{state | sock: {:ssl, ssl_sock}}, sequence_id + 1}
 
           {:error, {:tls_alert, 'bad record mac'} = reason} ->
             versions = :ssl.versions()[:supported]

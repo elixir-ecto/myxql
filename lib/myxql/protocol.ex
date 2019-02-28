@@ -12,7 +12,6 @@ defmodule MyXQL.Protocol do
 
   defstruct [
     :sock,
-    :sock_mod,
     :connection_id,
     disconnect_on_error_codes: [],
     ping_timeout: 15_000,
@@ -36,7 +35,6 @@ defmodule MyXQL.Protocol do
           prepare: prepare,
           disconnect_on_error_codes: disconnect_on_error_codes,
           ping_timeout: ping_timeout,
-          sock_mod: state.sock_mod,
           sock: state.sock,
           connection_id: state.connection_id
         }
