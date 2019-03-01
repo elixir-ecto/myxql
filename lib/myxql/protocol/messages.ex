@@ -57,7 +57,7 @@ defmodule MyXQL.Protocol.Messages do
 
     <<
       status_flags::int(2),
-      warning_count::int(2),
+      num_warnings::int(2),
       info::binary
     >> = rest
 
@@ -65,7 +65,7 @@ defmodule MyXQL.Protocol.Messages do
       affected_rows: affected_rows,
       last_insert_id: last_insert_id,
       status_flags: status_flags,
-      warning_count: warning_count,
+      num_warnings: num_warnings,
       info: info
     )
   end
@@ -249,7 +249,7 @@ defmodule MyXQL.Protocol.Messages do
 
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
-          warning_count::int(2)>>,
+          num_warnings::int(2)>>,
         next_data,
         :initial
       ) do
@@ -258,7 +258,7 @@ defmodule MyXQL.Protocol.Messages do
         statement_id: statement_id,
         num_columns: num_columns,
         num_params: num_params,
-        warning_count: warning_count
+        num_warnings: num_warnings
       )
 
     if num_columns + num_params > 0 do
@@ -361,7 +361,7 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   defp decode_resultset(
-         <<0xFE, 0, 0, status_flags::int(2), warning_count::int(2)>>,
+         <<0xFE, 0, 0, status_flags::int(2), num_warnings::int(2)>>,
          _next_data,
          {:rows, column_defs, acc},
          _row_decoder
@@ -371,7 +371,7 @@ defmodule MyXQL.Protocol.Messages do
         column_defs: column_defs,
         num_rows: length(acc),
         rows: Enum.reverse(acc),
-        warning_count: warning_count,
+        num_warnings: num_warnings,
         status_flags: status_flags
       )
 

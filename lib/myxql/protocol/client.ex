@@ -215,7 +215,7 @@ defmodule MyXQL.Protocol.Client do
                  ),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
             case recv_packet(&decode_handshake_response/1, state) do
-              {:ok, ok_packet(warning_count: 0)} ->
+              {:ok, ok_packet(num_warnings: 0)} ->
                 {:ok, state}
 
               {:ok, err_packet() = err_packet} ->
@@ -229,7 +229,7 @@ defmodule MyXQL.Protocol.Client do
 
             with :ok <- send_packet(auth_response, sequence_id + 2, state) do
               case recv_packet(&decode_handshake_response/1, state) do
-                {:ok, ok_packet(warning_count: 0)} ->
+                {:ok, ok_packet(num_warnings: 0)} ->
                   {:ok, state}
 
                 {:ok, err_packet() = err_packet} ->

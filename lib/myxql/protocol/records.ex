@@ -4,7 +4,7 @@ defmodule MyXQL.Protocol.Records do
   import Record
 
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
-  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :warning_count, :info]
+  defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :num_warnings, :info]
 
   # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
   defrecord :err_packet, [:error_code, :error_message]
@@ -34,7 +34,7 @@ defmodule MyXQL.Protocol.Records do
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
-  defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :warning_count]
+  defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :num_warnings]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::Resultset
   # https://dev.mysql.com/doc/internals/en/binary-protocol-resultset.html
@@ -45,7 +45,7 @@ defmodule MyXQL.Protocol.Records do
     :column_defs,
     :num_rows,
     :rows,
-    :warning_count,
+    :num_warnings,
     :status_flags
   ]
 

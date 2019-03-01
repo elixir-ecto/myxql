@@ -224,7 +224,7 @@ defmodule MyXQL.Protocol do
             last_insert_id: last_insert_id,
             affected_rows: affected_rows,
             status_flags: status_flags,
-            warning_count: warning_count
+            num_warnings: num_warnings
           )},
          query,
          state
@@ -233,7 +233,7 @@ defmodule MyXQL.Protocol do
       connection_id: state.connection_id,
       last_insert_id: last_insert_id,
       num_rows: affected_rows,
-      num_warnings: warning_count
+      num_warnings: num_warnings
     }
 
     {:ok, query, result, put_status(state, status_flags)}
@@ -246,7 +246,7 @@ defmodule MyXQL.Protocol do
             num_rows: num_rows,
             rows: rows,
             status_flags: status_flags,
-            warning_count: warning_count
+            num_warnings: num_warnings
           )},
          query,
          state
@@ -258,7 +258,7 @@ defmodule MyXQL.Protocol do
       columns: columns,
       num_rows: num_rows,
       rows: rows,
-      num_warnings: warning_count
+      num_warnings: num_warnings
     }
 
     {:ok, query, result, put_status(state, status_flags)}
