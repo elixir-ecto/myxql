@@ -46,7 +46,7 @@ defmodule MyXQL.Protocol.Client do
 
   def com_stmt_fetch(statement_id, column_defs, max_rows, state) do
     with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
-      recv_packets(&decode_com_stmt_execute_response/3, {:rows, column_defs, []}, state)
+      recv_packets(&decode_com_stmt_fetch_response/3, {:initial, column_defs}, state)
     end
   end
 

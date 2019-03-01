@@ -36,6 +36,8 @@ defmodule MyXQL.Protocol.Flags do
 
   def put_capability_flags(flags \\ 0, names), do: put_flags(@capability_flags, flags, names)
 
+  def list_capability_flags(flags), do: list_flags(@capability_flags, flags)
+
   # https://dev.mysql.com/doc/internals/en/status-flags.html
   @status_flags %{
     server_status_in_trans: 0x0001,
@@ -55,6 +57,8 @@ defmodule MyXQL.Protocol.Flags do
   }
 
   def has_status_flag?(flags, name), do: has_flag?(@status_flags, flags, name)
+
+  def list_status_flags(flags), do: list_flags(@status_flags, flags)
 
   # Column flags (non-internal)
   # https://dev.mysql.com/doc/dev/mysql-server/8.0.11/group__group__cs__column__definition__flags.html
@@ -78,6 +82,8 @@ defmodule MyXQL.Protocol.Flags do
 
   def has_column_flag?(flags, name), do: has_flag?(@column_flags, flags, name)
 
+  def list_column_flags(flags), do: list_flags(@column_flags, flags)
+
   defp has_flag?(all_flags, flags, name) do
     value = Map.fetch!(all_flags, name)
     (flags &&& value) == value
@@ -85,5 +91,11 @@ defmodule MyXQL.Protocol.Flags do
 
   defp put_flags(all_flags, flags, names) do
     Enum.reduce(names, flags, &(&2 ||| Map.fetch!(all_flags, &1)))
+  end
+
+  def list_flags(all_flags, flags) do
+    all_flags
+    |> Map.keys()
+    |> Enum.filter(&has_flag?(all_flags, flags, &1))
   end
 end

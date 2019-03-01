@@ -320,6 +320,19 @@ defmodule MyXQL.Protocol.Messages do
     decode_resultset(payload, next_data, state, &Values.decode_binary_row/2)
   end
 
+  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch-response.html
+  def decode_com_stmt_fetch_response(<<0xFF, rest::binary>>, "", {:initial, _column_defs}) do
+    {:halt, decode_generic_response(rest, 0xFF)}
+  end
+
+  def decode_com_stmt_fetch_response(payload, next_data, {:initial, column_defs}) do
+    decode_com_stmt_fetch_response(payload, next_data, {:rows, column_defs, []})
+  end
+
+  def decode_com_stmt_fetch_response(payload, next_data, state) do
+    decode_resultset(payload, next_data, state, &Values.decode_binary_row/2)
+  end
+
   def decode_column_def(<<3, "def", rest::binary>>) do
     {_schema, rest} = take_string_lenenc(rest)
     {_table, rest} = take_string_lenenc(rest)
