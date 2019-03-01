@@ -20,7 +20,7 @@ defmodule MyXQL.MixProject do
 
   def application() do
     [
-      extra_applications: [:logger, :crypto, :ssl]
+      extra_applications: [:logger, :crypto]
     ]
   end
 
