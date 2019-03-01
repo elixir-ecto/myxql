@@ -326,7 +326,7 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_com_stmt_fetch_response(payload, next_data, {:initial, column_defs}) do
-    decode_com_stmt_fetch_response(payload, next_data, {:rows, column_defs, []})
+    decode_com_stmt_fetch_response(payload, next_data, {:rows, column_defs, 0, []})
   end
 
   def decode_com_stmt_fetch_response(payload, next_data, state) do
@@ -369,20 +369,20 @@ defmodule MyXQL.Protocol.Messages do
     if num_columns > 1 do
       {:cont, {:column_defs, num_columns - 1, acc}}
     else
-      {:cont, {:rows, Enum.reverse(acc), []}}
+      {:cont, {:rows, Enum.reverse(acc), 0, []}}
     end
   end
 
   defp decode_resultset(
          <<0xFE, 0, 0, status_flags::int(2), num_warnings::int(2)>>,
          _next_data,
-         {:rows, column_defs, acc},
+         {:rows, column_defs, num_rows, acc},
          _row_decoder
        ) do
     resultset =
       resultset(
         column_defs: column_defs,
-        num_rows: length(acc),
+        num_rows: num_rows,
         rows: Enum.reverse(acc),
         num_warnings: num_warnings,
         status_flags: status_flags
@@ -395,9 +395,9 @@ defmodule MyXQL.Protocol.Messages do
     end
   end
 
-  defp decode_resultset(payload, _next_data, {:rows, column_defs, acc}, row_decoder) do
+  defp decode_resultset(payload, _next_data, {:rows, column_defs, num_rows, acc}, row_decoder) do
     row = row_decoder.(payload, column_defs)
-    {:cont, {:rows, column_defs, [row | acc]}}
+    {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
   end
 
   defp decode_resultset(payload, "", {:trailing_ok_packet, resultset}, _row_decoder) do
