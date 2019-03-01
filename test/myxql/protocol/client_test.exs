@@ -4,7 +4,7 @@ defmodule MyXQL.Protocol.ClientTest do
   import MyXQL.Protocol.{Flags, Records}
 
   setup do
-    {:ok, state} = Client.connect(database: "myxql_test")
+    {:ok, state} = Client.connect(TestHelper.opts())
     {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
     values = Enum.map_join(1..4, ", ", &"(#{&1})")
     {:ok, ok_packet()} = Client.com_query("insert into integers values #{values}", state)
