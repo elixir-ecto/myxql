@@ -243,7 +243,7 @@ defmodule MyXQL.Protocol do
          {:ok,
           resultset(
             column_defs: column_defs,
-            row_count: num_rows,
+            num_rows: num_rows,
             rows: rows,
             status_flags: status_flags,
             warning_count: warning_count

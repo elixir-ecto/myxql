@@ -369,7 +369,7 @@ defmodule MyXQL.Protocol.Messages do
     resultset =
       resultset(
         column_defs: column_defs,
-        row_count: length(acc),
+        num_rows: length(acc),
         rows: Enum.reverse(acc),
         warning_count: warning_count,
         status_flags: status_flags

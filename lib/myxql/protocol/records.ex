@@ -43,7 +43,7 @@ defmodule MyXQL.Protocol.Records do
   defrecord :resultset, [
     :column_count,
     :column_defs,
-    :row_count,
+    :num_rows,
     :rows,
     :warning_count,
     :status_flags
