@@ -5,8 +5,6 @@ defmodule MyXQL.Protocol.Client do
   import MyXQL.Protocol.{Flags, Messages, Records, Types}
   alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
 
-  @handshake_recv_timeout 5_000
-
   def connect(opts) do
     config = Config.new(opts)
 
@@ -83,12 +81,12 @@ defmodule MyXQL.Protocol.Client do
     sock_mod.send(sock, data)
   end
 
-  def recv_packet(decoder, timeout \\ :infinity, state) do
+  defp recv_packet(decoder, timeout \\ :infinity, state) do
     new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
     recv_packets(new_decoder, nil, timeout, state)
   end
 
-  def recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
+  defp recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
     case recv_data(state, timeout) do
       {:ok, data} ->
         recv_packets(data, decoder, decoder_state, timeout, state)
@@ -163,7 +161,7 @@ defmodule MyXQL.Protocol.Client do
   end
 
   defp recv_handshake(state) do
-    recv_packet(&decode_initial_handshake/1, @handshake_recv_timeout, state)
+    recv_packet(&decode_initial_handshake/1, state)
   end
 
   defp ensure_capabilities(initial_handshake(capability_flags: capability_flags), state) do
@@ -199,7 +197,7 @@ defmodule MyXQL.Protocol.Client do
       )
 
     with :ok <- send_packet(payload, sequence_id, state) do
-      case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+      case recv_packet(&decode_handshake_response/1, state) do
         {:ok, ok_packet()} ->
           {:ok, state}
 
@@ -216,7 +214,7 @@ defmodule MyXQL.Protocol.Client do
                    state
                  ),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
-            case recv_packet(&decode_handshake_response/1, @handshake_recv_timeout, state) do
+            case recv_packet(&decode_handshake_response/1, state) do
               {:ok, ok_packet(warning_count: 0)} ->
                 {:ok, state}
 
@@ -230,11 +228,7 @@ defmodule MyXQL.Protocol.Client do
             auth_response = config.password <> <<0x00>>
 
             with :ok <- send_packet(auth_response, sequence_id + 2, state) do
-              case recv_packet(
-                     &decode_handshake_response/1,
-                     @handshake_recv_timeout,
-                     state
-                   ) do
+              case recv_packet(&decode_handshake_response/1, state) do
                 {:ok, ok_packet(warning_count: 0)} ->
                   {:ok, state}
 
