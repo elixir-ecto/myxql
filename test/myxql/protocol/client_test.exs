@@ -3,7 +3,7 @@ defmodule MyXQL.Protocol.ClientTest do
   alias MyXQL.Protocol.Client
   import MyXQL.Protocol.{Flags, Records}
 
-  test "com_stmt_fetch" do
+  setup do
     {:ok, state} = Client.connect(database: "wojtek")
     {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
 
@@ -12,6 +12,10 @@ defmodule MyXQL.Protocol.ClientTest do
     {:ok, ok_packet(affected_rows: 4)} =
       Client.com_query("insert into integers values #{values}", state)
 
+    [state: state]
+  end
+
+  test "com_stmt_fetch", %{state: state} do
     {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
       Client.com_stmt_prepare("select * from integers", state)
 
