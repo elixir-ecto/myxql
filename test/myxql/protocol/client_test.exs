@@ -56,8 +56,8 @@ defmodule MyXQL.Protocol.ClientTest do
       refute :server_status_cursor_exists in list_status_flags(status_flags)
       assert :server_status_last_row_sent in list_status_flags(status_flags)
 
-      {:ok, err_packet(message: "The statement (1) has no open cursor.")} =
-        Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+      {:ok, err_packet(message: "The statement (1) has no open cursor" <> _)} =
+               Client.com_stmt_fetch(statement_id, column_defs, 2, state)
     end
 
     test "with stored procedure of single result", %{state: state} do
