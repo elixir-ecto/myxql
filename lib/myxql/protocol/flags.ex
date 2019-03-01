@@ -4,7 +4,7 @@ defmodule MyXQL.Protocol.Flags do
   use Bitwise
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
-  @capability_flags %{
+  @capability_flags [
     client_long_password: 0x00000001,
     client_found_rows: 0x00000002,
     client_long_flag: 0x00000004,
@@ -30,7 +30,7 @@ defmodule MyXQL.Protocol.Flags do
     client_can_handle_expired_passwords: 0x00400000,
     client_session_track: 0x00800000,
     client_deprecate_eof: 0x01000000
-  }
+  ]
 
   def has_capability_flag?(flags, name), do: has_flag?(@capability_flags, flags, name)
 
@@ -39,7 +39,7 @@ defmodule MyXQL.Protocol.Flags do
   def list_capability_flags(flags), do: list_flags(@capability_flags, flags)
 
   # https://dev.mysql.com/doc/internals/en/status-flags.html
-  @status_flags %{
+  @status_flags [
     server_status_in_trans: 0x0001,
     server_status_autocommit: 0x0002,
     server_more_results_exists: 0x0008,
@@ -54,7 +54,7 @@ defmodule MyXQL.Protocol.Flags do
     server_ps_out_params: 0x1000,
     server_status_in_trans_readonly: 0x2000,
     server_session_state_changed: 0x4000
-  }
+  ]
 
   def has_status_flag?(flags, name), do: has_flag?(@status_flags, flags, name)
 
@@ -62,7 +62,7 @@ defmodule MyXQL.Protocol.Flags do
 
   # Column flags (non-internal)
   # https://dev.mysql.com/doc/dev/mysql-server/8.0.11/group__group__cs__column__definition__flags.html
-  @column_flags %{
+  @column_flags [
     not_null_flag: 0x0001,
     pri_key_flag: 0x0002,
     unique_key_flag: 0x0004,
@@ -78,24 +78,24 @@ defmodule MyXQL.Protocol.Flags do
     no_default_value_flag: 0x1000,
     on_update_now_flag: 0x2000,
     num_flag: 0x4000
-  }
+  ]
 
   def has_column_flag?(flags, name), do: has_flag?(@column_flags, flags, name)
 
   def list_column_flags(flags), do: list_flags(@column_flags, flags)
 
   defp has_flag?(all_flags, flags, name) do
-    value = Map.fetch!(all_flags, name)
+    value = Keyword.fetch!(all_flags, name)
     (flags &&& value) == value
   end
 
   defp put_flags(all_flags, flags, names) do
-    Enum.reduce(names, flags, &(&2 ||| Map.fetch!(all_flags, &1)))
+    Enum.reduce(names, flags, &(&2 ||| Keyword.fetch!(all_flags, &1)))
   end
 
   def list_flags(all_flags, flags) do
     all_flags
-    |> Map.keys()
+    |> Keyword.keys()
     |> Enum.filter(&has_flag?(all_flags, flags, &1))
   end
 end
