@@ -7,7 +7,7 @@ defmodule MyXQL.Protocol.Records do
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :num_warnings, :info]
 
   # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
-  defrecord :err_packet, [:error_code, :error_message]
+  defrecord :err_packet, [:code, :message]
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
   defrecord :initial_handshake, [

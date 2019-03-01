@@ -71,10 +71,10 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_generic_response(
-        <<0xFF, error_code::int(2), _sql_state_marker::string(1), _sql_state::string(5),
-          error_message::binary>>
+        <<0xFF, code::int(2), _sql_state_marker::string(1), _sql_state::string(5),
+          message::binary>>
       ) do
-    err_packet(error_code: error_code, error_message: error_message)
+    err_packet(code: code, message: message)
   end
 
   # Note: header is last argument to allow binary optimization

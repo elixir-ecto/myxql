@@ -348,7 +348,7 @@ defmodule MyXQL.Protocol.Client do
     :ok
   end
 
-  def mysql_error(err_packet(error_code: code, error_message: message), statement, state) do
+  def mysql_error(err_packet(code: code, message: message), statement, state) do
     name = ServerErrorCodes.code_to_name(code)
     mysql_error(code, name, message, statement, state.connection_id)
   end
