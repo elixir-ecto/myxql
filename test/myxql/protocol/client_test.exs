@@ -4,14 +4,10 @@ defmodule MyXQL.Protocol.ClientTest do
   import MyXQL.Protocol.{Flags, Records}
 
   setup do
-    {:ok, state} = Client.connect(database: "wojtek")
+    {:ok, state} = Client.connect(database: "myxql_test")
     {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
-
     values = Enum.map_join(1..4, ", ", &"(#{&1})")
-
-    {:ok, ok_packet(affected_rows: 4)} =
-      Client.com_query("insert into integers values #{values}", state)
-
+    {:ok, ok_packet()} = Client.com_query("insert into integers values #{values}", state)
     [state: state]
   end
 
@@ -42,5 +38,13 @@ defmodule MyXQL.Protocol.ClientTest do
 
     assert {:ok, err_packet(message: "The statement (1) has no open cursor.")} =
              Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+  end
+
+  test "com_stmt_fetch stored procedure", %{state: state} do
+    {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+      Client.com_stmt_prepare("CALL multi_procedure()", state)
+
+    assert {:error, :multiple_results} =
+             Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
   end
 end
