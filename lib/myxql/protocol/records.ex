@@ -41,7 +41,6 @@ defmodule MyXQL.Protocol.Records do
   #
   # both text & binary resultset have the same columns shape, but different rows
   defrecord :resultset, [
-    :column_count,
     :column_defs,
     :num_rows,
     :rows,
