@@ -455,7 +455,10 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [], num_rows: 0}] = results
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [], num_rows: 0}
+             ] = results
 
       # try again for the same query
       {:ok, results} =
@@ -464,7 +467,10 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [], num_rows: 0}] = results
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [], num_rows: 0}
+             ] = results
     end
 
     test "few rows", c do
@@ -476,7 +482,12 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = results
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [[1], [2]]},
+               %{rows: [[3], [4]]},
+               %{rows: [[5]]}
+             ] = results
     end
 
     test "few rows with no leftovers", c do
@@ -488,7 +499,12 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: []}] = results
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [[1], [2]]},
+               %{rows: [[3], [4]]},
+               %{rows: []}
+             ] = results
     end
 
     test "many rows", c do
@@ -502,6 +518,9 @@ defmodule MyXQLTest do
           stream = MyXQL.stream(conn, "SELECT * FROM integers")
           Enum.to_list(stream)
         end)
+
+      [first | results] = results
+      assert %{rows: [], num_rows: 0} = first
 
       assert length(results) == 21
       assert results |> Enum.map(& &1.rows) |> List.flatten() == Enum.to_list(1..num)
@@ -554,7 +573,12 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
 
-      assert [%{rows: [[1], [2]]}, %{rows: [[3], [4]]}, %{rows: [[5]]}] = result
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [[1], [2]]},
+               %{rows: [[3], [4]]},
+               %{rows: [[5]]}
+             ] = result
     end
 
     test "on another connection", c do
@@ -564,10 +588,15 @@ defmodule MyXQLTest do
 
       {:ok, conn2} = MyXQL.start_link(@opts)
 
-      assert {:ok, [%{rows: [[1], [2], [3], [4], [5]]}]} =
-               MyXQL.transaction(conn2, fn conn ->
-                 MyXQL.stream(conn, query) |> Enum.to_list()
-               end)
+      {:ok, results} =
+        MyXQL.transaction(conn2, fn conn ->
+          MyXQL.stream(conn, query) |> Enum.to_list()
+        end)
+
+      assert [
+               %{rows: [], num_rows: 0},
+               %{rows: [[1], [2], [3], [4], [5]]}
+             ] = results
     end
   end
 
@@ -575,10 +604,13 @@ defmodule MyXQLTest do
     setup :connect
 
     test "text query", c do
-      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
-      assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL single_procedure()")
+      assert %MyXQL.Result{rows: [[1]]} =
+               MyXQL.query!(c.conn, "CALL single_procedure()", [], query_type: :text)
 
-      assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
+      assert %MyXQL.Result{rows: [[1]]} =
+               MyXQL.query!(c.conn, "CALL single_procedure()", [], query_type: :text)
+
+      assert_raise RuntimeError, "returning multiple results is not yet supported", fn ->
         assert %MyXQL.Result{rows: [[1]]} = MyXQL.query!(c.conn, "CALL multi_procedure()")
       end
     end
@@ -590,7 +622,7 @@ defmodule MyXQLTest do
       assert {_, %MyXQL.Result{rows: [[1]]}} =
                MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
 
-      assert_raise ArgumentError, ~r"expected a single result, got multiple", fn ->
+      assert_raise RuntimeError, "returning multiple results is not yet supported", fn ->
         MyXQL.prepare_execute!(c.conn, "", "CALL multi_procedure()")
       end
     end
@@ -607,17 +639,15 @@ defmodule MyXQLTest do
       assert [%MyXQL.Result{rows: [[1]]}] = result
     end
 
-    @tag :skip
     test "stream procedure with multiple results", c do
       statement = "CALL multi_procedure()"
 
-      {:ok, result} =
+      assert_raise RuntimeError, "returning multiple results is not yet supported", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, statement, [], max_rows: 2)
           Enum.to_list(stream)
         end)
-
-      assert [%MyXQL.Result{rows: [[1]]}] = result
+      end
     end
   end
 

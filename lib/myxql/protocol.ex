@@ -13,6 +13,7 @@ defmodule MyXQL.Protocol do
   defstruct [
     :sock,
     :connection_id,
+    cursors: %{},
     disconnect_on_error_codes: [],
     ping_timeout: 15_000,
     prepare: :named,
@@ -157,43 +158,59 @@ defmodule MyXQL.Protocol do
 
   @impl true
   def handle_declare(query, params, _opts, state) do
-    {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
-
-    case Client.com_stmt_execute(statement_id, params, :cursor_type_read_only, state) do
-      {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
-        if has_status_flag?(status_flags, :server_status_cursor_exists) do
-          cursor = %Cursor{column_defs: column_defs}
-          {:ok, query, cursor, put_status(state, status_flags)}
-        else
-          result(result, query, state)
-        end
-
-      {:ok, _} = result ->
-        result(result, query, state)
-
-      {:error, _} = result ->
-        result(result, query, state)
-    end
+    cursor = %Cursor{ref: make_ref()}
+    state = %{state | cursors: Map.put(state.cursors, cursor.ref, {:params, params})}
+    {:ok, query, cursor, state}
   end
 
   @impl true
-  def handle_fetch(_query, %Result{} = result, _opts, s) do
-    {:halt, result, s}
+  def handle_fetch(query, %Cursor{ref: cursor_ref}, opts, state) do
+    statement_id = fetch_statement_id!(state, query)
+
+    case Map.fetch!(state.cursors, cursor_ref) do
+      {:params, params} ->
+        fetch_first(query, cursor_ref, statement_id, params, opts, state)
+
+      {:column_defs, column_defs} ->
+        fetch_next(query, cursor_ref, statement_id, column_defs, opts, state)
+    end
   end
 
-  def handle_fetch(query, %Cursor{column_defs: column_defs}, opts, state) do
-    max_rows = Keyword.get(opts, :max_rows, 500)
-    {:ok, _query, statement_id, state} = maybe_reprepare(query, state)
+  defp fetch_first(query, cursor_ref, statement_id, params, _opts, state) do
+    case Client.com_stmt_execute(statement_id, params, :cursor_type_read_only, state) do
+      {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
+        {:ok, _query, result, state} = result(result, query, state)
+        cursors = Map.put(state.cursors, cursor_ref, {:column_defs, column_defs})
+        state = put_status(%{state | cursors: cursors}, status_flags)
 
-    with {:ok, resultset(status_flags: status_flags)} = result <-
-           Client.com_stmt_fetch(statement_id, column_defs, max_rows, state),
-         {:ok, _query, result, state} <- result(result, query, state) do
-      if has_status_flag?(status_flags, :server_status_cursor_exists) do
-        {:cont, result, state}
-      else
-        true = has_status_flag?(status_flags, :server_status_last_row_sent)
-        {:halt, result, state}
-      end
+        if has_status_flag?(status_flags, :server_status_cursor_exists) do
+          {:cont, result, state}
+        else
+          {:halt, result, state}
+        end
+
+      other ->
+        result(other, query, state)
+    end
+  end
+
+  defp fetch_next(query, _cursor_ref, statement_id, column_defs, opts, state) do
+    max_rows = Keyword.get(opts, :max_rows, 500)
+    result = Client.com_stmt_fetch(statement_id, column_defs, max_rows, state)
+
+    case result do
+      {:ok, resultset(status_flags: status_flags)} ->
+        with {:ok, _query, result, state} <- result(result, query, state) do
+          if has_status_flag?(status_flags, :server_status_cursor_exists) do
+            {:cont, result, state}
+          else
+            true = has_status_flag?(status_flags, :server_status_last_row_sent)
+            {:halt, result, state}
+          end
+        end
+
+      other ->
+        result(other, query, state)
     end
   end
 
@@ -269,7 +286,7 @@ defmodule MyXQL.Protocol do
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
-    raise ArgumentError, "expected a single result, got multiple; use MyXQL.stream/4 instead"
+    raise RuntimeError, "returning multiple results is not yet supported"
   end
 
   defp result({:error, reason}, _query, state) do
@@ -317,6 +334,10 @@ defmodule MyXQL.Protocol do
 
   defp fetch_statement_id(state, %{ref: ref}) do
     Map.fetch(state.prepared_statements, ref)
+  end
+
+  defp fetch_statement_id!(state, %{ref: ref}) do
+    Map.fetch!(state.prepared_statements, ref)
   end
 
   defp delete_statement_id(state, %{ref: ref}) do

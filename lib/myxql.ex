@@ -446,10 +446,38 @@ defmodule MyXQL do
 
       {:ok, results} =
         MyXQL.transaction(pid, fn conn ->
-          stream = MyXQL.stream(conn, "SELECT * FROM posts")
+          stream = MyXQL.stream(conn, "SELECT * FROM integers", [], max_rows: max_rows)
           Enum.to_list(stream)
         end)
 
+  Suppose the `integers` table contains rows: 1, 2, 3, 4 and `max_rows` is set to `2`.
+  We'll get following results:
+
+      # The first item is result of executing the query and has no rows data
+      Enum.at(results, 0)
+      #=> %MyXQL.Result{num_rows: 0, ...}
+
+      # The second item is result of fetching rows 1 & 2
+      Enum.at(results, 1)
+      #=> %MyXQL.Result{num_rows: 2, rows: [[1], [2]]}
+
+      # The third item is result of fetching rows 3 & 4
+      Enum.at(results, 2)
+      #=> %MyXQL.Result{num_rows: 2, rows: [[3], [4]]}
+
+  Because the total number of fetched rows happens to be divisible by our chosen `max_rows`,
+  there might be more data on the server so another fetch attempt is made.
+  Because in this case there weren't any more rows, the final result has 0 rows:
+
+      Enum.at(results, 3)
+      #=> %MyXQL.Result{num_rows: 0}
+
+  However, if the table contained only 3 rows, the 3rd result would contain:
+
+      Enum.at(results, 2)
+      #=> %MyXQL.Result{num_rows: 2, rows: [[3]]}
+
+  And that would be the last result in the stream.
   """
   @spec stream(DBConnection.t(), iodata | MyXQL.Query.t(), list, [option()]) ::
           DBConnection.PrepareStream.t()
