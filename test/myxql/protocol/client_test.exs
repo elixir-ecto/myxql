@@ -1,6 +1,6 @@
 defmodule MyXQL.Protocol.ClientTest do
   use ExUnit.Case, async: true
-  alias MyXQL.Protocol.Client
+  alias MyXQL.Protocol.{Client, ServerErrorCodes}
   import MyXQL.Protocol.{Flags, Records}
 
   setup do
@@ -56,16 +56,17 @@ defmodule MyXQL.Protocol.ClientTest do
       refute :server_status_cursor_exists in list_status_flags(status_flags)
       assert :server_status_last_row_sent in list_status_flags(status_flags)
 
-      {:ok, err_packet(message: "The statement (1) has no open cursor" <> _)} =
-               Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+      {:ok, err_packet(code: code)} = Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+
+      assert ServerErrorCodes.code_to_name(code) == :ER_STMT_HAS_NO_OPEN_CURSOR
     end
 
     test "with stored procedure of single result", %{state: state} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
         Client.com_stmt_prepare("CALL single_procedure()", state)
 
-      assert {:ok, resultset(num_rows: 1, status_flags: status_flags)} =
-               Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
+      {:ok, resultset(num_rows: 1, status_flags: status_flags)} =
+        Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
 
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
