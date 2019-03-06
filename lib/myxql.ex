@@ -119,7 +119,7 @@ defmodule MyXQL do
   MyXQL automatically disconnects the connection on the following error codes and they don't have
   to be configured:
 
-      * `ER_MAX_PREPARED_STMT_COUNT_REACHED`
+    * `ER_MAX_PREPARED_STMT_COUNT_REACHED`
 
   To convert error code number to error code name you can use `perror` command-line utility that
   ships with MySQL client installation, e.g.:
