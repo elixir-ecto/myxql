@@ -475,7 +475,7 @@ defmodule MyXQL do
   However, if the table contained only 3 rows, the 3rd result would contain:
 
       Enum.at(results, 2)
-      #=> %MyXQL.Result{num_rows: 2, rows: [[3]]}
+      #=> %MyXQL.Result{num_rows: 1, rows: [[3]]}
 
   And that would be the last result in the stream.
   """
