@@ -210,13 +210,23 @@ defmodule MyXQLTest do
     end
 
     test "non preparable statement", c do
-      assert {:ok, %MyXQL.Result{}} = MyXQL.query(c.conn, "BEGIN", [], query_type: :text)
-
-      assert {:error, %MyXQL.Error{mysql: %{code: 1295, name: :ER_UNSUPPORTED_PS}}} =
-               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary)
+      self = self()
+      log = &send(self, &1)
 
       assert {:ok, %MyXQL.Result{}} =
-               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary_then_text)
+               MyXQL.query(c.conn, "BEGIN", [], query_type: :text, log: log)
+
+      assert_receive %DBConnection.LogEntry{query: %MyXQL.TextQuery{}}
+
+      assert {:error, %MyXQL.Error{mysql: %{code: 1295, name: :ER_UNSUPPORTED_PS}}} =
+               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary, log: log)
+
+      assert_receive %DBConnection.LogEntry{query: %MyXQL.Query{}}
+
+      assert {:ok, %MyXQL.Result{}} =
+               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary_then_text, log: log)
+
+      assert_receive %DBConnection.LogEntry{query: %MyXQL.Query{}}
     end
 
     for protocol <- [:binary, :text] do
