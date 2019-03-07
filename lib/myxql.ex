@@ -169,11 +169,6 @@ defmodule MyXQL do
   `query/4`, when called with empty list of parameters uses the text protocol, otherwise uses the binary protocol.
   To force using binary protocol, set `query_type: :binary` or use `prepare_execute/5`.
 
-  ## Multiple results
-
-  If a query returns multiple results (the query has multiple statements or is calling a procedure that returns multiple results)
-  an error is raised. If a query may return multiple results it's recommended to use `stream/4` instead.
-
   ## Options
 
     * `:query_type` - use `:text` for text protocol or `:binary` for binary protocol.
