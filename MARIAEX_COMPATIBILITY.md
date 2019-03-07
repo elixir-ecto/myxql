@@ -32,9 +32,11 @@ Connection:
 
 Queries:
 
-  * Mariaex.query/4 function defaults to using binary protocol (prepared statements) and if that fails (some statements are not preparable), it falls back to the text protocol.
+  * Mariaex.query/4 function uses `query_type: nil` option to try executing binary query and if
+    that fails, fallback to using a text query. MyXQL uses `query_type: :binary_then_text` for
+    that instead.
 
-    MyXQL.query/4 defaults to binary protocol as well but does not have fallback to text protocol.
+    Mariaex defaults to `query_type: nil`, MyXQL defaults to `query_type: :binary`.
 
   * MyXQL does not support `BIT`, `ENUM`, `SET` and geometry types
 

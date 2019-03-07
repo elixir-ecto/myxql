@@ -209,6 +209,16 @@ defmodule MyXQLTest do
       assert %MyXQL.TextQuery{} = entry.query
     end
 
+    test "non preparable statement", c do
+      assert {:ok, %MyXQL.Result{}} = MyXQL.query(c.conn, "SHOW ERRORS", [], query_type: :text)
+
+      assert {:error, %MyXQL.Error{mysql: %{code: 1295, name: :ER_UNSUPPORTED_PS}}} =
+               MyXQL.query(c.conn, "SHOW ERRORS", [], query_type: :binary)
+
+      assert {:ok, %MyXQL.Result{}} =
+               MyXQL.query(c.conn, "SHOW ERRORS", [], query_type: :binary_then_text)
+    end
+
     for protocol <- [:binary, :text] do
       @protocol protocol
 

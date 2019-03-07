@@ -166,12 +166,10 @@ defmodule MyXQL do
         * requires two roundtrips to the DB server: one for preparing the statement and one for executing it.
           This can be alleviated by holding on to prepared statement and executing it multiple times.
 
-  `query/4`, when called with empty list of parameters uses the text protocol, otherwise uses the binary protocol.
-  To force using binary protocol, set `query_type: :binary` or use `prepare_execute/5`.
-
   ## Options
 
-    * `:query_type` - use `:binary` for binary protocol (prepared statements) or `:text` for text protocol
+    * `:query_type` - use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
+      executing a binary query and if that fails fallback to executing a text query, and `:text` for text protocol
       (default: `:binary`)
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
@@ -195,6 +193,9 @@ defmodule MyXQL do
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
     case Keyword.get(options, :query_type, :binary) do
       :binary ->
+        prepare_execute(conn, "", statement, params, options)
+
+      :binary_then_text ->
         prepare_execute(conn, "", statement, params, options)
 
       :text ->

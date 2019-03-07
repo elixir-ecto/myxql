@@ -62,11 +62,22 @@ defmodule MyXQL.Protocol do
   end
 
   @impl true
-  def handle_prepare(query, _opts, state) do
+  def handle_prepare(query, opts, state) do
     query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
 
     with {:ok, query, _statement_id, state} <- prepare(query, state) do
       {:ok, query, state}
+    else
+      {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
+        if Keyword.get(opts, :query_type) == :binary_then_text do
+          query = %MyXQL.TextQuery{statement: query.statement}
+          {:ok, query, state}
+        else
+          error
+        end
+
+      other ->
+        other
     end
   end
 
