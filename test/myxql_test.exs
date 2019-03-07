@@ -178,22 +178,18 @@ defmodule MyXQLTest do
   describe "query" do
     setup [:connect, :truncate]
 
-    test "simple query", c do
-      assert {:ok, %MyXQL.Result{columns: ["2*3", "4*5"], num_rows: 1, rows: [[6, 20]]}} =
-               MyXQL.query(c.conn, "SELECT 2*3, 4*5")
-    end
-
-    test "iodata in text protocol", c do
-      statement = ["SELECT", [" ", ["42"]]]
-
-      assert {:ok, %{rows: [[42]]}} =
-               MyXQL.query(c.conn, statement, [], query_type: :text, log: &send(self(), &1))
-
+    test "default to binary protocol", c do
+      self = self()
+      {:ok, _} = MyXQL.query(c.conn, "SELECT 42", [], log: &send(self, &1))
       assert_received %DBConnection.LogEntry{} = entry
-      assert %MyXQL.TextQuery{} = entry.query
+      assert %MyXQL.Query{} = entry.query
     end
 
-    test "iodata in binary protocol", c do
+    test "binary: query with params", c do
+      assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
+    end
+
+    test "binary: iodata", c do
       statement = ["SELECT", [" ", ["42"]]]
 
       assert {:ok, %{rows: [[42]]}} =
@@ -203,59 +199,51 @@ defmodule MyXQLTest do
       assert %MyXQL.Query{} = entry.query
     end
 
-    test "invalid query", c do
-      assert {:error, %MyXQL.Error{mysql: %{name: :ER_BAD_FIELD_ERROR}}} =
-               MyXQL.query(c.conn, "SELECT bad")
+    test "text: iodata", c do
+      statement = ["SELECT", [" ", ["42"]]]
+
+      assert {:ok, %{rows: [[42]]}} =
+               MyXQL.query(c.conn, statement, [], query_type: :text, log: &send(self(), &1))
+
+      assert_received %DBConnection.LogEntry{} = entry
+      assert %MyXQL.TextQuery{} = entry.query
     end
 
-    test "query with multiple rows", c do
-      %MyXQL.Result{num_rows: 2} = MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)")
+    for protocol <- [:binary, :text] do
+      @protocol protocol
 
-      assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
-               MyXQL.query(c.conn, "SELECT * FROM integers")
-    end
+      test "#{@protocol}: invalid query", c do
+        assert {:error, %MyXQL.Error{mysql: %{name: :ER_BAD_FIELD_ERROR}}} =
+                 MyXQL.query(c.conn, "SELECT bad", [], query_type: @protocol)
+      end
 
-    test "many rows", c do
-      num = 10_000
+      test "#{@protocol}: query with multiple rows", c do
+        %MyXQL.Result{num_rows: 2} = MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)", [], query_type: @protocol)
 
-      values = Enum.map_join(1..num, ", ", &"(#{&1})")
-      result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values)
-      assert result.num_rows == num
+        assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
+                 MyXQL.query(c.conn, "SELECT * FROM integers")
+      end
 
-      result = MyXQL.query!(c.conn, "SELECT x FROM integers")
-      assert List.flatten(result.rows) == Enum.to_list(1..num)
-      assert result.num_rows == num
-    end
-  end
+      test "#{@protocol}: many rows", c do
+        num = 10_000
 
-  describe "idle ping" do
-    test "query before and after" do
-      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
-      {:ok, pid} = MyXQL.start_link(opts)
+        values = Enum.map_join(1..num, ", ", &"(#{&1})")
+        result = MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values, [], query_type: @protocol)
+        assert result.num_rows == num
 
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
-      Process.sleep(5)
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
-      Process.sleep(5)
-      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
-    end
-
-    test "socket receive timeout" do
-      Process.flag(:trap_exit, true)
-      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1, ping_timeout: 0)
-      {:ok, pid} = MyXQL.start_link(opts)
-
-      assert capture_log(fn ->
-               assert_receive {:EXIT, ^pid, :killed}, 500
-             end) =~ "disconnected: ** (MyXQL.Error) Unexpected error: timeout"
+        result = MyXQL.query!(c.conn, "SELECT x FROM integers")
+        assert List.flatten(result.rows) == Enum.to_list(1..num)
+        assert result.num_rows == num
+      end
     end
   end
 
   describe "prepared queries" do
     setup [:connect, :truncate]
 
-    test "prepare and execute", c do
-      assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
+    test "prepare_execute", c do
+      assert {:ok, %MyXQL.Query{}, %MyXQL.Result{rows: [[6]]}} =
+               MyXQL.prepare_execute(c.conn, "", "SELECT ? * ?", [2, 3])
     end
 
     test "prepare and then execute", c do
@@ -387,8 +375,8 @@ defmodule MyXQLTest do
       assert begin_entry.query == :begin
       assert {:ok, _, %MyXQL.Result{}} = begin_entry.result
 
-      assert query1_entry.call == :execute
-      assert query2_entry.call == :execute
+      assert query1_entry.call == :prepare_execute
+      assert query2_entry.call == :prepare_execute
 
       assert commit_entry.call == :commit
       assert commit_entry.query == :commit
@@ -419,7 +407,7 @@ defmodule MyXQLTest do
       assert begin_entry.call == :begin
       assert begin_entry.query == :begin
 
-      assert query_entry.call == :execute
+      assert query_entry.call == :prepare_execute
 
       assert rollback_entry.call == :rollback
       assert rollback_entry.query == :rollback
@@ -648,6 +636,29 @@ defmodule MyXQLTest do
           Enum.to_list(stream)
         end)
       end
+    end
+  end
+
+  describe "idle ping" do
+    test "query before and after" do
+      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
+      {:ok, pid} = MyXQL.start_link(opts)
+
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+      Process.sleep(5)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+      Process.sleep(5)
+      assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
+    end
+
+    test "socket receive timeout" do
+      Process.flag(:trap_exit, true)
+      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1, ping_timeout: 0)
+      {:ok, pid} = MyXQL.start_link(opts)
+
+      assert capture_log(fn ->
+               assert_receive {:EXIT, ^pid, :killed}, 500
+             end) =~ "disconnected: ** (MyXQL.Error) Unexpected error: timeout"
     end
   end
 

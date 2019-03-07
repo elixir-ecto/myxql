@@ -171,8 +171,8 @@ defmodule MyXQL do
 
   ## Options
 
-    * `:query_type` - use `:text` for text protocol or `:binary` for binary protocol.
-      Defaults to `:text` if `params` is an empty list, otherwise to `:binary`
+    * `:query_type` - use `:binary` for binary protocol (prepared statements) or `:text` for text protocol
+      (default: `:binary`)
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
@@ -192,30 +192,15 @@ defmodule MyXQL do
   """
   @spec query(conn, iodata, list, [option()]) ::
           {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
-  def query(conn, statement, params \\ [], opts \\ [])
-
-  def query(conn, statement, params, opts) when is_iodata(statement) do
-    query_type = query_type(params, opts)
-
-    case query_type do
-      :text ->
-        DBConnection.execute(conn, %MyXQL.TextQuery{statement: statement}, params, opts)
-
+  def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
+    case Keyword.get(options, :query_type, :binary) do
       :binary ->
-        prepare_execute(conn, "", statement, params, opts)
+        prepare_execute(conn, "", statement, params, options)
+
+      :text ->
+        DBConnection.execute(conn, %MyXQL.TextQuery{statement: statement}, params, options)
     end
     |> query_result()
-  end
-
-  defp query_type([], opts) do
-    Keyword.get(opts, :query_type, :text)
-  end
-
-  defp query_type(_params, opts) do
-    case Keyword.get(opts, :query_type, :binary) do
-      :binary -> :binary
-      :text -> raise ArgumentError, "cannot pass params to text queries, use binary query instead"
-    end
   end
 
   defp query_result({:ok, _query, result}), do: {:ok, result}

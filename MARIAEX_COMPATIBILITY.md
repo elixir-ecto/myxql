@@ -34,10 +34,7 @@ Queries:
 
   * Mariaex.query/4 function defaults to using binary protocol (prepared statements) and if that fails (some statements are not preparable), it falls back to the text protocol.
 
-    MyXQL.query/4, on the other hand, uses the text protocol on empty params list, and otherwise it uses the binary protocol.
-
-    Note: MyXQL behaviour is subject to change and for compatibility reasons we may follow Mariaex
-    suite.
+    MyXQL.query/4 defaults to binary protocol as well but does not have fallback to text protocol.
 
   * MyXQL does not support `BIT`, `ENUM`, `SET` and geometry types
 
