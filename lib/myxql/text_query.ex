@@ -10,6 +10,10 @@ defmodule MyXQL.TextQuery do
 
     def encode(_query, [], _opts), do: []
 
+    def encode(_query, params, _opts) do
+      raise ArgumentError, "text queries cannot use parameters, got: #{inspect(params)}"
+    end
+
     def decode(_query, result, _opts), do: result
   end
 
