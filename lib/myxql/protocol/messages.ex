@@ -106,18 +106,18 @@ defmodule MyXQL.Protocol.Messages do
       rest::binary
     >> = rest
 
-    take = auth_plugin_data_length - 8
+    take = max(13, auth_plugin_data_length - 8)
     <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
     auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
     auth_plugin_name = decode_string_nul(auth_plugin_name)
-
     <<capability_flags::int(4)>> = <<capability_flags1::int(2), capability_flags2::int(2)>>
+    auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
 
     initial_handshake(
       server_version: server_version,
       conn_id: conn_id,
       auth_plugin_name: auth_plugin_name,
-      auth_plugin_data: auth_plugin_data1 <> auth_plugin_data2,
+      auth_plugin_data: auth_plugin_data,
       capability_flags: capability_flags,
       character_set: character_set,
       status_flags: status_flags
