@@ -322,7 +322,7 @@ defmodule MyXQL do
   """
   @spec execute(conn(), MyXQL.Query.t(), list(), [option()]) ::
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
-  defdelegate execute(conn, query, params \\ [], opts \\ []), to: DBConnection
+  defdelegate execute(conn, query, params, opts \\ []), to: DBConnection
 
   @doc """
   Executes a prepared query.
@@ -332,7 +332,7 @@ defmodule MyXQL do
   See: `execute/4`.
   """
   @spec execute!(conn(), MyXQL.Query.t(), list(), keyword()) :: MyXQL.Result.t()
-  defdelegate execute!(conn, query, params \\ [], opts \\ []), to: DBConnection
+  defdelegate execute!(conn, query, params, opts \\ []), to: DBConnection
 
   @doc """
   Closes a prepared query.

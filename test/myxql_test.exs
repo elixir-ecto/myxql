@@ -291,7 +291,7 @@ defmodule MyXQLTest do
       {:ok, query1} = MyXQL.prepare(conn1, "", "SELECT 42")
 
       {:ok, conn2} = MyXQL.start_link(@opts)
-      {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1)
+      {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1, [])
       assert query1.ref != query2.ref
     end
 
@@ -303,7 +303,7 @@ defmodule MyXQLTest do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT * FROM test_prepared_schema_change")
       MyXQL.query!(c.conn, "ALTER TABLE test_prepared_schema_change ADD y integer DEFAULT 2")
 
-      {:ok, query2, result} = MyXQL.execute(c.conn, query)
+      {:ok, query2, result} = MyXQL.execute(c.conn, query, [])
       assert result.rows == [[1, 2]]
       assert query.ref == query2.ref
     after
@@ -331,23 +331,23 @@ defmodule MyXQLTest do
     test "named and unnamed queries" do
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query)
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
       assert query.ref == query2.ref
-      {:ok, query3, _} = MyXQL.execute(pid, query)
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query.ref == query3.ref
 
       # unnamed queries are closed
       {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query)
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
       assert query.ref == query2.ref
-      {:ok, query3, _} = MyXQL.execute(pid, query)
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query2.ref != query3.ref
 
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query)
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
       assert query.ref == query2.ref
-      {:ok, query3, _} = MyXQL.execute(pid, query)
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query2.ref != query3.ref
     end
 
