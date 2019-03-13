@@ -8,13 +8,7 @@ defmodule MyXQL.Protocol.Client do
   def connect(opts) do
     config = Config.new(opts)
 
-    with {:ok, sock} <-
-           :gen_tcp.connect(
-             config.address,
-             config.port,
-             config.socket_options,
-             config.connect_timeout
-           ) do
+    with {:ok, sock} <- do_connect(config) do
       state = %{sock: {:gen_tcp, sock}, connection_id: nil}
       handshake(config, state)
     end
@@ -135,6 +129,33 @@ defmodule MyXQL.Protocol.Client do
   end
 
   ## Handshake
+
+  defp do_connect(config) do
+    %{
+      address: address,
+      port: port,
+      socket_options: socket_options,
+      connect_timeout: connect_timeout
+    } = config
+
+    buffer? = Keyword.has_key?(socket_options, :buffer)
+
+    case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
+      {:ok, sock} when buffer? ->
+        {:ok, sock}
+
+      {:ok, sock} ->
+        {:ok, [sndbuf: sndbuf, recbuf: recbuf, buffer: buffer]} =
+          :inet.getopts(sock, [:sndbuf, :recbuf, :buffer])
+
+        buffer = buffer |> max(sndbuf) |> max(recbuf)
+        :ok = :inet.setopts(sock, buffer: buffer)
+        {:ok, sock}
+
+      other ->
+        other
+    end
+  end
 
   defp handshake(config, %{sock: {:gen_tcp, sock}} = state) do
     timer = start_handshake_timer(config.handshake_timeout, sock)
