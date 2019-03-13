@@ -3,32 +3,43 @@ defmodule MyXQL.Protocol.Types do
   # https://dev.mysql.com/doc/internals/en/basic-types.html
 
   # https://dev.mysql.com/doc/internals/en/integer.html#fixed-length-integer
-  defmacro int(size) do
+  defmacro uint(size) do
     quote do
-      little - integer - size(unquote(size)) - unit(8)
+      size(unquote(size)) - unit(8) - little
     end
   end
 
+  defmacro int1(), do: quote(do: 8 - signed)
+  defmacro uint1(), do: quote(do: 8)
+  defmacro int2(), do: quote(do: 16 - little - signed)
+  defmacro uint2(), do: quote(do: 16 - little)
+  defmacro int3(), do: quote(do: 24 - little - signed)
+  defmacro uint3(), do: quote(do: 24 - little)
+  defmacro int4(), do: quote(do: 32 - little - signed)
+  defmacro uint4(), do: quote(do: 32 - little)
+  defmacro int8(), do: quote(do: 64 - little - signed)
+  defmacro uint8(), do: quote(do: 64 - little)
+
   # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
   def encode_int_lenenc(int) when int < 251, do: <<int>>
-  def encode_int_lenenc(int) when int < 0xFFFF, do: <<0xFC, int::int(2)>>
-  def encode_int_lenenc(int) when int < 0xFFFFFF, do: <<0xFD, int::int(3)>>
-  def encode_int_lenenc(int) when int < 0xFFFFFFFFFFFFFFFF, do: <<0xFE, int::int(8)>>
+  def encode_int_lenenc(int) when int < 0xFFFF, do: <<0xFC, int::uint2>>
+  def encode_int_lenenc(int) when int < 0xFFFFFF, do: <<0xFD, int::uint3>>
+  def encode_int_lenenc(int) when int < 0xFFFFFFFFFFFFFFFF, do: <<0xFE, int::uint8>>
 
   def decode_int_lenenc(binary) do
     {integer, ""} = take_int_lenenc(binary)
     integer
   end
 
-  def take_int_lenenc(<<int::int(1), rest::binary>>) when int < 251, do: {int, rest}
-  def take_int_lenenc(<<0xFC, int::int(2), rest::binary>>), do: {int, rest}
-  def take_int_lenenc(<<0xFD, int::int(3), rest::binary>>), do: {int, rest}
-  def take_int_lenenc(<<0xFE, int::int(8), rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<int::uint1, rest::binary>>) when int < 251, do: {int, rest}
+  def take_int_lenenc(<<0xFC, int::uint2, rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<0xFD, int::uint3, rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<0xFE, int::uint8, rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::FixedLengthString
   defmacro string(size) do
     quote do
-      bytes - size(unquote(size))
+      size(unquote(size)) - binary
     end
   end
 

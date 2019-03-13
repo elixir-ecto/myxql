@@ -48,7 +48,7 @@ defmodule MyXQL.Protocol.Messages do
 
   def encode_packet(payload, sequence_id) do
     payload_length = IO.iodata_length(payload)
-    [<<payload_length::int(3), sequence_id::int(1)>>, payload]
+    [<<payload_length::uint3, sequence_id::uint1>>, payload]
   end
 
   def decode_generic_response(<<0x00, rest::binary>>) do
@@ -56,8 +56,8 @@ defmodule MyXQL.Protocol.Messages do
     {last_insert_id, rest} = take_int_lenenc(rest)
 
     <<
-      status_flags::int(2),
-      num_warnings::int(2),
+      status_flags::uint2,
+      num_warnings::uint2,
       info::binary
     >> = rest
 
@@ -71,7 +71,7 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_generic_response(
-        <<0xFF, code::int(2), _sql_state_marker::string(1), _sql_state::string(5),
+        <<0xFF, code::uint2, _sql_state_marker::string(1), _sql_state::string(5),
           message::binary>>
       ) do
     err_packet(code: code, message: message)
@@ -94,15 +94,15 @@ defmodule MyXQL.Protocol.Messages do
     {server_version, rest} = take_string_nul(rest)
 
     <<
-      conn_id::int(4),
+      conn_id::uint4,
       auth_plugin_data1::string(8),
       0,
-      capability_flags1::int(2),
-      character_set::int(1),
-      status_flags::int(2),
-      capability_flags2::int(2),
-      auth_plugin_data_length::int(1),
-      _::int(10),
+      capability_flags1::uint2,
+      character_set::uint1,
+      status_flags::uint2,
+      capability_flags2::uint2,
+      auth_plugin_data_length::uint1,
+      0::uint(10),
       rest::binary
     >> = rest
 
@@ -110,7 +110,7 @@ defmodule MyXQL.Protocol.Messages do
     <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
     auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
     auth_plugin_name = decode_string_nul(auth_plugin_name)
-    <<capability_flags::int(4)>> = <<capability_flags1::int(2), capability_flags2::int(2)>>
+    <<capability_flags::uint4>> = <<capability_flags1::uint2, capability_flags2::uint2>>
     auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
 
     initial_handshake(
@@ -136,10 +136,10 @@ defmodule MyXQL.Protocol.Messages do
     database = if database, do: <<database::binary, 0x00>>, else: ""
 
     <<
-      capability_flags::int(4),
-      @max_packet_size::int(4),
+      capability_flags::uint4,
+      @max_packet_size::uint4,
       character_set_name_to_code(:utf8_general_ci),
-      0::int(23),
+      0::uint(23),
       <<username::binary, 0x00>>,
       auth_response::binary,
       database::binary,
@@ -151,10 +151,10 @@ defmodule MyXQL.Protocol.Messages do
     capability_flags = capability_flags(database, true)
 
     <<
-      capability_flags::int(4),
-      @max_packet_size::int(4),
+      capability_flags::uint4,
+      @max_packet_size::uint4,
       character_set_name_to_code(:utf8_general_ci),
-      0::int(23)
+      0::uint(23)
     >>
   end
 
@@ -197,12 +197,12 @@ defmodule MyXQL.Protocol.Messages do
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-close.html
   def encode_com({:com_stmt_close, statement_id}) do
-    [0x19, <<statement_id::int(4)>>]
+    [0x19, <<statement_id::uint4>>]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-reset.html
   def encode_com({:com_stmt_reset, statement_id}) do
-    [0x1A, <<statement_id::int(4)>>]
+    [0x1A, <<statement_id::uint4>>]
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
@@ -218,11 +218,11 @@ defmodule MyXQL.Protocol.Messages do
 
     <<
       command,
-      statement_id::int(4),
-      flags::size(8),
-      iteration_count::int(4),
+      statement_id::uint4,
+      flags::uint1,
+      iteration_count::uint4,
       null_bitmap::bitstring,
-      new_params_bound_flag::int(1),
+      new_params_bound_flag::uint1,
       types::binary,
       values::binary
     >>
@@ -232,8 +232,8 @@ defmodule MyXQL.Protocol.Messages do
   def encode_com({:com_stmt_fetch, statement_id, num_rows}) do
     <<
       0x1C,
-      statement_id::int(4),
-      num_rows::int(4)
+      statement_id::uint4,
+      num_rows::uint4
     >>
   end
 
@@ -248,8 +248,8 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_com_stmt_prepare_response(
-        <<0x00, statement_id::int(4), num_columns::int(2), num_params::int(2), 0,
-          num_warnings::int(2)>>,
+        <<0x00, statement_id::uint4, num_columns::uint2, num_params::uint2, 0,
+          num_warnings::uint2>>,
         next_data,
         :initial
       ) do
@@ -304,7 +304,7 @@ defmodule MyXQL.Protocol.Messages do
       end)
 
     null_bitmap_size = div(count + 7, 8)
-    {<<null_bitmap::int(null_bitmap_size)>>, types, values}
+    {<<null_bitmap::uint(null_bitmap_size)>>, types, values}
   end
 
   defp unsigned_flag(value) when is_integer(value) and value >= 1 <<< 63, do: 0x80
@@ -342,12 +342,12 @@ defmodule MyXQL.Protocol.Messages do
 
     <<
       0x0C,
-      _character_set::int(2),
-      _column_length::int(4),
+      _character_set::uint2,
+      _column_length::uint4,
       <<type>>,
-      flags::int(2),
-      _decimals::int(1),
-      0::int(2)
+      flags::uint2,
+      _decimals::uint1,
+      0::uint2
     >> = rest
 
     column_def(
@@ -374,7 +374,7 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   defp decode_resultset(
-         <<0xFE, 0, 0, status_flags::int(2), num_warnings::int(2)>>,
+         <<0xFE, 0, 0, status_flags::uint2, num_warnings::uint2>>,
          _next_data,
          {:rows, column_defs, num_rows, acc},
          _row_decoder

@@ -133,7 +133,7 @@ defmodule MyXQL.Protocol.Values do
 
   def decode_binary_row(payload, column_defs) do
     size = div(length(column_defs) + 7 + 2, 8)
-    <<0x00, null_bitmap::int(size), values::binary>> = payload
+    <<0x00, null_bitmap::uint(size), values::binary>> = payload
     null_bitmap = null_bitmap >>> 2
     decode_binary_row(values, null_bitmap, column_defs, [])
   end
@@ -144,7 +144,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::signed-int(1), rest::binary>>,
+         <<value::int1, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_tiny, unsigned?: false) | tail],
          acc
@@ -153,7 +153,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::unsigned-int(1), rest::binary>>,
+         <<value::uint1, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_tiny, unsigned?: true) | tail],
          acc
@@ -162,7 +162,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::signed-int(2), rest::binary>>,
+         <<value::int2, rest::binary>>,
          null_bitmap,
          [column_def(type: type, unsigned?: false) | tail],
          acc
@@ -172,7 +172,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::unsigned-int(2), rest::binary>>,
+         <<value::uint2, rest::binary>>,
          null_bitmap,
          [column_def(type: type, unsigned?: true) | tail],
          acc
@@ -182,7 +182,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::signed-int(4), rest::binary>>,
+         <<value::int4, rest::binary>>,
          null_bitmap,
          [column_def(type: type, unsigned?: false) | tail],
          acc
@@ -192,7 +192,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::unsigned-int(4), rest::binary>>,
+         <<value::uint4, rest::binary>>,
          null_bitmap,
          [column_def(type: type, unsigned?: true) | tail],
          acc
@@ -202,7 +202,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::signed-int(8), rest::binary>>,
+         <<value::int8, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_longlong, unsigned?: false) | tail],
          acc
@@ -211,7 +211,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<value::unsigned-int(8), rest::binary>>,
+         <<value::uint8, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_longlong, unsigned?: true) | tail],
          acc
@@ -261,7 +261,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
+         <<4, year::uint2, month::uint1, day::uint1, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_date) | tail],
          acc
@@ -271,7 +271,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1), rest::binary>>,
+         <<8, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1, rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_time) | tail],
          acc
@@ -281,8 +281,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
-           microsecond::int(4), rest::binary>>,
+         <<12, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1, microsecond::uint4,
+           rest::binary>>,
          null_bitmap,
          [column_def(type: @mysql_type_time) | tail],
          acc
@@ -302,7 +302,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<4, year::int(2), month::int(1), day::int(1), rest::binary>>,
+         <<4, year::uint2, month::uint1, day::uint1, rest::binary>>,
          null_bitmap,
          [column_def(type: type) | tail],
          acc
@@ -313,8 +313,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-           second::int(1), rest::binary>>,
+         <<7, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
+           rest::binary>>,
          null_bitmap,
          [column_def(type: type) | tail],
          acc
@@ -325,8 +325,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(
-         <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1),
-           second::int(1), microsecond::int(4), rest::binary>>,
+         <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
+           microsecond::uint4, rest::binary>>,
          null_bitmap,
          [column_def(type: type) | tail],
          acc
@@ -354,11 +354,11 @@ defmodule MyXQL.Protocol.Values do
   @spec encode_binary_value(term()) :: {type(), term()}
   def encode_binary_value(value)
       when is_integer(value) and value >= -1 <<< 63 and value < 1 <<< 64 do
-    {@mysql_type_longlong, <<value::signed-int(8)>>}
+    {@mysql_type_longlong, <<value::int8>>}
   end
 
   def encode_binary_value(value) when is_float(value) do
-    {@mysql_type_double, <<value::little-signed-float-size(64)>>}
+    {@mysql_type_double, <<value::64-little-signed-float>>}
   end
 
   def encode_binary_value(%Decimal{} = value) do
@@ -367,7 +367,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def encode_binary_value(%Date{year: year, month: month, day: day}) do
-    {@mysql_type_date, <<4, year::int(2), month::int(1), day::int(1)>>}
+    {@mysql_type_date, <<4, year::uint2, month::uint1, day::uint1>>}
   end
 
   def encode_binary_value(%Time{} = time), do: encode_binary_time(time)
@@ -411,7 +411,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp encode_binary_time(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
-    {@mysql_type_time, <<8, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1)>>}
+    {@mysql_type_time, <<8, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1>>}
   end
 
   defp encode_binary_time(%Time{
@@ -421,8 +421,7 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {microsecond, _}
        }) do
     {@mysql_type_time,
-     <<12, 0::int(1), 0::int(4), hour::int(1), minute::int(1), second::int(1),
-       microsecond::int(4)>>}
+     <<12, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1, microsecond::uint4>>}
   end
 
   defp encode_binary_datetime(%NaiveDateTime{
@@ -435,7 +434,7 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {0, 0}
        }) do
     {@mysql_type_datetime,
-     <<7, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1)>>}
+     <<7, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1>>}
   end
 
   defp encode_binary_datetime(%NaiveDateTime{
@@ -448,8 +447,8 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {microsecond, _}
        }) do
     {@mysql_type_datetime,
-     <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1),
-       microsecond::int(4)>>}
+     <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
+       microsecond::uint4>>}
   end
 
   defp encode_binary_datetime(%DateTime{
@@ -463,8 +462,8 @@ defmodule MyXQL.Protocol.Values do
          time_zone: "Etc/UTC"
        }) do
     {@mysql_type_datetime,
-     <<11, year::int(2), month::int(1), day::int(1), hour::int(1), minute::int(1), second::int(1),
-       microsecond::int(4)>>}
+     <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
+       microsecond::uint4>>}
   end
 
   defp encode_binary_datetime(%DateTime{} = datetime) do

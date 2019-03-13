@@ -97,7 +97,7 @@ defmodule MyXQL.Protocol.Client do
   end
 
   defp recv_packets(
-         <<size::int(3), _seq::int(1), payload::string(size), rest::binary>>,
+         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          timeout,
