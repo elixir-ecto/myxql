@@ -297,6 +297,7 @@ defmodule MyXQL.Protocol.Messages do
             {idx + 1, null_bitmap, <<types::binary, null_type, unsigned_flag(value)>>, values}
           else
             {type, binary} = Values.encode_binary_value(value)
+            type = Values.type_atom_to_code(type)
 
             {idx + 1, null_bitmap, <<types::binary, type, unsigned_flag(value)>>,
              <<values::binary, binary::binary>>}
@@ -344,7 +345,7 @@ defmodule MyXQL.Protocol.Messages do
       0x0C,
       _character_set::uint2,
       _column_length::uint4,
-      <<type>>,
+      type::uint1,
       flags::uint2,
       _decimals::uint1,
       0::uint2
@@ -352,7 +353,7 @@ defmodule MyXQL.Protocol.Messages do
 
     column_def(
       name: name,
-      type: type,
+      type: Values.type_code_to_atom(type),
       flags: flags,
       unsigned?: has_column_flag?(flags, :unsigned_flag)
     )
