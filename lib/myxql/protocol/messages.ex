@@ -102,7 +102,7 @@ defmodule MyXQL.Protocol.Messages do
       status_flags::uint2,
       capability_flags2::uint2,
       auth_plugin_data_length::uint1,
-      0::uint(10),
+      _::uint(10),
       rest::binary
     >> = rest
 
