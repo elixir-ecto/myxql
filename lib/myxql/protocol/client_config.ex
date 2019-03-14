@@ -1,4 +1,4 @@
-defmodule MyXQL.Protocol.Config do
+defmodule MyXQL.Protocol.ClientConfig do
   @moduledoc false
 
   defstruct [

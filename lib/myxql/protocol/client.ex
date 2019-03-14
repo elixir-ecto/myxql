@@ -3,10 +3,10 @@ defmodule MyXQL.Protocol.Client do
 
   require Logger
   import MyXQL.Protocol.{Flags, Messages, Records, Types}
-  alias MyXQL.Protocol.{Auth, Config, ServerErrorCodes}
+  alias MyXQL.Protocol.{Auth, ClientConfig, ServerErrorCodes}
 
   def connect(opts) do
-    config = Config.new(opts)
+    config = ClientConfig.new(opts)
 
     with {:ok, sock} <- do_connect(config) do
       state = %{sock: {:gen_tcp, sock}, connection_id: nil}
