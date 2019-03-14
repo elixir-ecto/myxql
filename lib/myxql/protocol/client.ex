@@ -55,32 +55,30 @@ defmodule MyXQL.Protocol.Client do
     :ok = send_com({:com_stmt_close, statement_id}, state)
   end
 
+  def disconnect(state) do
+    sock_close(state)
+  end
+
+  def send_com(com, state) do
+    payload = encode_com(com)
+    send_packet(payload, 0, state)
+  end
+
   def send_packet(payload, sequence_id, state) do
     data = encode_packet(payload, sequence_id)
     send_data(state, data)
   end
 
-  def disconnect(state) do
-    sock_close(state)
-  end
-
-  ## Internals
-
-  defp send_com(com, state) do
-    payload = encode_com(com)
-    send_packet(payload, 0, state)
-  end
-
-  defp send_data(%{sock: {sock_mod, sock}}, data) do
+  def send_data(%{sock: {sock_mod, sock}}, data) do
     sock_mod.send(sock, data)
   end
 
-  defp recv_packet(decoder, timeout \\ :infinity, state) do
+  def recv_packet(decoder, timeout \\ :infinity, state) do
     new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
     recv_packets(new_decoder, nil, timeout, state)
   end
 
-  defp recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
+  def recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
     case recv_data(state, timeout) do
       {:ok, data} ->
         recv_packets(data, decoder, decoder_state, timeout, state)
@@ -89,6 +87,12 @@ defmodule MyXQL.Protocol.Client do
         error
     end
   end
+
+  def recv_data(%{sock: {sock_mod, sock}}, timeout) do
+    sock_mod.recv(sock, 0, timeout)
+  end
+
+  ## Internals
 
   defp recv_packets(
          <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
@@ -118,10 +122,6 @@ defmodule MyXQL.Protocol.Client do
       {:error, _} = error ->
         error
     end
-  end
-
-  defp recv_data(%{sock: {sock_mod, sock}}, timeout) do
-    sock_mod.recv(sock, 0, timeout)
   end
 
   defp sock_close(%{sock: {sock_mod, sock}}) do
