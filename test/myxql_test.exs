@@ -283,7 +283,8 @@ defmodule MyXQLTest do
       :ok = MyXQL.close(c.conn, query1)
 
       assert {:ok, query2, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
-      assert query1.ref != query2.ref
+      assert query1.ref == query2.ref
+      assert query1.statement_id != query2.statement_id
     end
 
     test "query is re-prepared if executed from different connection", c do
@@ -292,7 +293,8 @@ defmodule MyXQLTest do
 
       {:ok, conn2} = MyXQL.start_link(@opts)
       {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1, [])
-      assert query1.ref != query2.ref
+      assert query1.ref == query2.ref
+      assert query1.statement_id != query2.statement_id
     end
 
     # This test is just describing existing behaviour, we may want to change it in the future.
@@ -332,23 +334,25 @@ defmodule MyXQLTest do
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query.ref == query2.ref
+      assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query.ref == query3.ref
+      assert query == query3
 
       # unnamed queries are closed
       {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query.ref == query2.ref
+      assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref != query3.ref
+      assert query2.ref == query3.ref
+      assert query2.statement_id != query3.statement_id
 
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query.ref == query2.ref
+      assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref != query3.ref
+      assert query2.ref == query3.ref
+      assert query2.statement_id != query3.statement_id
     end
 
     test "disconnect on errors" do

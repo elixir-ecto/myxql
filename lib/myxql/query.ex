@@ -6,16 +6,7 @@ defmodule MyXQL.Query do
 
     * `:name` - The name of the prepared statement;
     * `:num_params` - The number of parameter placeholders;
-    * `:ref` - A reference used to identify prepared queries;
     * `:statement` - The prepared statement
-
-  Once a query is prepared with `MyXQL.prepare/4`, the
-  returned query will have its `ref` field set to a reference.
-  When `MyXQL.execute/4` is called with the prepared query,
-  it always returns a query. If the `ref` field in the query
-  given to `execute` and the one returned are the same, it
-  means the cached prepared query was used. If the `ref` field
-  is not the same, it means the query had to be re-prepared.
 
   ## Named and Unnamed Queries
 
@@ -36,7 +27,8 @@ defmodule MyXQL.Query do
   defstruct name: "",
             num_params: nil,
             ref: nil,
-            statement: nil
+            statement: nil,
+            statement_id: nil
 
   defimpl DBConnection.Query do
     def parse(query, _opts) do

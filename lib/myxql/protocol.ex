@@ -359,7 +359,7 @@ defmodule MyXQL.Protocol do
     case Client.com_stmt_prepare(statement, state) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         state = put_statement_id(state, query, statement_id)
-        query = %{query | num_params: num_params}
+        query = %{query | num_params: num_params, statement_id: statement_id}
         {:ok, query, statement_id, state}
 
       result ->
@@ -378,8 +378,6 @@ defmodule MyXQL.Protocol do
   end
 
   defp reprepare(query, state) do
-    query = %Query{query | ref: make_ref()}
-
     with {:ok, query, statement_id, state} <- prepare(query, state) do
       {:ok, query, statement_id, state}
     end
