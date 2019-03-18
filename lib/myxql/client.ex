@@ -1,4 +1,4 @@
-defmodule MyXQL.Protocol.Client do
+defmodule MyXQL.Client do
   @moduledoc false
 
   require Logger

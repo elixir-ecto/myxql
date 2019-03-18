@@ -3,8 +3,7 @@ defmodule MyXQL.Protocol do
 
   use DBConnection
   import MyXQL.Protocol.{Flags, Records}
-  alias MyXQL.Protocol.Client
-  alias MyXQL.{Cursor, Query, TextQuery, Result}
+  alias MyXQL.{Client, Cursor, Query, Result, TextQuery}
 
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED

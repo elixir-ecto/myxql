@@ -1,6 +1,6 @@
-defmodule MyXQL.Protocol.ClientTest do
+defmodule MyXQL.ClientTest do
   use ExUnit.Case, async: true
-  alias MyXQL.Protocol.{Client, ServerErrorCodes}
+  alias MyXQL.{Client, Protocol.ServerErrorCodes}
   import MyXQL.Protocol.{Flags, Records}
 
   setup do
