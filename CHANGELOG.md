@@ -10,7 +10,6 @@
 * Add `:num_warnings` field to `MyXQL.Result`
 * Add `:connection_id` field to `MyXQL.Error`
 * Add `query_type: :binary | :binary_then_text | :text` option to `MyXQL.query/4`
-* Default to `query_type: :binary` in `MyXQL.query/4`
 * Improve handshake socket errors handling
 * Raise error when both :username option and USER env are missing
 * Add `MARIAEX_COMPATIBILITY.md` page
