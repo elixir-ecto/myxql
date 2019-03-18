@@ -1,4 +1,4 @@
-defmodule MyXQL.Protocol do
+defmodule MyXQL.Connection do
   @moduledoc false
 
   use DBConnection

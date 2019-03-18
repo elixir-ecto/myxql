@@ -131,7 +131,7 @@ defmodule MyXQL do
   @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
   def start_link(opts) do
     ensure_deps_started!(opts)
-    DBConnection.start_link(MyXQL.Protocol, opts)
+    DBConnection.start_link(MyXQL.Connection, opts)
   end
 
   defmacrop is_iodata(data) do
@@ -485,7 +485,7 @@ defmodule MyXQL do
   """
   @spec child_spec(keyword()) :: Supervisor.child_spec()
   def child_spec(opts) do
-    DBConnection.child_spec(MyXQL.Protocol, opts)
+    DBConnection.child_spec(MyXQL.Connection, opts)
   end
 
   @doc """
