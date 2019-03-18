@@ -1,6 +1,6 @@
 language: elixir
-elixir: 1.7
-otp_release: 21.2
+elixir: 1.8
+otp_release: 21.3
 services:
   - docker
 addons:
