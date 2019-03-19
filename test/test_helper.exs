@@ -126,6 +126,7 @@ CREATE TABLE test_types (
   my_unsigned_decimal52 DECIMAL(5, 2) UNSIGNED,
 
   my_enum ENUM('red', 'green', 'blue'),
+  my_set SET('red', 'green', 'blue'),
   my_bit2 BIT(2),
   my_bit8 BIT(8),
   my_date DATE,

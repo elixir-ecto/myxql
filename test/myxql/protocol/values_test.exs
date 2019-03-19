@@ -175,6 +175,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_enum", "red")
       end
 
+      test "MYSQL_TYPE_SET", c do
+        assert_roundtrip(c, "my_set", "red,green")
+      end
+
       test "MYSQL_TYPE_BLOB", c do
         assert_roundtrip(c, "my_blob", <<1, 2, 3>>)
       end
