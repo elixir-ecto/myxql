@@ -38,7 +38,7 @@ Queries:
 
     Mariaex defaults to `query_type: nil`, MyXQL defaults to `query_type: :binary`.
 
-  * MyXQL does not support `BIT`, `ENUM`, `SET` and geometry types
+  * MyXQL does not support `BIT`, `SET` and geometry types
 
   * MyXQL does not support `:type_names`, `result_types`, `:decode`, `:encode_mapper`,
     `:decode_mapper`, `:include_table_name`, and `:binary_as` options

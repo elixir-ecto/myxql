@@ -171,6 +171,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_unsigned_decimal52", Decimal.new("999.99"))
       end
 
+      test "MYSQL_TYPE_ENUM", c do
+        assert_roundtrip(c, "my_enum", "red")
+      end
+
       test "MYSQL_TYPE_BLOB", c do
         assert_roundtrip(c, "my_blob", <<1, 2, 3>>)
       end
