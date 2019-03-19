@@ -46,7 +46,8 @@ defmodule MyXQL.MixProject do
       {:jason, "~> 1.0", optional: true},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:benchee, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 
