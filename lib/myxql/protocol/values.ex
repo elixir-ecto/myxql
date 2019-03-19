@@ -130,7 +130,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def decode_text_value(value, :mysql_type_json) do
-    MyXQL.json_library().decode!(value)
+    json_library().decode!(value)
   end
 
   # Binary values
@@ -176,7 +176,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
-    string = MyXQL.json_library().encode!(term)
+    string = json_library().encode!(term)
     {:mysql_type_var_string, encode_string_lenenc(string)}
   end
 
@@ -502,5 +502,9 @@ defmodule MyXQL.Protocol.Values do
   defp decode_json(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
-  defp decode_json(string), do: MyXQL.json_library().decode!(string)
+  defp decode_json(string), do: json_library().decode!(string)
+
+  defp json_library() do
+    Application.get_env(:myxql, :json_library, Jason)
+  end
 end
