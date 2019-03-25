@@ -20,9 +20,12 @@ defmodule MyXQL.MixProject do
 
   def application() do
     [
-      extra_applications: [:logger, :crypto]
+      extra_applications: extra_applications(Mix.env())
     ]
   end
+
+  defp extra_applications(env) when env in [:dev, :test], do: [:ssl | extra_applications(:prod)]
+  defp extra_applications(_), do: [:logger, :crypto]
 
   defp package() do
     [
