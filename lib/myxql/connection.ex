@@ -328,7 +328,9 @@ defmodule MyXQL.Connection do
 
   defp error({:auth_plugin_error, {auth_plugin, message}}) do
     message = "Authentication plugin '#{auth_plugin}' reported error: #{message}"
-    %MyXQL.Error{message: message}
+    code = 2061
+    name = :CR_AUTH_PLUGIN_ERR
+    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
   end
 
   defp error(reason) do
