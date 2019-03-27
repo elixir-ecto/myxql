@@ -305,12 +305,12 @@ defmodule MyXQL.Connection do
     {:disconnect, error(reason), state}
   end
 
-  defp error(err_packet, %{statement: statement}, state) do
-    error(err_packet, statement, state)
+  defp error(reason, %{statement: statement}, state) do
+    error(reason, statement, state)
   end
 
-  defp error(err_packet, statement, state) do
-    exception = error(err_packet)
+  defp error(reason, statement, state) do
+    exception = error(reason)
     %MyXQL.Error{exception | statement: statement, connection_id: state.connection_id}
   end
 
