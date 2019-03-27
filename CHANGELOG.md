@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.1 (2019-03-27)
+
+### Bug fixes
+
+* Use `DBConnection.ConnectionError` for transport errors and disconnect the connection
+* Remove `:socket` from `MyXQL.Error` as `DBConnection.ConnectionError` is used for that instead
+* Improve error message on invalid socket path
+
 ## v0.2.0 (2019-03-18)
 
 ### Enhancements
