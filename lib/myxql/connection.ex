@@ -302,7 +302,7 @@ defmodule MyXQL.Connection do
   end
 
   defp result({:error, reason}, _query, state) do
-    {:error, error(reason), state}
+    {:disconnect, error(reason), state}
   end
 
   defp error(err_packet, %{statement: statement}, state) do
