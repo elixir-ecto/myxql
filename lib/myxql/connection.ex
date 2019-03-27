@@ -25,6 +25,7 @@ defmodule MyXQL.Connection do
   def connect(opts) do
     prepare = Keyword.get(opts, :prepare, :named)
     ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
+    config = Client.Config.new(opts)
 
     disconnect_on_error_codes =
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
@@ -40,6 +41,12 @@ defmodule MyXQL.Connection do
         }
 
         {:ok, state}
+
+      {:error, :enoent} ->
+        exception = error(:enoent)
+        {:local, socket} = config.address
+        exception = %{exception | message: exception.message <> " #{inspect(socket)}"}
+        {:error, exception}
 
       {:error, reason} ->
         {:error, error(reason)}

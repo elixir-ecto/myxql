@@ -66,9 +66,11 @@ defmodule MyXQL.Client do
     end
   end
 
-  def connect(opts) do
-    config = Config.new(opts)
+  def connect(opts) when is_list(opts) do
+    connect(Config.new(opts))
+  end
 
+  def connect(%Config{} = config) do
     with {:ok, sock} <- do_connect(config) do
       state = %{sock: {:gen_tcp, sock}, connection_id: nil}
       handshake(config, state)

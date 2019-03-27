@@ -129,7 +129,7 @@ defmodule MyXQLTest do
 
       assert capture_log(fn ->
                assert_start_and_killed(opts)
-             end) =~ "** (DBConnection.ConnectionError) no such file or directory"
+             end) =~ "** (DBConnection.ConnectionError) no such file or directory \"/bad\""
     end
 
     @tag capture_log: true
