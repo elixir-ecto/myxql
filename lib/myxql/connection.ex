@@ -333,6 +333,11 @@ defmodule MyXQL.Connection do
     %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
   end
 
+  defp error(:server_not_supported) do
+    message = "MyXQL requires MySQL server 5.7.10+"
+    %MyXQL.Error{message: message}
+  end
+
   defp error(reason) do
     %DBConnection.ConnectionError{message: format_reason(reason)}
   end

@@ -238,7 +238,7 @@ defmodule MyXQL.Client do
     with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(state),
          state = %{state | connection_id: conn_id},
          sequence_id = 1,
-         :ok <- ensure_capabilities(initial_handshake, state),
+         :ok <- ensure_capabilities(initial_handshake),
          {:ok, sequence_id, state} <- maybe_upgrade_to_ssl(config, sequence_id, state) do
       send_handshake_response(config, initial_handshake, sequence_id, state)
     end
@@ -248,13 +248,11 @@ defmodule MyXQL.Client do
     recv_packet(&decode_initial_handshake/1, state)
   end
 
-  defp ensure_capabilities(initial_handshake(capability_flags: capability_flags), state) do
+  defp ensure_capabilities(initial_handshake(capability_flags: capability_flags)) do
     if has_capability_flag?(capability_flags, :client_deprecate_eof) do
       :ok
     else
-      message = "MyXQL only works with MySQL server 5.7.10+"
-      exception = %MyXQL.Error{connection_id: state.connection_id, message: message}
-      {:error, exception}
+      {:error, :server_not_supported}
     end
   end
 
