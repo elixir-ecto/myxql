@@ -189,7 +189,7 @@ defmodule MyXQL do
 
   """
   @spec query(conn, iodata, list, [option()]) ::
-          {:ok, MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
+          {:ok, MyXQL.Result.t()} | {:error, Exception.t()}
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
     case Keyword.get(options, :query_type, :binary) do
       :binary ->
@@ -241,7 +241,7 @@ defmodule MyXQL do
 
   """
   @spec prepare(conn(), iodata(), iodata(), [option()]) ::
-          {:ok, MyXQL.Query.t()} | {:error, MyXQL.Error.t()}
+          {:ok, MyXQL.Query.t()} | {:error, Exception.t()}
   def prepare(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
     DBConnection.prepare(conn, query, opts)
@@ -281,7 +281,7 @@ defmodule MyXQL do
 
   """
   @spec prepare_execute(conn, iodata, iodata, list, keyword()) ::
-          {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
+          {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, Exception.t()}
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
       when is_iodata(name) and is_iodata(statement) do
     query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
@@ -321,7 +321,7 @@ defmodule MyXQL do
 
   """
   @spec execute(conn(), MyXQL.Query.t(), list(), [option()]) ::
-          {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, MyXQL.Error.t()}
+          {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, Exception.t()}
   defdelegate execute(conn, query, params, opts \\ []), to: DBConnection
 
   @doc """

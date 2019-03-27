@@ -4,6 +4,7 @@ defmodule MyXQL.Connection do
   use DBConnection
   import MyXQL.Protocol.{Flags, Records}
   alias MyXQL.{Client, Cursor, Query, Result, TextQuery}
+  alias MyXQL.Protocol.ServerErrorCodes
 
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
@@ -41,7 +42,7 @@ defmodule MyXQL.Connection do
         {:ok, state}
 
       {:error, reason} ->
-        {:error, Client.socket_error(reason, %{connection_id: nil})}
+        {:error, error(reason)}
     end
   end
 
@@ -64,9 +65,10 @@ defmodule MyXQL.Connection do
   def handle_prepare(query, opts, state) do
     query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
 
-    with {:ok, query, _statement_id, state} <- prepare(query, state) do
-      {:ok, query, state}
-    else
+    case prepare(query, state) do
+      {:ok, query, _statement_id, state} ->
+        {:ok, query, state}
+
       {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
         if Keyword.get(opts, :query_type) == :binary_then_text do
           query = %MyXQL.TextQuery{statement: query.statement}
@@ -108,11 +110,12 @@ defmodule MyXQL.Connection do
 
   @impl true
   def ping(state) do
-    with {:ok, ok_packet(status_flags: status_flags)} <- Client.com_ping(state) do
-      {:ok, put_status(state, status_flags)}
-    else
+    case Client.com_ping(state) do
+      {:ok, ok_packet(status_flags: status_flags)} ->
+        {:ok, put_status(state, status_flags)}
+
       {:error, reason} ->
-        {:disconnect, Client.socket_error(reason, state), state}
+        {:disconnect, error(reason), state}
     end
   end
 
@@ -228,14 +231,12 @@ defmodule MyXQL.Connection do
   def handle_deallocate(query, _cursor, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        with {:ok, packet} <- Client.com_stmt_reset(statement_id, state) do
-          case packet do
-            ok_packet(status_flags: status_flags) ->
-              {:ok, nil, put_status(state, status_flags)}
+        case Client.com_stmt_reset(statement_id, state) do
+          {:ok, ok_packet(status_flags: status_flags)} ->
+            {:ok, nil, put_status(state, status_flags)}
 
-            err_packet() = err_packet ->
-              {:error, Client.mysql_error(err_packet, query.statement, state), state}
-          end
+          other ->
+            result(other, query, state)
         end
 
       :error ->
@@ -292,7 +293,8 @@ defmodule MyXQL.Connection do
   end
 
   defp result({:ok, err_packet() = err_packet}, query, state) do
-    maybe_disconnect(Client.mysql_error(err_packet, query.statement, state), state)
+    exception = error(err_packet, query, state)
+    maybe_disconnect(exception, state)
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
@@ -300,7 +302,55 @@ defmodule MyXQL.Connection do
   end
 
   defp result({:error, reason}, _query, state) do
-    {:error, Client.socket_error(reason, state), state}
+    {:error, error(reason), state}
+  end
+
+  defp error(err_packet, %{statement: statement}, state) do
+    error(err_packet, statement, state)
+  end
+
+  defp error(err_packet, statement, state) do
+    exception = error(err_packet)
+    %MyXQL.Error{exception | statement: statement, connection_id: state.connection_id}
+  end
+
+  defp error(err_packet(code: code, message: message)) do
+    name = ServerErrorCodes.code_to_name(code)
+    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
+  end
+
+  defp error({:auth_plugin_error, {auth_plugin, message}}) do
+    message = "Authentication plugin '#{auth_plugin}' reported error: #{message}"
+    %MyXQL.Error{message: message}
+  end
+
+  defp error(reason) do
+    %DBConnection.ConnectionError{message: format_reason(reason)}
+  end
+
+  defp format_reason(:timeout), do: "timeout"
+  defp format_reason(:closed), do: "socket closed"
+
+  defp format_reason({:tls_alert, 'bad record mac'} = reason) do
+    versions = :ssl.versions()[:supported]
+
+    """
+    #{:ssl.format_error({:error, reason})}
+
+    You might be using TLS version not supported by the server.
+    Protocol versions reported by the :ssl application: #{inspect(versions)}.
+    Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol versions.
+    """
+  end
+
+  defp format_reason(reason) do
+    case :ssl.format_error(reason) do
+      'Unexpected error' ++ _ ->
+        inspect(reason)
+
+      message ->
+        List.to_string(message)
+    end
   end
 
   defp maybe_disconnect(exception, state) do
@@ -321,8 +371,8 @@ defmodule MyXQL.Connection do
         {:ok, _query, result, state} = result(ok, call, state)
         {:ok, result, state}
 
-      {:ok, err_packet() = err_packet} ->
-        {:disconnect, Client.mysql_error(err_packet, statement, state), state}
+      other ->
+        result(other, statement, state)
     end
   end
 

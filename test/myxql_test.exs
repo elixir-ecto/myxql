@@ -68,7 +68,7 @@ defmodule MyXQLTest do
                  Keyword.merge(@opts, username: "sha256_password", password: "secret", ssl: false)
 
                assert_start_and_killed(opts)
-             end) =~ ~r"\*\* \(MyXQL.Error\) .* 'sha256_password' .* requires secure connection"
+             end) =~ ~r"MyXQL.Error.* 'sha256_password' .* requires secure connection"
     end
 
     test "connect with no password" do
@@ -83,14 +83,14 @@ defmodule MyXQLTest do
       assert capture_log(fn ->
                opts = Keyword.merge(@opts, ssl: true, ssl_opts: [ciphers: [:bad]])
                assert_start_and_killed(opts)
-             end) =~ "** (MyXQL.Error) Invalid TLS option: {ciphers,[bad]}"
+             end) =~ "** (DBConnection.ConnectionError) Invalid TLS option: {ciphers,[bad]}"
     end
 
     test "connect with host down" do
       assert capture_log(fn ->
                opts = Keyword.merge(@opts, port: 9999)
                assert_start_and_killed(opts)
-             end) =~ "(MyXQL.Error) connection refused"
+             end) =~ "(DBConnection.ConnectionError) connection refused"
     end
 
     @tag requires_otp_19: true
@@ -129,7 +129,7 @@ defmodule MyXQLTest do
 
       assert capture_log(fn ->
                assert_start_and_killed(opts)
-             end) =~ "** (MyXQL.Error) no such file or directory"
+             end) =~ "** (DBConnection.ConnectionError) no such file or directory"
     end
 
     @tag capture_log: true
@@ -686,7 +686,7 @@ defmodule MyXQLTest do
 
       assert capture_log(fn ->
                assert_receive {:EXIT, ^pid, :killed}, 500
-             end) =~ "disconnected: ** (MyXQL.Error) Unexpected error: timeout"
+             end) =~ "disconnected: ** (DBConnection.ConnectionError) timeout"
     end
   end
 

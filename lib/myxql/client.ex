@@ -3,7 +3,7 @@ defmodule MyXQL.Client do
 
   require Logger
   import MyXQL.Protocol.{Flags, Messages, Records, Types}
-  alias MyXQL.Protocol.{Auth, ServerErrorCodes}
+  alias MyXQL.Protocol.Auth
 
   defmodule Config do
     @moduledoc false
@@ -284,24 +284,21 @@ defmodule MyXQL.Client do
           {:ok, state}
 
         {:ok, err_packet() = err_packet} ->
-          {:error, mysql_error(err_packet, nil, state)}
+          {:error, err_packet}
 
         {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
           with {:ok, auth_response} <-
-                 auth_switch_response(
-                   plugin_name,
-                   config.password,
-                   plugin_data,
-                   config.ssl?,
-                   state
-                 ),
+                 auth_switch_response(plugin_name, config.password, plugin_data, config.ssl?),
                :ok <- send_packet(auth_response, sequence_id + 2, state) do
             case recv_packet(&decode_handshake_response/1, state) do
               {:ok, ok_packet(num_warnings: 0)} ->
                 {:ok, state}
 
               {:ok, err_packet() = err_packet} ->
-                {:error, mysql_error(err_packet, nil, state)}
+                {:error, err_packet}
+
+              {:error, _reason} = error ->
+                error
             end
           end
 
@@ -315,12 +312,18 @@ defmodule MyXQL.Client do
                   {:ok, state}
 
                 {:ok, err_packet() = err_packet} ->
-                  {:error, mysql_error(err_packet, nil, state)}
+                  {:error, err_packet}
+
+                {:error, _reason} = error ->
+                  error
               end
             end
           else
-            auth_plugin_secure_connection_error(auth_plugin_name, state)
+            auth_plugin_secure_connection_error(auth_plugin_name)
           end
+
+        {:error, _reason} = error ->
+          error
       end
     end
   end
@@ -335,62 +338,33 @@ defmodule MyXQL.Client do
        when plugin_name in ["sha256_password", "caching_sha2_password"],
        do: Auth.sha256_password(password, plugin_data)
 
-  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?, _state),
+  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
     do: {:ok, <<>>}
 
-  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?, _state),
+  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
     do: {:ok, Auth.mysql_native_password(password, plugin_data)}
 
-  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?, state)
+  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?)
        when plugin_name in ["sha256_password", "caching_sha2_password"] do
     if ssl? do
       {:ok, password <> <<0x00>>}
     else
-      auth_plugin_secure_connection_error(plugin_name, state)
+      auth_plugin_secure_connection_error(plugin_name)
     end
   end
 
   # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
-  defp auth_plugin_secure_connection_error(plugin_name, state) do
-    code = 2061
-    name = :CR_AUTH_PLUGIN_ERR
-
-    message =
-      "(HY000): Authentication plugin '#{plugin_name}' reported error: Authentication requires secure connection"
-
-    {:error, mysql_error(code, name, message, nil, state)}
+  defp auth_plugin_secure_connection_error(plugin_name) do
+    {:error, {:auth_plugin_error, {plugin_name, "Authentication requires secure connection"}}}
   end
 
   defp maybe_upgrade_to_ssl(%{ssl?: true} = config, sequence_id, state) do
+    {_, sock} = state.sock
     payload = encode_ssl_request(config.database)
 
-    case send_packet(payload, sequence_id, state) do
-      :ok ->
-        {_, sock} = state.sock
-
-        case :ssl.connect(sock, config.ssl_opts, config.connect_timeout) do
-          {:ok, ssl_sock} ->
-            {:ok, sequence_id + 1, %{state | sock: {:ssl, ssl_sock}}}
-
-          {:error, {:tls_alert, 'bad record mac'} = reason} ->
-            versions = :ssl.versions()[:supported]
-
-            extra_message = """
-            You might be using TLS version not supported by the server.
-            Protocol versions reported by the :ssl application: #{inspect(versions)}.
-            Set `:ssl_opts` in `MyXQL.start_link/1` to force specific protocol
-            versions.
-            """
-
-            error = socket_error(reason, state)
-            {:error, %{error | message: error.message <> "\n\n" <> extra_message}}
-
-          {:error, reason} ->
-            {:error, socket_error(reason, state)}
-        end
-
-      {:error, reason} ->
-        {:error, socket_error(reason, state)}
+    with :ok <- send_packet(payload, sequence_id, state),
+         {:ok, ssl_sock} <- :ssl.connect(sock, config.ssl_opts, config.connect_timeout) do
+      {:ok, sequence_id + 1, %{state | sock: {:ssl, ssl_sock}}}
     end
   end
 
@@ -428,31 +402,5 @@ defmodule MyXQL.Client do
   def cancel_handshake_timer({:timer, tref}) do
     {:ok, _} = :timer.cancel(tref)
     :ok
-  end
-
-  def mysql_error(err_packet(code: code, message: message), statement, state) do
-    name = ServerErrorCodes.code_to_name(code)
-    mysql_error(code, name, message, statement, state.connection_id)
-  end
-
-  def mysql_error(code, name, message, statement, connection_id)
-      when is_integer(code) and is_atom(name) do
-    mysql = %{code: code, name: name}
-
-    %MyXQL.Error{
-      connection_id: connection_id,
-      message: "(#{code}) (#{name}) " <> message,
-      mysql: mysql,
-      statement: statement
-    }
-  end
-
-  def socket_error(%MyXQL.Error{} = exception, _state) do
-    exception
-  end
-
-  def socket_error(reason, state) do
-    message = {:error, reason} |> :ssl.format_error() |> List.to_string()
-    %MyXQL.Error{connection_id: state.connection_id, message: message, socket: reason}
   end
 end
