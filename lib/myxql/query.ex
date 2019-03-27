@@ -20,7 +20,6 @@ defmodule MyXQL.Query do
   @type t :: %__MODULE__{
           name: iodata(),
           num_params: non_neg_integer(),
-          ref: reference(),
           statement: iodata()
         }
 
