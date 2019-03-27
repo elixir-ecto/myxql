@@ -16,7 +16,10 @@ defmodule MyXQL.Result do
 
   Depending on SQL MODE, a given query may error or just return warnings.
   If `result.num_warnings` is non-zero it means there were warnings and they can be
-  retrieved by making another query: `MyXQL.query!(conn, "SHOW WARNINGS")`.
+  retrieved by making another query:
+
+      MyXQL.query!(conn, "SHOW WARNINGS")
+
   """
 
   @type t :: %__MODULE__{

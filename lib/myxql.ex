@@ -15,7 +15,7 @@ defmodule MyXQL do
           | {:username, String.t()}
           | {:password, String.t() | nil}
           | {:ssl, boolean()}
-          | {:ssl_options, [:ssl.ssl_option()]}
+          | {:ssl_opts, [:ssl.ssl_option()]}
           | {:connect_timeout, timeout()}
           | {:handshake_timeout, timeout()}
           | {:ping_timeout, timeout()}
@@ -54,7 +54,7 @@ defmodule MyXQL do
 
     * `:ssl` - Set to `true` if SSL should be used (default: `false`)
 
-    * `:ssl_options` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
+    * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
 
     * `:pool` - The pool module to use (default: `DBConnection.ConnectionPool`)
 
