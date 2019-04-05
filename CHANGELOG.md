@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.2 (2019-04-05)
+
+### Bug fixes
+
+* Fix documentation and typespec for the `:ssl_opts` option
+* Hide undocumented `ref` field from the `MyXQL.Query.t` type
+* Fix decoding MEDIUMBLOBs
+
 ## v0.2.1 (2019-03-27)
 
 ### Bug fixes
