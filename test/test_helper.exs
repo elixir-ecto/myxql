@@ -84,6 +84,11 @@ if sha256_password_available? do
   """)
 end
 
+# set packet size to 100mb
+TestHelper.mysql("""
+set global max_allowed_packet=100000000;
+""")
+
 TestHelper.mysql("""
 USE myxql_test;
 DROP USER IF EXISTS default_auth;
