@@ -4,7 +4,7 @@
 
 MySQL driver for Elixir.
 
-Documentation: http://hexdocs.pm/myxql/
+Documentation: <http://hexdocs.pm/myxql>
 
 ## Features
 
