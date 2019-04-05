@@ -4,7 +4,7 @@ defmodule MyXQL.Protocol.Messages do
   alias MyXQL.Protocol.Values
   use Bitwise
 
-  @max_packet_size 65536
+  @max_packet_size 16_777_215
 
   defp capability_flags(database, ssl?) do
     put_capability_flags([

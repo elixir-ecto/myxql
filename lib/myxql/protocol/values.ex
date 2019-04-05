@@ -484,7 +484,7 @@ defmodule MyXQL.Protocol.Values do
   defp decode_string_lenenc(<<0xFC, n::uint2, v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_string_lenenc(<<0xFD, n::uint4, v::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_string_lenenc(<<0xFD, n::uint3, v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
   defp decode_string_lenenc(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),
@@ -496,7 +496,7 @@ defmodule MyXQL.Protocol.Values do
   defp decode_json(<<0xFC, n::uint2, v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
-  defp decode_json(<<0xFD, n::uint4, v::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_json(<<0xFD, n::uint3, v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
   defp decode_json(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),

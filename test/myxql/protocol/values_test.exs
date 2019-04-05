@@ -183,6 +183,17 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_blob", <<1, 2, 3>>)
       end
 
+      test "MYSQL_TYPE_MEDIUMBLOB", c do
+        blob = String.duplicate("a", 1000)
+        assert_roundtrip(c, "my_mediumblob", blob)
+
+        blob = String.duplicate("a", 1_000_000)
+        assert_roundtrip(c, "my_mediumblob", blob)
+
+        blob = String.duplicate("a", 16_777_000)
+        assert_roundtrip(c, "my_mediumblob", blob)
+      end
+
       test "MYSQL_TYPE_VAR_STRING - SQL VARBINARY", c do
         assert_roundtrip(c, "my_varbinary3", <<1, 2, 3>>)
       end
