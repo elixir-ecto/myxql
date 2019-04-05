@@ -10,6 +10,7 @@ defmodule MyXQL.MixProject do
       version: @version,
       elixir: "~> 1.4",
       start_permanent: Mix.env() == :prod,
+      name: "MyXQL",
       description: "MySQL 5.7+ driver for Elixir",
       source_url: @source_url,
       package: package(),
