@@ -70,7 +70,7 @@ iex> MyXQL.query!(:myxql, "SELECT NOW()").rows
 
 ## Mariaex Compatibility
 
-See [Mariaex Compatibility](./MARIAEX_COMPATIBILITY.md) page for transition between drivers.
+See [Mariaex Compatibility](https://github.com/elixir-ecto/myxql/blob/master/MARIAEX_COMPATIBILITY.md) page for transition between drivers.
 
 ## Data representation
 
