@@ -46,7 +46,20 @@ defmodule MyXQL.Protocol.Messages do
     [<<payload_length::uint3, sequence_id::uint1>>, payload]
   end
 
-  def decode_generic_response(<<0x00, rest::binary>>) do
+  def decode_generic_response(<<0x00, rest::bits>>) do
+    decode_ok_packet(rest)
+  end
+
+  def decode_generic_response(<<0xFF, rest::bits>>) do
+    decode_err_packet(rest)
+  end
+
+  # Note: header is last argument to allow binary optimization
+  def decode_generic_response(<<rest::bits>>, header) do
+    decode_generic_response(<<header, rest::bits>>)
+  end
+
+  def decode_ok_packet(rest) do
     {affected_rows, rest} = take_int_lenenc(rest)
     {last_insert_id, rest} = take_int_lenenc(rest)
 
@@ -65,16 +78,12 @@ defmodule MyXQL.Protocol.Messages do
     )
   end
 
-  def decode_generic_response(
-        <<0xFF, code::uint2, _sql_state_marker::string(1), _sql_state::string(5),
-          message::binary>>
-      ) do
+  def decode_err_packet(<<code::uint2, _sql_state_marker::string(1), _sql_state::string(5), message::bits>>) do
     err_packet(code: code, message: message)
   end
 
-  # Note: header is last argument to allow binary optimization
-  def decode_generic_response(<<rest::binary>>, header) do
-    decode_generic_response(<<header, rest::binary>>)
+  def decode_connect_err_packet(<<code::uint2, message::bits>>) do
+    err_packet(code: code, message: message)
   end
 
   ##############################################################
@@ -83,9 +92,7 @@ defmodule MyXQL.Protocol.Messages do
   # https://dev.mysql.com/doc/internals/en/connection-phase.html
   ##############################################################
 
-  def decode_initial_handshake(payload) do
-    protocol_version = 10
-    <<^protocol_version, rest::binary>> = payload
+  def decode_initial_handshake(<<10, rest::binary>>) do
     {server_version, rest} = take_string_nul(rest)
 
     <<
@@ -117,6 +124,10 @@ defmodule MyXQL.Protocol.Messages do
       character_set: character_set,
       status_flags: status_flags
     )
+  end
+
+  def decode_initial_handshake(<<0xFF, rest::bits>>) do
+    decode_connect_err_packet(rest)
   end
 
   def encode_handshake_response_41(

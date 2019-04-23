@@ -31,7 +31,7 @@ defmodule MyXQL.Connection do
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
 
     case Client.connect(opts) do
-      {:ok, state} ->
+      {:ok, %{} = state} ->
         state = %__MODULE__{
           prepare: prepare,
           disconnect_on_error_codes: disconnect_on_error_codes,
@@ -41,6 +41,9 @@ defmodule MyXQL.Connection do
         }
 
         {:ok, state}
+
+      {:ok, err_packet() =  err_packet} ->
+        {:error, error(err_packet)}
 
       {:error, :enoent} ->
         exception = error(:enoent)
