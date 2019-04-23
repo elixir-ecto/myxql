@@ -161,6 +161,12 @@ defmodule MyXQLTest do
       assert_receive {:connected, _}
     end
 
+    test "charset defaults to utf8mb4" do
+      {:ok, pid} = MyXQL.start_link(@opts)
+      assert MyXQL.query!(pid, "select @@character_set_connection").rows == [["utf8mb4"]]
+      assert MyXQL.query!(pid, "SELECT 'hello 😃'").rows == [["hello 😃"]]
+    end
+
     test "handshake timeout" do
       %{port: port} =
         start_fake_server(fn _ ->
