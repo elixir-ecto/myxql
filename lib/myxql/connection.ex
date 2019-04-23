@@ -42,7 +42,7 @@ defmodule MyXQL.Connection do
 
         {:ok, state}
 
-      {:ok, err_packet() =  err_packet} ->
+      {:ok, err_packet() = err_packet} ->
         {:error, error(err_packet)}
 
       {:error, :enoent} ->
