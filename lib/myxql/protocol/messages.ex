@@ -6,6 +6,10 @@ defmodule MyXQL.Protocol.Messages do
 
   @max_packet_size 16_777_215
 
+  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
+  # utf8mb4 == 45
+  @default_charset 45
+
   defp capability_flags(database, ssl?) do
     put_capability_flags([
       :client_protocol_41,
@@ -22,15 +26,6 @@ defmodule MyXQL.Protocol.Messages do
 
   defp maybe_put_capability_flag(flags, name, true), do: put_capability_flags(flags, [name])
   defp maybe_put_capability_flag(flags, _name, false), do: flags
-
-  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-  character_sets = %{
-    utf8_general_ci: 0x21
-  }
-
-  for {name, code} <- character_sets do
-    def character_set_name_to_code(unquote(name)), do: unquote(code)
-  end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
   @cursor_types %{
@@ -138,7 +133,7 @@ defmodule MyXQL.Protocol.Messages do
     <<
       capability_flags::uint4,
       @max_packet_size::uint4,
-      character_set_name_to_code(:utf8_general_ci),
+      @default_charset,
       0::uint(23),
       <<username::binary, 0x00>>,
       auth_response::binary,
@@ -153,7 +148,7 @@ defmodule MyXQL.Protocol.Messages do
     <<
       capability_flags::uint4,
       @max_packet_size::uint4,
-      character_set_name_to_code(:utf8_general_ci),
+      @default_charset,
       0::uint(23)
     >>
   end
