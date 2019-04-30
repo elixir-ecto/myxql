@@ -154,7 +154,7 @@ defmodule TestHelper do
   end
 
   def default_auth_plugin() do
-    "SELECT @@default_authentication_plugin"
+    "SELECT plugin FROM mysql.user WHERE user = 'root' LIMIT 1"
     |> mysql()
     |> String.split("\n", trim: true)
     |> Enum.at(1)
