@@ -14,7 +14,7 @@ defmodule TestHelper do
   end
 
   defp ssl_opts() do
-    if System.get_env("FORCE_TLS11") == "true", do: [versions: [:"tlsv1.1"]], else: []
+    [versions: [:"tlsv1.1"]]
   end
 
   def setup_server() do

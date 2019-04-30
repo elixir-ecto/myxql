@@ -15,7 +15,7 @@ env:
     - MYSQL_UNIX_PORT=/var/run/mysqld/mysqld.sock
   matrix:
     - DB=mysql:8.0
-    - DB=mysql:5.7 FORCE_TLS11=true
+    - DB=mysql:5.7
     - DB=mariadb:10.3 JSON=false SSL=false
 matrix:
   include:
