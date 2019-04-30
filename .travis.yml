@@ -27,4 +27,4 @@ matrix:
         - mix compile --warnings-as-errors
         - mix format --check-formatted
 script:
-  - ./ci.sh
+  - scripts/ci.sh
