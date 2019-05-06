@@ -5,7 +5,7 @@ defmodule MyXQLTest do
   @opts TestHelper.opts()
 
   describe "connect" do
-    @tag requires_ssl: true
+    @tag ssl: true
     test "connect with bad SSL opts" do
       assert capture_log(fn ->
                opts = Keyword.merge(@opts, ssl: true, ssl_opts: [ciphers: [:bad]])
