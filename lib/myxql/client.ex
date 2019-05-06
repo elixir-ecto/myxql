@@ -2,8 +2,7 @@ defmodule MyXQL.Client do
   @moduledoc false
 
   require Logger
-  import MyXQL.Protocol.{Flags, Messages, Records, Types}
-  alias MyXQL.Protocol.Auth
+  import MyXQL.Protocol.{Messages, Records, Types}
 
   defmodule Config do
     @moduledoc false
@@ -238,9 +237,11 @@ defmodule MyXQL.Client do
     with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(state),
          state = %{state | connection_id: conn_id},
          sequence_id = 1,
-         :ok <- ensure_capabilities(initial_handshake),
-         {:ok, sequence_id, state} <- maybe_upgrade_to_ssl(config, sequence_id, state) do
-      send_handshake_response(config, initial_handshake, sequence_id, state)
+         {:ok, capability_flags} <- build_capability_flags(config, initial_handshake),
+         {:ok, sequence_id, state} <-
+           maybe_upgrade_to_ssl(config, capability_flags, sequence_id, state) do
+      handshake_response = build_handshake_response(config, initial_handshake, capability_flags)
+      send_handshake_response(config, handshake_response, sequence_id, state)
     end
   end
 
@@ -248,35 +249,13 @@ defmodule MyXQL.Client do
     recv_packet(&decode_initial_handshake/1, state)
   end
 
-  defp ensure_capabilities(initial_handshake(capability_flags: capability_flags)) do
-    if has_capability_flag?(capability_flags, :client_deprecate_eof) do
-      :ok
-    else
-      {:error, :server_not_supported}
-    end
-  end
-
   defp send_handshake_response(
          config,
-         initial_handshake,
+         handshake_response,
          sequence_id,
          state
        ) do
-    initial_handshake(
-      auth_plugin_name: auth_plugin_name,
-      auth_plugin_data: auth_plugin_data
-    ) = initial_handshake
-
-    auth_response = auth_response(auth_plugin_name, auth_plugin_data, config.password)
-
-    payload =
-      encode_handshake_response_41(
-        config.username,
-        auth_plugin_name,
-        auth_response,
-        config.database,
-        config.ssl?
-      )
+    payload = encode_handshake_response_41(handshake_response)
 
     with :ok <- send_packet(payload, sequence_id, state) do
       case recv_packet(&decode_handshake_response/1, state) do
@@ -319,6 +298,7 @@ defmodule MyXQL.Client do
               end
             end
           else
+            auth_plugin_name = handshake_response_41(handshake_response, :auth_plugin_name)
             auth_plugin_secure_connection_error(auth_plugin_name)
           end
 
@@ -328,39 +308,10 @@ defmodule MyXQL.Client do
     end
   end
 
-  defp auth_response(_plugin_name, _plugin_data, nil),
-    do: nil
-
-  defp auth_response("mysql_native_password", plugin_data, password),
-    do: Auth.mysql_native_password(password, plugin_data)
-
-  defp auth_response(plugin_name, plugin_data, password)
-       when plugin_name in ["sha256_password", "caching_sha2_password"],
-       do: Auth.sha256_password(password, plugin_data)
-
-  defp auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
-    do: {:ok, <<>>}
-
-  defp auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
-    do: {:ok, Auth.mysql_native_password(password, plugin_data)}
-
-  defp auth_switch_response(plugin_name, password, _plugin_data, ssl?)
-       when plugin_name in ["sha256_password", "caching_sha2_password"] do
-    if ssl? do
-      {:ok, password <> <<0x00>>}
-    else
-      auth_plugin_secure_connection_error(plugin_name)
-    end
-  end
-
-  # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
-  defp auth_plugin_secure_connection_error(plugin_name) do
-    {:error, {:auth_plugin_error, {plugin_name, "Authentication requires secure connection"}}}
-  end
-
-  defp maybe_upgrade_to_ssl(%{ssl?: true} = config, sequence_id, state) do
+  defp maybe_upgrade_to_ssl(%{ssl?: true} = config, capability_flags, sequence_id, state) do
     {_, sock} = state.sock
-    payload = encode_ssl_request(config.database)
+    ssl_request = ssl_request(capability_flags: capability_flags)
+    payload = encode_ssl_request(ssl_request)
 
     with :ok <- send_packet(payload, sequence_id, state),
          {:ok, ssl_sock} <- :ssl.connect(sock, config.ssl_opts, config.connect_timeout) do
@@ -368,7 +319,7 @@ defmodule MyXQL.Client do
     end
   end
 
-  defp maybe_upgrade_to_ssl(%{ssl?: false}, sequence_id, state) do
+  defp maybe_upgrade_to_ssl(%{ssl?: false}, _capability_flags, sequence_id, state) do
     {:ok, sequence_id, state}
   end
 

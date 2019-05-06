@@ -1,31 +1,8 @@
 defmodule MyXQL.Protocol.Messages do
   @moduledoc false
   import MyXQL.Protocol.{Flags, Records, Types}
-  alias MyXQL.Protocol.Values
+  alias MyXQL.Protocol.{Auth, Values}
   use Bitwise
-
-  @max_packet_size 16_777_215
-
-  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-  # utf8mb4 == 45
-  @default_charset 45
-
-  defp capability_flags(database, ssl?) do
-    put_capability_flags([
-      :client_protocol_41,
-      :client_deprecate_eof,
-      :client_plugin_auth,
-      :client_secure_connection,
-      :client_found_rows,
-      :client_multi_results,
-      :client_transactions
-    ])
-    |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(database))
-    |> maybe_put_capability_flag(:client_ssl, ssl?)
-  end
-
-  defp maybe_put_capability_flag(flags, name, true), do: put_capability_flags(flags, [name])
-  defp maybe_put_capability_flag(flags, _name, false), do: flags
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
   @cursor_types %{
@@ -132,21 +109,99 @@ defmodule MyXQL.Protocol.Messages do
     decode_connect_err_packet(rest)
   end
 
+  def build_capability_flags(config, initial_handshake) do
+    initial_handshake(capability_flags: server_capability_flags) = initial_handshake
+
+    if has_capability_flag?(server_capability_flags, :client_deprecate_eof) do
+      capability_flags =
+        put_capability_flags([
+          :client_protocol_41,
+          :client_deprecate_eof,
+          :client_plugin_auth,
+          :client_secure_connection,
+          :client_found_rows,
+          :client_multi_results,
+          :client_transactions
+        ])
+        |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
+        |> maybe_put_capability_flag(:client_ssl, config.ssl?)
+
+      {:ok, capability_flags}
+    else
+      {:error, :server_not_supported}
+    end
+  end
+
+  defp maybe_put_capability_flag(flags, name, true), do: put_capability_flags(flags, [name])
+  defp maybe_put_capability_flag(flags, _name, false), do: flags
+
+  def build_handshake_response(config, initial_handshake, capability_flags) do
+    %{username: username, password: password, database: database} = config
+
+    initial_handshake(
+      auth_plugin_name: auth_plugin_name,
+      auth_plugin_data: auth_plugin_data
+    ) = initial_handshake
+
+    auth_response = auth_response(auth_plugin_name, auth_plugin_data, password)
+
+    handshake_response_41(
+      capability_flags: capability_flags,
+      username: username,
+      auth_plugin_name: auth_plugin_name,
+      auth_response: auth_response,
+      database: database
+    )
+  end
+
+  def auth_response(_plugin_name, _plugin_data, nil),
+    do: nil
+
+  def auth_response("mysql_native_password", plugin_data, password),
+    do: Auth.mysql_native_password(password, plugin_data)
+
+  def auth_response(plugin_name, plugin_data, password)
+      when plugin_name in ["sha256_password", "caching_sha2_password"],
+      do: Auth.sha256_password(password, plugin_data)
+
+  def auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
+    do: {:ok, <<>>}
+
+  def auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
+    do: {:ok, Auth.mysql_native_password(password, plugin_data)}
+
+  def auth_switch_response(plugin_name, password, _plugin_data, ssl?)
+      when plugin_name in ["sha256_password", "caching_sha2_password"] do
+    if ssl? do
+      {:ok, password <> <<0x00>>}
+    else
+      auth_plugin_secure_connection_error(plugin_name)
+    end
+  end
+
+  # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
+  def auth_plugin_secure_connection_error(plugin_name) do
+    {:error, {:auth_plugin_error, {plugin_name, "Authentication requires secure connection"}}}
+  end
+
   def encode_handshake_response_41(
-        username,
-        auth_plugin_name,
-        auth_response,
-        database,
-        ssl?
+        handshake_response_41(
+          capability_flags: capability_flags,
+          max_packet_size: max_packet_size,
+          character_set: character_set,
+          username: username,
+          auth_plugin_name: auth_plugin_name,
+          auth_response: auth_response,
+          database: database
+        )
       ) do
-    capability_flags = capability_flags(database, ssl?)
     auth_response = if auth_response, do: encode_string_lenenc(auth_response), else: <<0>>
     database = if database, do: <<database::binary, 0x00>>, else: ""
 
     <<
       capability_flags::uint4,
-      @max_packet_size::uint4,
-      @default_charset,
+      max_packet_size::uint4,
+      character_set,
       0::uint(23),
       <<username::binary, 0x00>>,
       auth_response::binary,
@@ -155,13 +210,17 @@ defmodule MyXQL.Protocol.Messages do
     >>
   end
 
-  def encode_ssl_request(database) do
-    capability_flags = capability_flags(database, true)
-
+  def encode_ssl_request(
+        ssl_request(
+          capability_flags: capability_flags,
+          max_packet_size: max_packet_size,
+          character_set: character_set
+        )
+      ) do
     <<
       capability_flags::uint4,
-      @max_packet_size::uint4,
-      @default_charset,
+      max_packet_size::uint4,
+      character_set,
       0::uint(23)
     >>
   end
