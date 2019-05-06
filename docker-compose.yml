@@ -1,0 +1,53 @@
+version: "3"
+services:
+  # mysql-5.5:
+  #   image: "mysql:5.5"
+  #   ports:
+  #     - "5050:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  # mysql-5.6:
+  #   image: "mysql:5.6"
+  #   ports:
+  #     - "5060:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-5.7:
+    image: "mysql:5.7"
+    ports:
+      - "5070:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-8.0:
+    image: "mysql:8.0"
+    ports:
+      - "8000:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-8.0-mysql-native-password:
+    image: "mysql:8.0"
+    ports:
+      - "8001:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--default-authentication-plugin=mysql_native_password"
+  mysql-8.0-sha:
+    image: "mysql:8.0"
+    ports:
+      - "8002:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--default-authentication-plugin=sha256_password"
+  mariadb-10.3:
+    image: "mariadb:10.3"
+    ports:
+      - "10003:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--default-authentication-plugin=mysql_native_password"
+  mariadb-10.4:
+    image: "mariadb:10.4"
+    ports:
+      - "10004:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
