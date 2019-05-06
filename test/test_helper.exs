@@ -197,12 +197,12 @@ defmodule TestHelper do
     exclude =
       if "sha256_password" in auth_plugins,
         do: exclude,
-        else: [:sha256_password | exclude]
+        else: [{:sha256_password, true} | exclude]
 
     exclude =
       if "caching_sha2_password" in auth_plugins,
         do: exclude,
-        else: [:caching_sha2_password | exclude]
+        else: [{:caching_sha2_password, true} | exclude]
 
     exclude =
       case System.get_env("JSON") do
@@ -212,9 +212,9 @@ defmodule TestHelper do
 
     exclude =
       if supports_ssl?() do
-        exclude
+        [{:ssl, false} | exclude]
       else
-        [:ssl | exclude]
+        [{:ssl, true} | exclude]
       end
 
     exclude

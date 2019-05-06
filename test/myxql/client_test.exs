@@ -71,6 +71,12 @@ defmodule MyXQL.ClientTest do
       opts = [username: "caching_sha2_password", password: "secret", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
+
+    @tag ssl: false
+    test "client requires ssl but server does not support it" do
+      opts = [ssl: true] ++ @opts
+      assert {:error, :server_does_not_support_ssl} = Client.connect(opts)
+    end
   end
 
   describe "com_stmt_execute and com_stmt_fetch" do

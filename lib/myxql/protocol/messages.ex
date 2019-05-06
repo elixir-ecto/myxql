@@ -112,23 +112,27 @@ defmodule MyXQL.Protocol.Messages do
   def build_capability_flags(config, initial_handshake) do
     initial_handshake(capability_flags: server_capability_flags) = initial_handshake
 
-    if has_capability_flag?(server_capability_flags, :client_deprecate_eof) do
-      capability_flags =
-        put_capability_flags([
-          :client_protocol_41,
-          :client_deprecate_eof,
-          :client_plugin_auth,
-          :client_secure_connection,
-          :client_found_rows,
-          :client_multi_results,
-          :client_transactions
-        ])
-        |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
-        |> maybe_put_capability_flag(:client_ssl, config.ssl?)
+    client_capability_flags =
+      put_capability_flags([
+        :client_protocol_41,
+        :client_deprecate_eof,
+        :client_plugin_auth,
+        :client_secure_connection,
+        :client_found_rows,
+        :client_multi_results,
+        :client_transactions
+      ])
+      |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
+      |> maybe_put_capability_flag(:client_ssl, config.ssl?)
 
-      {:ok, capability_flags}
+    if (client_capability_flags &&& server_capability_flags) == client_capability_flags do
+      {:ok, client_capability_flags}
     else
-      {:error, :server_not_supported}
+      if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
+        {:error, :server_does_not_support_ssl}
+      else
+        {:error, :server_not_supported}
+      end
     end
   end
 
