@@ -160,6 +160,14 @@ defmodule TestHelper do
     |> Enum.at(1)
   end
 
+  def supports_ssl?() do
+    "SELECT @@have_ssl"
+    |> mysql()
+    |> String.split("\n", trim: true)
+    |> Enum.at(1)
+    |> Kernel.==("YES")
+  end
+
   def mysql(sql, options \\ []) do
     args = ~w(
       --protocol=tcp
@@ -181,22 +189,20 @@ defmodule TestHelper do
   end
 
   def excludes() do
-    exclude = if System.otp_release() >= "19", do: [], else: [:requires_otp_19]
     auth_plugins = auth_plugins()
 
-    exclude =
-      if "sha256_password" in auth_plugins do
-        exclude
-      else
-        [{:auth_plugin, "sha256_password"} | exclude]
-      end
+    exclude = []
+    exclude = if System.otp_release() >= "19", do: exclude, else: [:requires_otp_19]
 
     exclude =
-      if "caching_sha2_password" in auth_plugins do
-        exclude
-      else
-        [{:auth_plugin, "caching_sha2_password"} | exclude]
-      end
+      if "sha256_password" in auth_plugins,
+        do: exclude,
+        else: [:sha256_password | exclude]
+
+    exclude =
+      if "caching_sha2_password" in auth_plugins,
+        do: exclude,
+        else: [:caching_sha2_password | exclude]
 
     exclude =
       case System.get_env("JSON") do
@@ -205,9 +211,10 @@ defmodule TestHelper do
       end
 
     exclude =
-      case System.get_env("SSL") do
-        "false" -> [{:requires_ssl, true} | exclude]
-        _ -> exclude
+      if supports_ssl?() do
+        exclude
+      else
+        [:ssl | exclude]
       end
 
     exclude

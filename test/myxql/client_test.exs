@@ -1,15 +1,81 @@
 defmodule MyXQL.ClientTest do
   use ExUnit.Case, async: true
-  alias MyXQL.{Client, Protocol.ServerErrorCodes}
+  alias MyXQL.{Client, Protocol.ServerErrorCodes}, warn: false
   import MyXQL.Protocol.{Flags, Records}
 
-  setup do
-    {:ok, state} = Client.connect(TestHelper.opts())
-    {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
-    [state: state]
+  @opts TestHelper.opts()
+
+  describe "connect" do
+    test "default auth plugin" do
+      opts = [username: "default_auth", password: "secret"] ++ @opts
+      auth_plugin = TestHelper.default_auth_plugin()
+
+      if auth_plugin in ["sha256_password", "caching_sha2_password"] do
+        assert {:error,
+                {:auth_plugin_error, {^auth_plugin, "Authentication requires secure connection"}}} =
+                 Client.connect(opts)
+      else
+        assert {:ok, _} = Client.connect(opts)
+      end
+    end
+
+    @tag :ssl
+    test "default auth plugin (ssl)" do
+      opts = [username: "default_auth", password: "secret", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    test "no password" do
+      opts = [username: "nopassword"] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag :ssl
+    test "no password (ssl)" do
+      opts = [username: "nopassword", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag :mysql_native_password
+    test "mysql_native_password" do
+      opts = [username: "mysql_native_password", password: "secret"] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag mysql_native_password: true, ssl: true
+    test "mysql_native_password (ssl)" do
+      opts = [username: "mysql_native_password", password: "secret", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag :sha256_password
+    test "sha256_password" do
+      opts = [username: "sha256_password", password: "secret"] ++ @opts
+      assert {:error, {:auth_plugin_error, _}} = Client.connect(opts)
+    end
+
+    @tag sha256_password: true, ssl: true
+    test "sha256_password (ssl)" do
+      opts = [username: "sha256_password", password: "secret", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag :caching_sha2_password
+    test "caching_sha2_password" do
+      opts = [username: "caching_sha2_password", password: "secret"] ++ @opts
+      assert {:error, {:auth_plugin_error, _}} = Client.connect(opts)
+    end
+
+    @tag caching_sha2_password: true, ssl: true
+    test "caching_sha2_password (ssl)" do
+      opts = [username: "caching_sha2_password", password: "secret", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
   end
 
   describe "com_stmt_execute and com_stmt_fetch" do
+    setup :connect
+
     test "with no results", %{state: state} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
         Client.com_stmt_prepare("select * from integers", state)
@@ -78,5 +144,11 @@ defmodule MyXQL.ClientTest do
       assert {:error, :multiple_results} =
                Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
     end
+  end
+
+  defp connect(_) do
+    {:ok, state} = Client.connect(@opts)
+    {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
+    {:ok, [state: state]}
   end
 end
