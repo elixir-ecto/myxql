@@ -82,6 +82,17 @@ defmodule MyXQL.Protocol.Messages do
       character_set::uint1,
       status_flags::uint2,
       capability_flags2::uint2,
+      rest::binary
+    >> = rest
+
+    <<capability_flags::uint4>> = <<capability_flags1::uint2, capability_flags2::uint2>>
+
+    # all set in servers since MySQL 4.1
+    ensure_capability!(capability_flags, :client_protocol_41)
+    ensure_capability!(capability_flags, :client_plugin_auth)
+    ensure_capability!(capability_flags, :client_secure_connection)
+
+    <<
       auth_plugin_data_length::uint1,
       _::uint(10),
       rest::binary
@@ -91,7 +102,6 @@ defmodule MyXQL.Protocol.Messages do
     <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
     auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
     auth_plugin_name = decode_string_nul(auth_plugin_name)
-    <<capability_flags::uint4>> = <<capability_flags1::uint2, capability_flags2::uint2>>
     auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
 
     initial_handshake(
@@ -109,6 +119,12 @@ defmodule MyXQL.Protocol.Messages do
     decode_connect_err_packet(rest)
   end
 
+  def ensure_capability!(capability_flags, name) do
+    unless has_capability_flag?(capability_flags, name) do
+      raise "server does not support #{inspect(name)} capability"
+    end
+  end
+
   def build_capability_flags(config, initial_handshake) do
     initial_handshake(capability_flags: server_capability_flags) = initial_handshake
 
@@ -120,6 +136,7 @@ defmodule MyXQL.Protocol.Messages do
         :client_secure_connection,
         :client_found_rows,
         :client_multi_results,
+        # set by servers since 4.0
         :client_transactions
       ])
       |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
