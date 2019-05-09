@@ -23,8 +23,13 @@ defmodule MyXQL.ClientTest do
       opts = [username: "default_auth", password: "secret"] ++ @opts
 
       case Client.connect(opts) do
-        {:ok, _} -> :ok
-        {:error, err_packet(message: "Access denied" <> _)} -> :ok
+        # e.g. mysql_native_password doesn't require secure connection
+        {:ok, _} ->
+          :ok
+
+        # e.g. sha256_password does
+        {:error, err_packet(message: "Access denied" <> _)} ->
+          :ok
       end
     end
 
@@ -38,6 +43,8 @@ defmodule MyXQL.ClientTest do
       opts = [username: "nopassword", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
+
+    # mysql_native_password
 
     @tag mysql_native_password: true
     test "mysql_native_password" do
@@ -56,6 +63,8 @@ defmodule MyXQL.ClientTest do
       opts = [username: "mysql_native", password: "secret", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
+
+    # sha256_password
 
     @tag sha256_password: true, public_key_exchange: true
     test "sha256_password" do
@@ -81,11 +90,13 @@ defmodule MyXQL.ClientTest do
       assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
-    # @tag sha256_password: true, ssl: true
-    # test "sha256_password (empty password) (ssl)" do
-    #   opts = [username: "sha256_empty", ssl: true] ++ @opts
-    #   assert {:ok, _} = Client.connect(opts)
-    # end
+    @tag sha256_password: true, ssl: true
+    test "sha256_password (empty password) (ssl)" do
+      opts = [username: "sha256_empty", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    # caching_sha2_password
 
     @tag caching_sha2_password: true, public_key_exchange: true
     test "caching_sha2_password (public key exchange)" do
@@ -110,6 +121,8 @@ defmodule MyXQL.ClientTest do
       opts = [username: "caching_sha2_password", password: "bad", ssl: true] ++ @opts
       assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
+
+    # other
 
     @tag ssl: false
     test "client requires ssl but server does not support it" do
