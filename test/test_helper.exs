@@ -25,21 +25,21 @@ defmodule TestHelper do
   end
 
   def configure_server() do
-    mysql("""
+    mysql!("""
     -- set packet size to 100mb
     SET GLOBAL max_allowed_packet=#{100_000_000};
     """)
   end
 
   def create_test_database() do
-    mysql("""
+    mysql!("""
     DROP DATABASE IF EXISTS myxql_test;
     CREATE DATABASE myxql_test;
     """)
   end
 
   def create_test_users() do
-    mysql("""
+    mysql!("""
     DROP USER IF EXISTS default_auth;
     CREATE USER default_auth IDENTIFIED BY 'secret';
     GRANT ALL PRIVILEGES ON myxql_test.* TO default_auth;
@@ -57,7 +57,7 @@ defmodule TestHelper do
     auth_plugins = auth_plugins()
 
     if "sha256_password" in auth_plugins do
-      mysql("""
+      mysql!("""
       DROP USER IF EXISTS sha256_password;
       CREATE USER sha256_password IDENTIFIED WITH sha256_password;
       ALTER USER sha256_password IDENTIFIED BY 'secret';
@@ -76,7 +76,7 @@ defmodule TestHelper do
   end
 
   def create_test_tables() do
-    mysql("""
+    mysql!("""
     USE myxql_test;
 
     CREATE TABLE integers (x int);
@@ -148,43 +148,47 @@ defmodule TestHelper do
 
   def auth_plugins() do
     "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'authentication'"
-    |> mysql()
+    |> mysql!()
     |> String.split("\n", trim: true)
     |> Enum.drop(1)
   end
 
   def default_auth_plugin() do
     "SELECT plugin FROM mysql.user WHERE user = 'root' LIMIT 1"
-    |> mysql()
+    |> mysql!()
     |> String.split("\n", trim: true)
     |> Enum.at(1)
   end
 
   def supports_ssl?() do
-    "SELECT @@have_ssl"
-    |> mysql()
-    |> String.split("\n", trim: true)
-    |> Enum.at(1)
-    |> Kernel.==("YES")
+    mysql!("SELECT @@have_ssl") == "@@have_ssl\nYES\n"
+  end
+
+  def mysql!(sql, options \\ []) do
+    case mysql(sql, options) do
+      {:ok, result} -> result
+      {:error, message} -> exit(message)
+    end
   end
 
   def mysql(sql, options \\ []) do
     args = ~w(
-      --protocol=tcp
-      --user=root
-    ) ++ ["-e", sql]
+        --protocol=tcp
+        --user=root
+      ) ++ ["-e", sql]
 
     cmd(["mysql" | args], options)
   end
 
   def cmd([command | args], options) do
+    options = Keyword.put_new(options, :stderr_to_stdout, true)
+
     case System.cmd(command, args, options) do
       {result, 0} ->
-        result
+        {:ok, result}
 
       {result, _} ->
-        IO.puts(result)
-        exit(:error)
+        {:error, result}
     end
   end
 
