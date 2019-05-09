@@ -164,6 +164,24 @@ defmodule TestHelper do
     mysql!("SELECT @@have_ssl") == "@@have_ssl\nYES\n"
   end
 
+  def supports_json?() do
+    sql =
+      "CREATE TEMPORARY TABLE myxql_test.test_json (json json); SHOW COLUMNS IN myxql_test.test_json"
+
+    case mysql(sql) do
+      {:ok, result} ->
+        row =
+          result
+          |> String.split("\n", trim: true)
+          |> Enum.at(1)
+
+        row =~ "json\tjson"
+
+      {:error, _} ->
+        false
+    end
+  end
+
   def mysql!(sql, options \\ []) do
     case mysql(sql, options) do
       {:ok, result} -> result
@@ -212,6 +230,13 @@ defmodule TestHelper do
       case System.get_env("JSON") do
         "false" -> [{:requires_json, true} | exclude]
         _ -> exclude
+      end
+
+    exclude =
+      if supports_json?() do
+        [{:json, false} | exclude]
+      else
+        [{:json, true} | exclude]
       end
 
     exclude =

@@ -16,7 +16,7 @@ env:
   matrix:
     - DB=mysql:8.0
     - DB=mysql:5.7
-    - DB=mariadb:10.3 JSON=false SSL=false
+    - DB=mariadb:10.3
 matrix:
   include:
     - elixir: 1.4

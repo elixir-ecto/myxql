@@ -221,7 +221,7 @@ defmodule MyXQL.Protocol.ValueTest do
         assert insert_and_get(c, "my_boolean", false) == 0
       end
 
-      @tag requires_json: true
+      @tag json: true
       test "JSON", c do
         assert_roundtrip(c, "my_json", [])
         assert_roundtrip(c, "my_json", [1, [2, 3]])
