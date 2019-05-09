@@ -54,9 +54,9 @@ defmodule TestHelper do
     GRANT ALL PRIVILEGES ON myxql_test.* TO nopassword;
     """)
 
-    auth_plugins = auth_plugins()
+    auth_plugins = available_auth_plugins()
 
-    if "sha256_password" in auth_plugins do
+    if :sha256_password in auth_plugins do
       mysql!("""
       DROP USER IF EXISTS sha256_password;
       CREATE USER sha256_password IDENTIFIED WITH sha256_password;
@@ -65,7 +65,7 @@ defmodule TestHelper do
       """)
     end
 
-    if "caching_sha2_password" in auth_plugins do
+    if :caching_sha2_password in auth_plugins do
       mysql("""
       DROP USER IF EXISTS caching_sha2_password;
       CREATE USER caching_sha2_password IDENTIFIED WITH caching_sha2_password;
@@ -146,11 +146,12 @@ defmodule TestHelper do
     """)
   end
 
-  def auth_plugins() do
+  def available_auth_plugins() do
     "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'authentication'"
     |> mysql!()
     |> String.split("\n", trim: true)
     |> Enum.drop(1)
+    |> Enum.map(&String.to_atom/1)
   end
 
   def default_auth_plugin() do
@@ -211,41 +212,18 @@ defmodule TestHelper do
   end
 
   def excludes() do
-    auth_plugins = auth_plugins()
-
-    exclude = []
-    exclude = if System.otp_release() >= "19", do: exclude, else: [:requires_otp_19]
+    supported_auth_plugins = [:mysql_native_password, :sha256_password, :caching_sha2_password]
+    available_auth_plugins = available_auth_plugins()
 
     exclude =
-      if "sha256_password" in auth_plugins,
-        do: exclude,
-        else: [{:sha256_password, true} | exclude]
-
-    exclude =
-      if "caching_sha2_password" in auth_plugins,
-        do: exclude,
-        else: [{:caching_sha2_password, true} | exclude]
-
-    exclude =
-      case System.get_env("JSON") do
-        "false" -> [{:requires_json, true} | exclude]
-        _ -> exclude
+      for plugin <- supported_auth_plugins,
+          plugin not in available_auth_plugins do
+        {plugin, true}
       end
 
-    exclude =
-      if supports_json?() do
-        [{:json, false} | exclude]
-      else
-        [{:json, true} | exclude]
-      end
-
-    exclude =
-      if supports_ssl?() do
-        [{:ssl, false} | exclude]
-      else
-        [{:ssl, true} | exclude]
-      end
-
+    exclude = [{:requires_otp_19, System.otp_release() < "19"} | exclude]
+    exclude = [{:ssl, not supports_ssl?()} | exclude]
+    exclude = [{:json, not supports_json?()} | exclude]
     exclude
   end
 end
