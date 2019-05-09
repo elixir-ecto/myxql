@@ -45,6 +45,9 @@ defmodule MyXQL.Protocol.Records do
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
 
+  # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthMoreData
+  defrecord :auth_more_data, [:data]
+
   # https://dev.mysql.com/doc/internals/en/com-stmt-prepare-response.html#packet-COM_STMT_PREPARE_OK
   defrecord :com_stmt_prepare_ok, [:statement_id, :num_columns, :num_params, :num_warnings]
 

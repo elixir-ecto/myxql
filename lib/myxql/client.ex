@@ -3,6 +3,7 @@ defmodule MyXQL.Client do
 
   require Logger
   import MyXQL.Protocol.{Messages, Records, Types}
+  alias MyXQL.Protocol.Auth
 
   defmodule Config do
     @moduledoc false
@@ -126,6 +127,12 @@ defmodule MyXQL.Client do
     send_packet(payload, 0, state)
   end
 
+  def send_recv_packet(payload, decoder, sequence_id, sock) do
+    with :ok <- send_packet(payload, sequence_id, sock) do
+      recv_packet(decoder, sock)
+    end
+  end
+
   def send_packet(payload, sequence_id, state) do
     data = encode_packet(payload, sequence_id)
     send_data(state, data)
@@ -240,70 +247,24 @@ defmodule MyXQL.Client do
          {:ok, capability_flags} <- build_capability_flags(config, initial_handshake),
          {:ok, sequence_id, state} <-
            maybe_upgrade_to_ssl(config, capability_flags, sequence_id, state) do
-      handshake_response = build_handshake_response(config, initial_handshake, capability_flags)
-      send_handshake_response(config, handshake_response, sequence_id, state)
-    end
-  end
+      result =
+        handle_handshake_response(
+          config,
+          initial_handshake,
+          capability_flags,
+          sequence_id,
+          state
+        )
 
-  defp recv_handshake(state) do
-    recv_packet(&decode_initial_handshake/1, state)
-  end
-
-  defp send_handshake_response(
-         config,
-         handshake_response,
-         sequence_id,
-         state
-       ) do
-    payload = encode_handshake_response_41(handshake_response)
-
-    with :ok <- send_packet(payload, sequence_id, state) do
-      case recv_packet(&decode_handshake_response/1, state) do
+      case result do
         {:ok, ok_packet()} ->
           {:ok, state}
 
         {:ok, err_packet() = err_packet} ->
           {:error, err_packet}
 
-        {:ok, auth_switch_request(plugin_name: plugin_name, plugin_data: plugin_data)} ->
-          with {:ok, auth_response} <-
-                 auth_switch_response(plugin_name, config.password, plugin_data, config.ssl?),
-               :ok <- send_packet(auth_response, sequence_id + 2, state) do
-            case recv_packet(&decode_handshake_response/1, state) do
-              {:ok, ok_packet(num_warnings: 0)} ->
-                {:ok, state}
-
-              {:ok, err_packet() = err_packet} ->
-                {:error, err_packet}
-
-              {:error, _reason} = error ->
-                error
-            end
-          end
-
-        {:ok, :full_auth} ->
-          if config.ssl? do
-            auth_response = config.password <> <<0x00>>
-
-            with :ok <- send_packet(auth_response, sequence_id + 2, state) do
-              case recv_packet(&decode_handshake_response/1, state) do
-                {:ok, ok_packet(num_warnings: 0)} ->
-                  {:ok, state}
-
-                {:ok, err_packet() = err_packet} ->
-                  {:error, err_packet}
-
-                {:error, _reason} = error ->
-                  error
-              end
-            end
-          else
-            auth_plugin_name = handshake_response_41(handshake_response, :auth_plugin_name)
-            auth_plugin_secure_connection_error(auth_plugin_name)
-          end
-
-        {:error, _reason} = error ->
-          error
+        other ->
+          other
       end
     end
   end
@@ -321,6 +282,102 @@ defmodule MyXQL.Client do
 
   defp maybe_upgrade_to_ssl(%{ssl?: false}, _capability_flags, sequence_id, state) do
     {:ok, sequence_id, state}
+  end
+
+  defp recv_handshake(state) do
+    recv_packet(&decode_initial_handshake/1, state)
+  end
+
+  defp handle_handshake_response(config, initial_handshake, capability_flags, sequence_id, state) do
+    initial_handshake(
+      auth_plugin_name: initial_auth_plugin_name,
+      auth_plugin_data: initial_auth_plugin_data
+    ) = initial_handshake
+
+    auth_response = Auth.auth_response(config, initial_auth_plugin_name, initial_auth_plugin_data)
+
+    handshake_response =
+      handshake_response_41(
+        capability_flags: capability_flags,
+        username: config.username,
+        auth_plugin_name: initial_auth_plugin_name,
+        auth_response: auth_response,
+        database: config.database
+      )
+
+    payload = encode_handshake_response_41(handshake_response)
+
+    case send_recv_packet(payload, &decode_auth_response/1, sequence_id, state) do
+      {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->
+        auth_response = Auth.auth_response(config, auth_plugin_name, initial_auth_plugin_data)
+
+        case send_recv_packet(auth_response, &decode_auth_response/1, sequence_id + 2, state) do
+          {:ok, :full_auth} ->
+            perform_full_auth(config, auth_plugin_name, auth_plugin_data, sequence_id + 2, state)
+
+          {:ok, auth_more_data(data: public_key)} ->
+            perform_public_key_auth(
+              config.password,
+              public_key,
+              auth_plugin_data,
+              sequence_id + 4,
+              state
+            )
+
+          other ->
+            other
+        end
+
+      {:ok, :full_auth} ->
+        perform_full_auth(
+          config,
+          initial_auth_plugin_name,
+          initial_auth_plugin_data,
+          sequence_id,
+          state
+        )
+
+      {:ok, auth_more_data(data: public_key)} ->
+        perform_public_key_auth(
+          config.password,
+          public_key,
+          initial_auth_plugin_data,
+          sequence_id + 2,
+          state
+        )
+
+      other ->
+        other
+    end
+  end
+
+  defp perform_public_key_auth(password, public_key, auth_plugin_data, sequence_id, state) do
+    auth_response = Auth.encrypt_sha_password(password, public_key, auth_plugin_data)
+    send_recv_packet(auth_response, &decode_auth_response/1, sequence_id, state)
+  end
+
+  defp perform_full_auth(config, "caching_sha2_password", auth_plugin_data, sequence_id, state) do
+    auth_response =
+      if config.ssl? do
+        [config.password, 0]
+      else
+        # request public key
+        <<2>>
+      end
+
+    case send_recv_packet(auth_response, &decode_auth_response/1, sequence_id + 2, state) do
+      {:ok, auth_more_data(data: public_key)} ->
+        perform_public_key_auth(
+          config.password,
+          public_key,
+          auth_plugin_data,
+          sequence_id + 4,
+          state
+        )
+
+      other ->
+        other
+    end
   end
 
   defp start_handshake_timer(:infinity, _), do: :infinity

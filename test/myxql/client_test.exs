@@ -6,23 +6,26 @@ defmodule MyXQL.ClientTest do
   @opts TestHelper.opts()
 
   describe "connect" do
-    test "default auth plugin" do
+    @tag public_key_exchange: true
+    test "default auth plugin (public key exchange)" do
       opts = [username: "default_auth", password: "secret"] ++ @opts
-      auth_plugin = TestHelper.default_auth_plugin()
-
-      if auth_plugin in ["sha256_password", "caching_sha2_password"] do
-        assert {:error,
-                {:auth_plugin_error, {^auth_plugin, "Authentication requires secure connection"}}} =
-                 Client.connect(opts)
-      else
-        assert {:ok, _} = Client.connect(opts)
-      end
+      assert {:ok, _} = Client.connect(opts)
     end
 
-    @tag :ssl
+    @tag ssl: true
     test "default auth plugin (ssl)" do
       opts = [username: "default_auth", password: "secret", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag public_key_exchange: false, ssl: false
+    test "default auth plugin (no secure authentication)" do
+      opts = [username: "default_auth", password: "secret"] ++ @opts
+
+      case Client.connect(opts) do
+        {:ok, _} -> :ok
+        {:error, err_packet(message: "Access denied" <> _)} -> :ok
+      end
     end
 
     test "no password" do
@@ -30,28 +33,34 @@ defmodule MyXQL.ClientTest do
       assert {:ok, _} = Client.connect(opts)
     end
 
-    @tag :ssl
+    @tag ssl: true
     test "no password (ssl)" do
       opts = [username: "nopassword", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
 
-    @tag :mysql_native_password
+    @tag mysql_native_password: true
     test "mysql_native_password" do
-      opts = [username: "mysql_native_password", password: "secret"] ++ @opts
+      opts = [username: "mysql_native", password: "secret"] ++ @opts
       assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag mysql_native_password: true
+    test "mysql_native_password (bad password)" do
+      opts = [username: "mysql_native", password: "bad"] ++ @opts
+      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag mysql_native_password: true, ssl: true
     test "mysql_native_password (ssl)" do
-      opts = [username: "mysql_native_password", password: "secret", ssl: true] ++ @opts
+      opts = [username: "mysql_native", password: "secret", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
 
-    @tag :sha256_password
+    @tag sha256_password: true, public_key_exchange: true
     test "sha256_password" do
       opts = [username: "sha256_password", password: "secret"] ++ @opts
-      assert {:error, {:auth_plugin_error, _}} = Client.connect(opts)
+      assert {:ok, _} = Client.connect(opts)
     end
 
     @tag sha256_password: true, ssl: true
@@ -60,16 +69,46 @@ defmodule MyXQL.ClientTest do
       assert {:ok, _} = Client.connect(opts)
     end
 
-    @tag :caching_sha2_password
-    test "caching_sha2_password" do
+    @tag sha256_password: true, public_key_exchange: true
+    test "sha256_password (bad password)" do
+      opts = [username: "sha256_password", password: "bad"] ++ @opts
+      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
+    @tag sha256_password: true, ssl: true
+    test "sha256_password (bad password) (ssl)" do
+      opts = [username: "sha256_password", password: "bad", ssl: true] ++ @opts
+      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
+    # @tag sha256_password: true, ssl: true
+    # test "sha256_password (empty password) (ssl)" do
+    #   opts = [username: "sha256_empty", ssl: true] ++ @opts
+    #   assert {:ok, _} = Client.connect(opts)
+    # end
+
+    @tag caching_sha2_password: true, public_key_exchange: true
+    test "caching_sha2_password (public key exchange)" do
       opts = [username: "caching_sha2_password", password: "secret"] ++ @opts
-      assert {:error, {:auth_plugin_error, _}} = Client.connect(opts)
+      assert {:ok, _} = Client.connect(opts)
     end
 
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (ssl)" do
       opts = [username: "caching_sha2_password", password: "secret", ssl: true] ++ @opts
       assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag caching_sha2_password: true
+    test "caching_sha2_password (bad password)" do
+      opts = [username: "caching_sha2_password", password: "bad"] ++ @opts
+      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
+    @tag caching_sha2_password: true, ssl: true
+    test "caching_sha2_password (bad password) (ssl)" do
+      opts = [username: "caching_sha2_password", password: "bad", ssl: true] ++ @opts
+      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag ssl: false

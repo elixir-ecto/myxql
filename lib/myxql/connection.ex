@@ -329,13 +329,6 @@ defmodule MyXQL.Connection do
     %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
   end
 
-  defp error({:auth_plugin_error, {auth_plugin, message}}) do
-    message = "Authentication plugin '#{auth_plugin}' reported error: #{message}"
-    code = 2061
-    name = :CR_AUTH_PLUGIN_ERR
-    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
-  end
-
   defp error(:server_not_supported) do
     message = "MyXQL requires MySQL server 5.7.10+"
     %MyXQL.Error{message: message}

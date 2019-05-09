@@ -18,6 +18,13 @@ services:
       - "5070:3306"
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-5.7-sha:
+    image: "mysql:5.7"
+    ports:
+      - "5071:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--default-authentication-plugin=sha256_password"
   mysql-8.0:
     image: "mysql:8.0"
     ports:

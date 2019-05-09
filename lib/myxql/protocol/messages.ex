@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Messages do
   @moduledoc false
   import MyXQL.Protocol.{Flags, Records, Types}
-  alias MyXQL.Protocol.{Auth, Values}
+  alias MyXQL.Protocol.Values
   use Bitwise
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
@@ -139,55 +139,6 @@ defmodule MyXQL.Protocol.Messages do
   defp maybe_put_capability_flag(flags, name, true), do: put_capability_flags(flags, [name])
   defp maybe_put_capability_flag(flags, _name, false), do: flags
 
-  def build_handshake_response(config, initial_handshake, capability_flags) do
-    %{username: username, password: password, database: database} = config
-
-    initial_handshake(
-      auth_plugin_name: auth_plugin_name,
-      auth_plugin_data: auth_plugin_data
-    ) = initial_handshake
-
-    auth_response = auth_response(auth_plugin_name, auth_plugin_data, password)
-
-    handshake_response_41(
-      capability_flags: capability_flags,
-      username: username,
-      auth_plugin_name: auth_plugin_name,
-      auth_response: auth_response,
-      database: database
-    )
-  end
-
-  def auth_response(_plugin_name, _plugin_data, nil),
-    do: nil
-
-  def auth_response("mysql_native_password", plugin_data, password),
-    do: Auth.mysql_native_password(password, plugin_data)
-
-  def auth_response(plugin_name, plugin_data, password)
-      when plugin_name in ["sha256_password", "caching_sha2_password"],
-      do: Auth.sha256_password(password, plugin_data)
-
-  def auth_switch_response(_plugin_name, nil, _plugin_data, _ssl?),
-    do: {:ok, <<>>}
-
-  def auth_switch_response("mysql_native_password", password, plugin_data, _ssl?),
-    do: {:ok, Auth.mysql_native_password(password, plugin_data)}
-
-  def auth_switch_response(plugin_name, password, _plugin_data, ssl?)
-      when plugin_name in ["sha256_password", "caching_sha2_password"] do
-    if ssl? do
-      {:ok, password <> <<0x00>>}
-    else
-      auth_plugin_secure_connection_error(plugin_name)
-    end
-  end
-
-  # https://dev.mysql.com/doc/refman/8.0/en/client-error-reference.html#error_cr_auth_plugin_err
-  def auth_plugin_secure_connection_error(plugin_name) do
-    {:error, {:auth_plugin_error, {plugin_name, "Authentication requires secure connection"}}}
-  end
-
   def encode_handshake_response_41(
         handshake_response_41(
           capability_flags: capability_flags,
@@ -229,15 +180,19 @@ defmodule MyXQL.Protocol.Messages do
     >>
   end
 
-  def decode_handshake_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
+  def decode_auth_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
     decode_generic_response(rest, header)
   end
 
-  def decode_handshake_response(<<0x01, 0x04>>) do
+  def decode_auth_response(<<0x01, 0x04>>) do
     :full_auth
   end
 
-  def decode_handshake_response(<<0xFE, rest::binary>>) do
+  def decode_auth_response(<<0x01, rest::binary>>) do
+    auth_more_data(data: rest)
+  end
+
+  def decode_auth_response(<<0xFE, rest::binary>>) do
     {plugin_name, rest} = take_string_nul(rest)
     {plugin_data, ""} = take_string_nul(rest)
 

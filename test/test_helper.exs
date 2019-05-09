@@ -39,39 +39,33 @@ defmodule TestHelper do
   end
 
   def create_test_users() do
-    mysql!("""
-    DROP USER IF EXISTS default_auth;
-    CREATE USER default_auth IDENTIFIED BY 'secret';
-    GRANT ALL PRIVILEGES ON myxql_test.* TO default_auth;
+    create_user("default_auth", nil, "secret")
+    create_user("nopassword", nil, nil)
+    create_user("mysql_native", "mysql_native_password", "secret")
+    create_user("sha256_password", "sha256_password", "secret")
+    create_user("sha256_empty", "sha256_password", nil)
+    create_user("caching_sha2_password", "caching_sha2_password", "secret")
+  end
 
-    DROP USER IF EXISTS mysql_native_password;
-    CREATE USER mysql_native_password IDENTIFIED WITH mysql_native_password;
-    ALTER USER mysql_native_password IDENTIFIED BY 'secret';
-    GRANT ALL PRIVILEGES ON myxql_test.* TO mysql_native_password;
+  def create_user(username, auth_plugin_name, password) do
+    # due to server differences some of these commands may fail but we continue anyway
 
-    DROP USER IF EXISTS nopassword;
-    CREATE USER nopassword;
-    GRANT ALL PRIVILEGES ON myxql_test.* TO nopassword;
-    """)
+    mysql("DROP USER #{username}")
+    mysql("CREATE USER #{username} #{auth_plugin_name && "IDENTIFIED WITH #{auth_plugin_name};"}")
+    mysql("GRANT ALL PRIVILEGES ON myxql_test.* TO #{username};")
 
-    auth_plugins = available_auth_plugins()
+    if password do
+      flag =
+        case auth_plugin_name do
+          "sha256_password" -> 2
+          _ -> 0
+        end
 
-    if :sha256_password in auth_plugins do
-      mysql!("""
-      DROP USER IF EXISTS sha256_password;
-      CREATE USER sha256_password IDENTIFIED WITH sha256_password;
-      ALTER USER sha256_password IDENTIFIED BY 'secret';
-      GRANT ALL PRIVILEGES ON myxql_test.* TO sha256_password;
-      """)
-    end
-
-    if :caching_sha2_password in auth_plugins do
-      mysql("""
-      DROP USER IF EXISTS caching_sha2_password;
-      CREATE USER caching_sha2_password IDENTIFIED WITH caching_sha2_password;
-      ALTER USER caching_sha2_password IDENTIFIED BY 'secret';
-      GRANT ALL PRIVILEGES ON myxql_test.* TO caching_sha2_password;
-      """)
+      # works on mysql < 8.0
+      sql = "SET old_passwords=#{flag};SET PASSWORD FOR #{username}=PASSWORD('#{password}')"
+      mysql(sql)
+      # works on mysql >= 5.7
+      mysql("ALTER USER #{username} IDENTIFIED BY '#{password}'")
     end
   end
 
@@ -154,15 +148,12 @@ defmodule TestHelper do
     |> Enum.map(&String.to_atom/1)
   end
 
-  def default_auth_plugin() do
-    "SELECT plugin FROM mysql.user WHERE user = 'root' LIMIT 1"
-    |> mysql!()
-    |> String.split("\n", trim: true)
-    |> Enum.at(1)
-  end
-
   def supports_ssl?() do
     mysql!("SELECT @@have_ssl") == "@@have_ssl\nYES\n"
+  end
+
+  def supports_public_key_exchange?() do
+    mysql!("SHOW STATUS LIKE 'Rsa_public_key'") != ""
   end
 
   def supports_json?() do
@@ -217,12 +208,13 @@ defmodule TestHelper do
 
     exclude =
       for plugin <- supported_auth_plugins,
-          plugin not in available_auth_plugins do
+          not (plugin in available_auth_plugins) do
         {plugin, true}
       end
 
     exclude = [{:requires_otp_19, System.otp_release() < "19"} | exclude]
     exclude = [{:ssl, not supports_ssl?()} | exclude]
+    exclude = [{:public_key_exchange, not supports_public_key_exchange?()} | exclude]
     exclude = [{:json, not supports_json?()} | exclude]
     exclude
   end
