@@ -142,15 +142,15 @@ defmodule MyXQL.Protocol.Messages do
       |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
       |> maybe_put_capability_flag(:client_ssl, config.ssl?)
 
-    if (client_capability_flags &&& server_capability_flags) == client_capability_flags do
-      {:ok, client_capability_flags}
-    else
-      if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
-        {:error, :server_does_not_support_ssl}
-      else
-        {:error, :server_not_supported}
-      end
+    if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
+      {:error, :server_does_not_support_ssl}
     end
+
+    for name <- list_capability_flags(client_capability_flags) do
+      ensure_capability!(server_capability_flags, name)
+    end
+
+    {:ok, client_capability_flags}
   end
 
   defp maybe_put_capability_flag(flags, name, true), do: put_capability_flags(flags, [name])
