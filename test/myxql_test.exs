@@ -600,6 +600,7 @@ defmodule MyXQLTest do
     end
   end
 
+  @tag :skip
   describe "idle ping" do
     test "query before and after" do
       opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
