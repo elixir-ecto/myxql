@@ -12,6 +12,7 @@ services:
       - "5060:3306"
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--innodb_log_file_size=1G"
   mysql-5.7:
     image: "mysql:5.7"
     ports:
