@@ -6,12 +6,12 @@ services:
   #     - "5050:3306"
   #   environment:
   #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
-  # mysql-5.6:
-  #   image: "mysql:5.6"
-  #   ports:
-  #     - "5060:3306"
-  #   environment:
-  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-5.6:
+    image: "mysql:5.6"
+    ports:
+      - "5060:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
   mysql-5.7:
     image: "mysql:5.7"
     ports:

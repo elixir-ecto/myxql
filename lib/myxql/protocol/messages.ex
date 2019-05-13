@@ -27,6 +27,10 @@ defmodule MyXQL.Protocol.Messages do
     decode_ok_packet(rest)
   end
 
+  def decode_generic_response(<<0xFE, rest::bits>>) do
+    decode_eof_packet(rest)
+  end
+
   def decode_generic_response(<<0xFF, rest::bits>>) do
     decode_err_packet(rest)
   end
@@ -52,6 +56,18 @@ defmodule MyXQL.Protocol.Messages do
       status_flags: status_flags,
       num_warnings: num_warnings,
       info: info
+    )
+  end
+
+  def decode_eof_packet(rest) do
+    <<
+      num_warnings::uint2,
+      status_flags::uint2
+    >> = rest
+
+    eof_packet(
+      status_flags: status_flags,
+      num_warnings: num_warnings
     )
   end
 
@@ -131,7 +147,6 @@ defmodule MyXQL.Protocol.Messages do
     client_capability_flags =
       put_capability_flags([
         :client_protocol_41,
-        :client_deprecate_eof,
         :client_plugin_auth,
         :client_secure_connection,
         :client_found_rows,
@@ -304,11 +319,16 @@ defmodule MyXQL.Protocol.Messages do
         num_warnings: num_warnings
       )
 
-    if num_columns + num_params > 0 do
-      {:cont, {result, num_columns + num_params}}
-    else
-      "" = next_data
-      {:halt, result}
+    cond do
+      num_params > 0 ->
+        {:cont, {result, :params, num_params, num_columns}}
+
+      num_columns > 0 ->
+        {:cont, {result, :columns, num_columns}}
+
+      true ->
+        "" = next_data
+        {:halt, result}
     end
   end
 
@@ -318,11 +338,37 @@ defmodule MyXQL.Protocol.Messages do
 
   # for now, we're simply consuming column_definition packets for params and columns,
   # we might decode them in the future.
-  def decode_com_stmt_prepare_response(_payload, next_data, {com_stmt_prepare_ok, packets_left}) do
-    if packets_left > 1 do
-      {:cont, {com_stmt_prepare_ok, packets_left - 1}}
+
+  def decode_com_stmt_prepare_response(
+        payload,
+        _next_data,
+        {com_stmt_prepare_ok, :params, num_params, num_columns}
+      ) do
+    if num_params > 0 do
+      _ = decode_column_def(payload)
+      {:cont, {com_stmt_prepare_ok, :params, num_params - 1, num_columns}}
+    else
+      <<0xFE, _num_warnings::uint2, _status_flags::uint2>> = payload
+
+      if num_columns > 0 do
+        {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
+      else
+        {:halt, com_stmt_prepare_ok}
+      end
+    end
+  end
+
+  def decode_com_stmt_prepare_response(
+        payload,
+        next_data,
+        {com_stmt_prepare_ok, :columns, num_columns}
+      ) do
+    if num_columns > 0 do
+      _ = decode_column_def(payload)
+      {:cont, {com_stmt_prepare_ok, :columns, num_columns - 1}}
     else
       "" = next_data
+      <<0xFE, _num_warnings::uint2, _status_flags::uint2>> = payload
       {:halt, com_stmt_prepare_ok}
     end
   end
@@ -413,12 +459,34 @@ defmodule MyXQL.Protocol.Messages do
     if num_columns > 1 do
       {:cont, {:column_defs, num_columns - 1, acc}}
     else
-      {:cont, {:rows, Enum.reverse(acc), 0, []}}
+      {:cont, {:column_defs_eof, Enum.reverse(acc)}}
     end
   end
 
   defp decode_resultset(
-         <<0xFE, 0, 0, status_flags::uint2, num_warnings::uint2>>,
+         <<0xFE, num_warnings::uint2, status_flags::uint2>>,
+         next_data,
+         {:column_defs_eof, column_defs},
+         _row_decoder
+       ) do
+    if has_status_flag?(status_flags, :server_status_cursor_exists) do
+      "" = next_data
+
+      {:halt,
+       resultset(
+         column_defs: column_defs,
+         num_rows: 0,
+         rows: [],
+         num_warnings: num_warnings,
+         status_flags: status_flags
+       )}
+    else
+      {:cont, {:rows, column_defs, 0, []}}
+    end
+  end
+
+  defp decode_resultset(
+         <<0xFE, num_warnings::uint2, status_flags::uint2>>,
          _next_data,
          {:rows, column_defs, num_rows, acc},
          _row_decoder

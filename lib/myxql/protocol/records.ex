@@ -12,6 +12,9 @@ defmodule MyXQL.Protocol.Records do
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :num_warnings, :info]
 
+  # https://dev.mysql.com/doc/internals/en/packet-EOF_Packet.html
+  defrecord :eof_packet, [:status_flags, :num_warnings]
+
   # https://dev.mysql.com/doc/internals/en/packet-ERR_Packet.html
   defrecord :err_packet, [:code, :message]
 

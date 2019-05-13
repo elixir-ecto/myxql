@@ -70,7 +70,7 @@ defmodule MyXQLTest do
                      MyXQL.start_link(opts)
                    end
     after
-      Application.start(:ssl)
+      Application.ensure_all_started(:ssl)
     end
 
     test "custom socket options" do
@@ -625,7 +625,11 @@ defmodule MyXQLTest do
   end
 
   test "warnings" do
-    {:ok, conn} = MyXQL.start_link(@opts)
+    after_connect = fn conn ->
+      MyXQL.query!(conn, "SET SESSION sql_mode = 'ERROR_FOR_DIVISION_BY_ZERO'")
+    end
+
+    {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ @opts)
     assert %MyXQL.Result{num_warnings: 1, rows: [[nil]]} = MyXQL.query!(conn, "SELECT 1/0")
   end
 

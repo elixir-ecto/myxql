@@ -117,7 +117,7 @@ defmodule TestHelper do
       my_boolean BOOLEAN,
       my_blob BLOB,
       my_mediumblob MEDIUMBLOB,
-      my_json JSON,
+      #{if supports_json?(), do: "my_json JSON,", else: ""}
       my_char CHAR
     );
 

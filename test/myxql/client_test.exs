@@ -131,7 +131,63 @@ defmodule MyXQL.ClientTest do
     end
   end
 
-  describe "com_stmt_execute and com_stmt_fetch" do
+  describe "com_query/2" do
+    setup :connect
+
+    test "simple query", %{state: state} do
+      {:ok, resultset(rows: rows)} = Client.com_query("SELECT 1024 as a, 2048 as b", state)
+      assert rows == [[1024, 2048]]
+    end
+  end
+
+  describe "com_stmt_prepare/2 + com_stmt_execute/2" do
+    setup :connect
+
+    test "no results", %{state: state} do
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+        Client.com_stmt_prepare("select x from integers", state)
+
+      {:ok,
+       resultset(num_rows: 0, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
+        Client.com_stmt_execute(statement_id, [], :cursor_type_no_cursor, state)
+
+      assert list_status_flags(status_flags) == [
+               :server_status_autocommit,
+               :server_status_no_index_used
+             ]
+
+      assert [column_def(name: "x")] = column_defs
+      assert rows == []
+    end
+
+    test "no params", %{state: state} do
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+        Client.com_stmt_prepare("select 1024 as a, 2048 as b", state)
+
+      {:ok,
+       resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
+        Client.com_stmt_execute(statement_id, [], :cursor_type_no_cursor, state)
+
+      assert [column_def(name: "a"), column_def(name: "b")] = column_defs
+      assert [[1024, 2048]] = rows
+      assert list_status_flags(status_flags) == [:server_status_autocommit]
+    end
+
+    test "params", %{state: state} do
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+        Client.com_stmt_prepare("select ? as a, ? as b", state)
+
+      {:ok,
+       resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
+        Client.com_stmt_execute(statement_id, [1024, 2048], :cursor_type_no_cursor, state)
+
+      assert [column_def(name: "a"), column_def(name: "b")] = column_defs
+      assert [[1024, 2048]] = rows
+      assert list_status_flags(status_flags) == [:server_status_autocommit]
+    end
+  end
+
+  describe "com_stmt_prepare + com_stmt_execute + com_stmt_fetch" do
     setup :connect
 
     test "with no results", %{state: state} do

@@ -265,7 +265,11 @@ defmodule MyXQL.Protocol.ValueTest do
   end
 
   defp connect(c) do
-    {:ok, conn} = MyXQL.start_link(TestHelper.opts())
+    after_connect = fn conn ->
+      MyXQL.query!(conn, "SET SESSION sql_mode = 'STRICT_TRANS_TABLES'")
+    end
+
+    {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ TestHelper.opts())
     Keyword.put(c, :conn, conn)
   end
 
