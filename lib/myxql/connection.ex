@@ -3,8 +3,7 @@ defmodule MyXQL.Connection do
 
   use DBConnection
   import MyXQL.Protocol.{Flags, Records}
-  alias MyXQL.{Client, Cursor, Query, Result, TextQuery}
-  alias MyXQL.Protocol.ServerErrorCodes
+  alias MyXQL.{Client, Cursor, Query, Protocol, Result, TextQuery}
 
   @disconnect_on_error_codes [
     :ER_MAX_PREPARED_STMT_COUNT_REACHED
@@ -325,7 +324,7 @@ defmodule MyXQL.Connection do
   end
 
   defp error(err_packet(code: code, message: message)) do
-    name = ServerErrorCodes.code_to_name(code)
+    name = Protocol.error_code_to_name(code)
     %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
   end
 

@@ -1,6 +1,6 @@
 defmodule MyXQL.ClientTest do
   use ExUnit.Case, async: true
-  alias MyXQL.{Client, Protocol.ServerErrorCodes}, warn: false
+  alias MyXQL.{Client, Protocol}
   import MyXQL.Protocol.{Flags, Records}
 
   @opts TestHelper.opts()
@@ -238,7 +238,7 @@ defmodule MyXQL.ClientTest do
 
       {:ok, err_packet(code: code)} = Client.com_stmt_fetch(statement_id, column_defs, 2, state)
 
-      assert ServerErrorCodes.code_to_name(code) == :ER_STMT_HAS_NO_OPEN_CURSOR
+      assert Protocol.error_code_to_name(code) == :ER_STMT_HAS_NO_OPEN_CURSOR
     end
 
     test "with stored procedure of single result", %{state: state} do
