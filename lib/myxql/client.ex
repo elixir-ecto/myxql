@@ -2,7 +2,7 @@ defmodule MyXQL.Client do
   @moduledoc false
 
   require Logger
-  import MyXQL.Protocol.{Messages, Records, Types}
+  import MyXQL.{Protocol, Protocol.Records, Protocol.Types}
   alias MyXQL.Protocol.Auth
 
   defmodule Config do
