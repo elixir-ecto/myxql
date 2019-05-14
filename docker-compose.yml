@@ -1,11 +1,11 @@
 version: "3"
 services:
-  # mysql-5.5:
-  #   image: "mysql:5.5"
-  #   ports:
-  #     - "5050:3306"
-  #   environment:
-  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mysql-5.5:
+    image: "mysql:5.5"
+    ports:
+      - "5050:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
   mysql-5.6:
     image: "mysql:5.6"
     ports:

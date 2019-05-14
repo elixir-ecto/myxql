@@ -51,8 +51,8 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   defp decode_err_packet_body(
-        <<code::uint2, _sql_state_marker::string(1), _sql_state::string(5), message::bits>>
-      ) do
+         <<code::uint2, _sql_state_marker::string(1), _sql_state::string(5), message::bits>>
+       ) do
     err_packet(code: code, message: message)
   end
 

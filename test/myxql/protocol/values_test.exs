@@ -103,6 +103,10 @@ defmodule MyXQL.Protocol.ValueTest do
       test "MYSQL_TYPE_TIME", c do
         assert_roundtrip(c, "my_time", ~T[09:10:20])
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
+      end
+
+      @tag timestamp_precision: true
+      test "MYSQL_TYPE_TIME precision", c do
         assert_roundtrip(c, "my_time6", ~T[09:10:20.123456])
       end
 
@@ -111,7 +115,10 @@ defmodule MyXQL.Protocol.ValueTest do
 
         assert insert_and_get(c, "my_datetime", ~N[1999-12-31 09:10:20.123]) ==
                  ~N[1999-12-31 09:10:20]
+      end
 
+      @tag timestamp_precision: true
+      test "MYSQL_TYPE_DATETIME precision", c do
         assert_roundtrip(c, "my_datetime6", ~N[1999-12-31 09:10:20.123456])
       end
 
@@ -235,33 +242,38 @@ defmodule MyXQL.Protocol.ValueTest do
     end
   end
 
-  test "text & binary discrepancies" do
-    # 13.37 is returned as 13.3699... in binary protocol and conversely
-    # 13.3699 is returned as 13.37 in text protocol.
-    assert_discrepancy("my_float",
-      text: 13.37,
-      binary: 13.369999885559082
-    )
+  describe "text & binary discrepancies" do
+    test "floats" do
+      # 13.37 is returned as 13.3699... in binary protocol and conversely
+      # 13.3699 is returned as 13.37 in text protocol.
+      assert_discrepancy("my_float",
+        text: 13.37,
+        binary: 13.369999885559082
+      )
+    end
 
-    assert_discrepancy("my_time3",
-      text: ~T[09:10:20.000],
-      binary: ~T[09:10:20]
-    )
+    @tag timestamp_precision: true
+    test "timestamps" do
+      assert_discrepancy("my_time3",
+        text: ~T[09:10:20.000],
+        binary: ~T[09:10:20]
+      )
 
-    assert_discrepancy("my_time3",
-      text: ~T[09:10:20.123],
-      binary: ~T[09:10:20.123000]
-    )
+      assert_discrepancy("my_time3",
+        text: ~T[09:10:20.123],
+        binary: ~T[09:10:20.123000]
+      )
 
-    assert_discrepancy("my_datetime3",
-      text: ~N[1999-12-31 09:10:20.000],
-      binary: ~N[1999-12-31 09:10:20]
-    )
+      assert_discrepancy("my_datetime3",
+        text: ~N[1999-12-31 09:10:20.000],
+        binary: ~N[1999-12-31 09:10:20]
+      )
 
-    assert_discrepancy("my_datetime3",
-      text: ~N[1999-12-31 09:10:20.123],
-      binary: ~N[1999-12-31 09:10:20.123000]
-    )
+      assert_discrepancy("my_datetime3",
+        text: ~N[1999-12-31 09:10:20.123],
+        binary: ~N[1999-12-31 09:10:20.123000]
+      )
+    end
   end
 
   defp connect(c) do

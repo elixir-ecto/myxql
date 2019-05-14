@@ -70,6 +70,13 @@ defmodule TestHelper do
   end
 
   def create_test_tables() do
+    timestamps_with_precision = """
+    my_time3 TIME(3),
+    my_time6 TIME(6),
+    my_datetime3 DATETIME(3),
+    my_datetime6 DATETIME(6),
+    """
+
     mysql!("""
     USE myxql_test;
 
@@ -105,12 +112,9 @@ defmodule TestHelper do
       my_bit8 BIT(8),
       my_date DATE,
       my_time TIME,
-      my_time3 TIME(3),
-      my_time6 TIME(6),
-      my_datetime DATETIME,
-      my_datetime3 DATETIME(3),
-      my_datetime6 DATETIME(6),
       my_timestamp TIMESTAMP,
+      my_datetime DATETIME,
+      #{if supports_timestamp_precision?(), do: timestamps_with_precision, else: ""}
       my_year YEAR,
       my_binary3 BINARY(3),
       my_varbinary3 VARBINARY(3),
@@ -174,6 +178,13 @@ defmodule TestHelper do
     end
   end
 
+  def supports_timestamp_precision?() do
+    case mysql("CREATE TEMPORARY TABLE myxql_test.timestamp_precision (time time(3));") do
+      {:ok, _} -> true
+      {:error, _} -> false
+    end
+  end
+
   def mysql!(sql, options \\ []) do
     case mysql(sql, options) do
       {:ok, result} -> result
@@ -216,6 +227,7 @@ defmodule TestHelper do
     exclude = [{:ssl, not supports_ssl?()} | exclude]
     exclude = [{:public_key_exchange, not supports_public_key_exchange?()} | exclude]
     exclude = [{:json, not supports_json?()} | exclude]
+    exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
     exclude
   end
 end
