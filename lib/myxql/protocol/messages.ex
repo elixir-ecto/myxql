@@ -24,23 +24,14 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_generic_response(<<0x00, rest::bits>>) do
-    decode_ok_packet(rest)
-  end
-
-  def decode_generic_response(<<0xFE, rest::bits>>) do
-    decode_eof_packet(rest)
+    decode_ok_packet_body(rest)
   end
 
   def decode_generic_response(<<0xFF, rest::bits>>) do
-    decode_err_packet(rest)
+    decode_err_packet_body(rest)
   end
 
-  # Note: header is last argument to allow binary optimization
-  def decode_generic_response(<<rest::bits>>, header) do
-    decode_generic_response(<<header, rest::bits>>)
-  end
-
-  def decode_ok_packet(rest) do
+  defp decode_ok_packet_body(rest) do
     {affected_rows, rest} = take_int_lenenc(rest)
     {last_insert_id, rest} = take_int_lenenc(rest)
 
@@ -59,25 +50,24 @@ defmodule MyXQL.Protocol.Messages do
     )
   end
 
-  def decode_eof_packet(rest) do
-    <<
-      num_warnings::uint2,
-      status_flags::uint2
-    >> = rest
+  defp decode_err_packet_body(
+        <<code::uint2, _sql_state_marker::string(1), _sql_state::string(5), message::bits>>
+      ) do
+    err_packet(code: code, message: message)
+  end
 
+  def decode_eof_packet(<<0xFE, rest::binary>>) do
+    decode_eof_packet_body(rest)
+  end
+
+  defp decode_eof_packet_body(<<num_warnings::uint2, status_flags::uint2>>) do
     eof_packet(
       status_flags: status_flags,
       num_warnings: num_warnings
     )
   end
 
-  def decode_err_packet(
-        <<code::uint2, _sql_state_marker::string(1), _sql_state::string(5), message::bits>>
-      ) do
-    err_packet(code: code, message: message)
-  end
-
-  def decode_connect_err_packet(<<code::uint2, message::bits>>) do
+  defp decode_connect_err_packet_body(<<code::uint2, message::bits>>) do
     err_packet(code: code, message: message)
   end
 
@@ -132,7 +122,7 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   def decode_initial_handshake(<<0xFF, rest::bits>>) do
-    decode_connect_err_packet(rest)
+    decode_connect_err_packet_body(rest)
   end
 
   def ensure_capability!(capability_flags, name) do
@@ -212,8 +202,12 @@ defmodule MyXQL.Protocol.Messages do
     >>
   end
 
-  def decode_auth_response(<<header, rest::binary>>) when header in [0x00, 0xFF] do
-    decode_generic_response(rest, header)
+  def decode_auth_response(<<0x00, rest::binary>>) do
+    decode_ok_packet_body(rest)
+  end
+
+  def decode_auth_response(<<0xFF, rest::binary>>) do
+    decode_err_packet_body(rest)
   end
 
   def decode_auth_response(<<0x01, 0x04>>) do
@@ -296,9 +290,12 @@ defmodule MyXQL.Protocol.Messages do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
-  def decode_com_query_response(<<header, rest::binary>>, "", :initial)
-      when header in [0x00, 0xFF] do
-    {:halt, decode_generic_response(rest, header)}
+  def decode_com_query_response(<<0x00, rest::binary>>, "", :initial) do
+    {:halt, decode_ok_packet_body(rest)}
+  end
+
+  def decode_com_query_response(<<0xFF, rest::binary>>, "", :initial) do
+    {:halt, decode_err_packet_body(rest)}
   end
 
   def decode_com_query_response(payload, next_data, state) do
@@ -345,10 +342,10 @@ defmodule MyXQL.Protocol.Messages do
         {com_stmt_prepare_ok, :params, num_params, num_columns}
       ) do
     if num_params > 0 do
-      _ = decode_column_def(payload)
+      column_def() = decode_column_def(payload)
       {:cont, {com_stmt_prepare_ok, :params, num_params - 1, num_columns}}
     else
-      <<0xFE, _num_warnings::uint2, _status_flags::uint2>> = payload
+      eof_packet() = decode_eof_packet(payload)
 
       if num_columns > 0 do
         {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
@@ -364,11 +361,11 @@ defmodule MyXQL.Protocol.Messages do
         {com_stmt_prepare_ok, :columns, num_columns}
       ) do
     if num_columns > 0 do
-      _ = decode_column_def(payload)
+      column_def() = decode_column_def(payload)
       {:cont, {com_stmt_prepare_ok, :columns, num_columns - 1}}
     else
       "" = next_data
-      <<0xFE, _num_warnings::uint2, _status_flags::uint2>> = payload
+      eof_packet() = decode_eof_packet(payload)
       {:halt, com_stmt_prepare_ok}
     end
   end
@@ -401,9 +398,12 @@ defmodule MyXQL.Protocol.Messages do
   defp unsigned_flag(_), do: 0x00
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
-  def decode_com_stmt_execute_response(<<header, rest::binary>>, "", :initial)
-      when header in [0x00, 0xFF] do
-    {:halt, decode_generic_response(rest, header)}
+  def decode_com_stmt_execute_response(<<0x00, rest::binary>>, "", :initial) do
+    {:halt, decode_ok_packet_body(rest)}
+  end
+
+  def decode_com_stmt_execute_response(<<0xFF, rest::binary>>, "", :initial) do
+    {:halt, decode_err_packet_body(rest)}
   end
 
   def decode_com_stmt_execute_response(payload, next_data, state) do
@@ -412,7 +412,7 @@ defmodule MyXQL.Protocol.Messages do
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-fetch-response.html
   def decode_com_stmt_fetch_response(<<0xFF, rest::binary>>, "", {:initial, _column_defs}) do
-    {:halt, decode_generic_response(rest, 0xFF)}
+    {:halt, decode_err_packet_body(rest)}
   end
 
   def decode_com_stmt_fetch_response(payload, next_data, {:initial, column_defs}) do
