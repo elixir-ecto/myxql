@@ -1,4 +1,4 @@
-# Usage: mix run build_error_codes.exs
+# Usage: mix run scripts/build_error_codes.exs
 #
 # References:
 # - https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html
