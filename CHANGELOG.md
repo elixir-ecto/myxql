@@ -1,5 +1,19 @@
 # Changelog
 
+## HEAD
+
+### Enhancements
+
+* Default charset to utf8mb4
+* Raise error when server does not support required capabilities
+* Implement public key exchange for sha auth methods
+* Support older MySQL versions (tested against 5.5 and 5.6)
+* Change `MyXQL.start_option/0` to use `:ssl.tls_client_option/0` type
+
+### Bug fixes
+
+* Handle error packet on handshake
+
 ## v0.2.2 (2019-04-05)
 
 ### Bug fixes
