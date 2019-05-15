@@ -16,6 +16,8 @@ env:
   matrix:
     - DB=mysql:8.0
     - DB=mysql:5.7
+    - DB=mysql:5.6
+    - DB=mysql:5.5
     - DB=mariadb:10.3
 matrix:
   include:
