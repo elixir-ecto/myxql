@@ -35,18 +35,20 @@ iex> MyXQL.query!(pid, "CREATE DATABASE IF NOT EXISTS blog")
 iex> {:ok, pid} = MyXQL.start_link(username: "root", database: "blog")
 iex> MyXQL.query!(pid, "CREATE TABLE posts IF NOT EXISTS (id serial primary key, title text)")
 
-iex> MyXQL.query(pid, "INSERT INTO posts (`title`) VALUES ('Post 1')")
-{:ok, %MyXQL.Result{columns: nil, last_insert_id: 1, num_rows: 1, rows: nil}}
+iex> MyXQL.query!(pid, "INSERT INTO posts (`title`) VALUES ('Post 1')")
+%MyXQL.Result{columns: nil, connection_id: 11204,, last_insert_id: 1, num_rows: 1, num_warnings: 0, rows: nil}
 
 iex> MyXQL.query(pid, "INSERT INTO posts (`title`) VALUES (?), (?)", ["Post 2", "Post 3"])
-{:ok, %MyXQL.Result{columns: [], last_insert_id: 3, num_rows: 2, rows: nil}}
+%MyXQL.Result{columns: nil, connection_id: 11204, last_insert_id: 2, num_rows: 2, num_warnings: 0, rows: nil}
 
 iex> MyXQL.query(pid, "SELECT * FROM posts")
 {:ok,
  %MyXQL.Result{
    columns: ["id", "title"],
+   connection_id: 11204,
    last_insert_id: nil,
    num_rows: 3,
+   num_warnings: 0,
    rows: [[1, "Post 1"], [2, "Post 2"], [3, "Post 3"]]
  }}
 ```
@@ -66,6 +68,8 @@ defmodule MyApp.Application do
   end
 end
 ```
+
+and then we can refer to it by it's `:name`:
 
 ```elixir
 iex> MyXQL.query!(:myxql, "SELECT NOW()").rows
@@ -124,7 +128,7 @@ mix deps.get
 mix test
 ```
 
-See [`ci.sh`](ci.sh) for a script used to test against different server versions.
+See [`scripts/ci.sh`](scripts/ci.sh) and [`scripts/test-versions.sh`](scripts/test-versions.sh) for a scripts used to test against different server versions.
 
 ## License
 
