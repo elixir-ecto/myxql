@@ -290,20 +290,14 @@ defmodule MyXQLTest do
 
     test "disconnect on errors" do
       Process.flag(:trap_exit, true)
-
-      {:ok, pid} =
-        MyXQL.start_link(
-          @opts ++ [disconnect_on_error_codes: [:ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION]]
-        )
-
-      MyXQL.query!(pid, "SET TRANSACTION READ ONLY")
+      {:ok, pid} = MyXQL.start_link([disconnect_on_error_codes: [:ER_DUP_ENTRY]] ++ @opts)
 
       assert capture_log(fn ->
                MyXQL.transaction(pid, fn conn ->
-                 MyXQL.query(conn, "INSERT INTO integers VALUES (1)")
+                 MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
                  assert_receive {:EXIT, ^pid, :killed}, 500
                end)
-             end) =~ "disconnected: ** (MyXQL.Error) (1792) (ER_CANT_EXECUTE_IN_READ_ONLY"
+             end) =~ "disconnected: ** (MyXQL.Error) (1062) (ER_DUP_ENTRY)"
     end
   end
 
