@@ -15,7 +15,7 @@ defmodule MyXQL do
           | {:username, String.t()}
           | {:password, String.t() | nil}
           | {:ssl, boolean()}
-          | {:ssl_opts, [:ssl.ssl_option()]}
+          | {:ssl_opts, [:ssl.tls_client_option()]}
           | {:connect_timeout, timeout()}
           | {:handshake_timeout, timeout()}
           | {:ping_timeout, timeout()}
