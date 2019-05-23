@@ -1,6 +1,6 @@
 # Changelog
 
-## HEAD
+## v0.2.3 (2019-05-23)
 
 ### Enhancements
 
