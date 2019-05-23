@@ -95,43 +95,46 @@ defmodule MyXQL.Protocol do
     >> = rest
 
     <<capability_flags::uint4>> = <<capability_flags1::uint2, capability_flags2::uint2>>
-
     # all set in servers since MySQL 4.1
-    ensure_capability!(capability_flags, :client_protocol_41)
-    ensure_capability!(capability_flags, :client_plugin_auth)
-    ensure_capability!(capability_flags, :client_secure_connection)
+    required_capabilities = [:client_protocol_41, :client_plugin_auth, :client_secure_connection]
 
-    <<
-      auth_plugin_data_length::uint1,
-      _::uint(10),
-      rest::binary
-    >> = rest
+    with :ok <- ensure_capabilities(capability_flags, required_capabilities) do
+      <<
+        auth_plugin_data_length::uint1,
+        _::uint(10),
+        rest::binary
+      >> = rest
 
-    take = max(13, auth_plugin_data_length - 8)
-    <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
-    auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
-    auth_plugin_name = decode_string_nul(auth_plugin_name)
-    auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
+      take = max(13, auth_plugin_data_length - 8)
+      <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
+      auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
+      auth_plugin_name = decode_string_nul(auth_plugin_name)
+      auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
 
-    initial_handshake(
-      server_version: server_version,
-      conn_id: conn_id,
-      auth_plugin_name: auth_plugin_name,
-      auth_plugin_data: auth_plugin_data,
-      capability_flags: capability_flags,
-      character_set: character_set,
-      status_flags: status_flags
-    )
+      initial_handshake(
+        server_version: server_version,
+        conn_id: conn_id,
+        auth_plugin_name: auth_plugin_name,
+        auth_plugin_data: auth_plugin_data,
+        capability_flags: capability_flags,
+        character_set: character_set,
+        status_flags: status_flags
+      )
+    end
   end
 
   def decode_initial_handshake(<<0xFF, rest::bits>>) do
     decode_connect_err_packet_body(rest)
   end
 
-  def ensure_capability!(capability_flags, name) do
-    unless has_capability_flag?(capability_flags, name) do
-      raise "server does not support #{inspect(name)} capability"
-    end
+  defp ensure_capabilities(capability_flags, names) do
+    Enum.reduce_while(names, :ok, fn name, _acc ->
+      if has_capability_flag?(capability_flags, name) do
+        {:cont, :ok}
+      else
+        {:halt, {:error, {:server_missing_capability, name}}}
+      end
+    end)
   end
 
   def build_capability_flags(config, initial_handshake) do
@@ -153,11 +156,11 @@ defmodule MyXQL.Protocol do
     if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
     else
-      for name <- list_capability_flags(client_capability_flags) do
-        ensure_capability!(server_capability_flags, name)
-      end
+      client_capabilities = list_capability_flags(client_capability_flags)
 
-      {:ok, client_capability_flags}
+      with :ok <- ensure_capabilities(server_capability_flags, client_capabilities) do
+        {:ok, client_capability_flags}
+      end
     end
   end
 
