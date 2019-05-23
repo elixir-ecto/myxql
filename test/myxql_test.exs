@@ -8,14 +8,14 @@ defmodule MyXQLTest do
     @tag ssl: true
     test "connect with bad SSL opts" do
       assert capture_log(fn ->
-               opts = Keyword.merge(@opts, ssl: true, ssl_opts: [ciphers: [:bad]])
+               opts = [ssl: true, ssl_opts: [ciphers: [:bad]]] ++ @opts
                assert_start_and_killed(opts)
              end) =~ "** (DBConnection.ConnectionError) Invalid TLS option: {ciphers,[bad]}"
     end
 
     test "connect with host down" do
       assert capture_log(fn ->
-               opts = Keyword.merge(@opts, port: 9999)
+               opts = [port: 9999] ++ @opts
                assert_start_and_killed(opts)
              end) =~ "(DBConnection.ConnectionError) connection refused"
     end
@@ -66,7 +66,7 @@ defmodule MyXQLTest do
       assert_raise RuntimeError,
                    ~r"cannot be established because `:ssl` application is not started",
                    fn ->
-                     opts = Keyword.merge(@opts, ssl: true)
+                     opts = [ssl: true] ++ @opts
                      MyXQL.start_link(opts)
                    end
     after
@@ -74,7 +74,7 @@ defmodule MyXQLTest do
     end
 
     test "custom socket options" do
-      opts = Keyword.merge(@opts, socket_options: [buffer: 4])
+      opts = [socket_options: [buffer: 4]] ++ @opts
       {:ok, conn} = MyXQL.start_link(opts)
 
       MyXQL.query!(conn, "SELECT 1, 2, NOW()")
@@ -83,7 +83,7 @@ defmodule MyXQLTest do
 
     test "after_connect callback" do
       pid = self()
-      opts = Keyword.merge(@opts, after_connect: fn conn -> send(pid, {:connected, conn}) end)
+      opts = [after_connect: fn conn -> send(pid, {:connected, conn}) end] ++ @opts
       MyXQL.start_link(opts)
       assert_receive {:connected, _}
     end
@@ -100,7 +100,7 @@ defmodule MyXQLTest do
           Process.sleep(:infinity)
         end)
 
-      opts = Keyword.merge(@opts, port: port, handshake_timeout: 5)
+      opts = [port: port, handshake_timeout: 5] ++ @opts
 
       assert capture_log(fn ->
                assert_start_and_killed(opts)
@@ -597,7 +597,7 @@ defmodule MyXQLTest do
   @tag :skip
   describe "idle ping" do
     test "query before and after" do
-      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1)
+      opts = [backoff_type: :stop, idle_interval: 1] ++ @opts
       {:ok, pid} = MyXQL.start_link(opts)
 
       assert {:ok, _} = MyXQL.query(pid, "SELECT 42")
@@ -609,7 +609,7 @@ defmodule MyXQLTest do
 
     test "socket receive timeout" do
       Process.flag(:trap_exit, true)
-      opts = Keyword.merge(@opts, backoff_type: :stop, idle_interval: 1, ping_timeout: 0)
+      opts = [backoff_type: :stop, idle_interval: 1, ping_timeout: 0] ++ @opts
       {:ok, pid} = MyXQL.start_link(opts)
 
       assert capture_log(fn ->
