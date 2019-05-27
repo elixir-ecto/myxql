@@ -128,7 +128,7 @@ mix deps.get
 mix test
 ```
 
-See [`scripts/ci.sh`](scripts/ci.sh) and [`scripts/test-versions.sh`](scripts/test-versions.sh) for a scripts used to test against different server versions.
+See [`scripts/ci.sh`](scripts/ci.sh) and [`scripts/test-versions.sh`](scripts/test-versions.sh) for scripts used to test against different server versions.
 
 ## License
 
