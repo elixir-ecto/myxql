@@ -71,8 +71,7 @@ defmodule MyXQL.Client do
   end
 
   def connect(%Config{} = config) do
-    with {:ok, sock} <- do_connect(config) do
-      state = %{sock: {:gen_tcp, sock}, connection_id: nil}
+    with {:ok, state} <- do_connect(config) do
       handshake(config, state)
     end
   end
@@ -197,9 +196,8 @@ defmodule MyXQL.Client do
     sock_mod.close(sock)
   end
 
-  ## Handshake
-
-  defp do_connect(config) do
+  @doc false
+  def do_connect(config) do
     %{
       address: address,
       port: port,
@@ -208,10 +206,11 @@ defmodule MyXQL.Client do
     } = config
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
+    state = %{connection_id: nil}
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
-        {:ok, sock}
+        {:ok, Map.put(state, :sock, {:gen_tcp, sock})}
 
       {:ok, sock} ->
         {:ok, [sndbuf: sndbuf, recbuf: recbuf, buffer: buffer]} =
@@ -219,12 +218,14 @@ defmodule MyXQL.Client do
 
         buffer = buffer |> max(sndbuf) |> max(recbuf)
         :ok = :inet.setopts(sock, buffer: buffer)
-        {:ok, sock}
+        {:ok, Map.put(state, :sock, {:gen_tcp, sock})}
 
       other ->
         other
     end
   end
+
+  ## Handshake
 
   defp handshake(config, %{sock: {:gen_tcp, sock}} = state) do
     timer = start_handshake_timer(config.handshake_timeout, sock)
