@@ -367,8 +367,6 @@ defmodule MyXQL.Connection do
     end
   end
 
-  ## Handshake
-
   defp handle_transaction(call, statement, state) do
     case Client.com_query(statement, state) do
       {:ok, ok_packet()} = ok ->
