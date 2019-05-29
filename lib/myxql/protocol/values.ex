@@ -287,6 +287,7 @@ defmodule MyXQL.Protocol.Values do
   defp column_def_to_type(:mysql_type_long_blob, _), do: :binary
   defp column_def_to_type(:mysql_type_var_string, _), do: :binary
   defp column_def_to_type(:mysql_type_string, _), do: :binary
+  defp column_def_to_type(:mysql_type_null, _), do: :null
 
   defp decode_binary_row(<<rest::bits>>, null_bitmap, [_type | t], acc)
        when (null_bitmap &&& 1) == 1 do

@@ -223,6 +223,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, ~w(my_smallint my_mediumint my_int), [nil, nil, nil])
       end
 
+      test "MYSQL_TYPE_NULL - select", c do
+        assert query!(c, "SELECT null").rows == [[nil]]
+      end
+
       test "BOOLEAN", c do
         assert insert_and_get(c, "my_boolean", true) == 1
         assert insert_and_get(c, "my_boolean", false) == 0
