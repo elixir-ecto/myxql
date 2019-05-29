@@ -12,6 +12,7 @@ defmodule MyXQL.Connection do
   defstruct [
     :sock,
     :connection_id,
+    :query,
     cursors: %{},
     disconnect_on_error_codes: [],
     ping_timeout: 15_000,
@@ -72,6 +73,10 @@ defmodule MyXQL.Connection do
   end
 
   @impl true
+  # def handle_prepare(query, opts, %{query: %Query{}} = state) do
+  #   {:ok, query, state}
+  # end
+
   def handle_prepare(query, opts, state) do
     query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
 

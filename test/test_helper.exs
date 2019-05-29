@@ -233,4 +233,6 @@ defmodule TestHelper do
 end
 
 TestHelper.setup_server()
-ExUnit.start(exclude: TestHelper.excludes())
+ExUnit.configure(exclude: TestHelper.excludes())
+Support.MariaexTests.load_test_helper_if_enabled()
+ExUnit.start()

@@ -169,7 +169,7 @@ defmodule MyXQL.Client do
          timeout,
          state
        ) do
-    case decoder.(payload, rest, decoder_state) do
+    case decoder.(payload, "", decoder_state) do
       {:cont, decoder_state} ->
         recv_packets(rest, decoder, decoder_state, timeout, state)
 

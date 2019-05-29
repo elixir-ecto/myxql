@@ -15,9 +15,13 @@ defmodule MyXQL.MixProject do
       source_url: @source_url,
       package: package(),
       docs: docs(),
+      elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps()
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   def application() do
     [
@@ -51,7 +55,8 @@ defmodule MyXQL.MixProject do
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:benchee, ">= 0.0.0", only: :dev, runtime: false}
+      {:benchee, ">= 0.0.0", only: :dev, runtime: false},
+      {:mariaex, github: "wojtekmach/mariaex", branch: "wm-excludes", only: [:dev, :test]}
     ]
   end
 
