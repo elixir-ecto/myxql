@@ -390,21 +390,24 @@ defmodule MyXQL.Connection do
     %{state | transaction_status: transaction_status(status_flags)}
   end
 
-  defp put_statement_id(state, %{ref: ref}, statement_id) do
-    %{state | prepared_statements: Map.put(state.prepared_statements, ref, statement_id)}
+  defp put_statement_id(state, query, statement_id) do
+    key = cache_key(query)
+    %{state | prepared_statements: Map.put(state.prepared_statements, key, statement_id)}
   end
 
-  defp fetch_statement_id(state, %{ref: ref}) do
-    Map.fetch(state.prepared_statements, ref)
+  defp fetch_statement_id(state, query) do
+    Map.fetch(state.prepared_statements, cache_key(query))
   end
 
-  defp fetch_statement_id!(state, %{ref: ref}) do
-    Map.fetch!(state.prepared_statements, ref)
+  defp fetch_statement_id!(state, query) do
+    Map.fetch!(state.prepared_statements, cache_key(query))
   end
 
-  defp delete_statement_id(state, %{ref: ref}) do
-    %{state | prepared_statements: Map.delete(state.prepared_statements, ref)}
+  defp delete_statement_id(state, query) do
+    %{state | prepared_statements: Map.delete(state.prepared_statements, cache_key(query))}
   end
+
+  defp cache_key(%MyXQL.Query{ref: ref}), do: ref
 
   defp prepare(%Query{ref: ref, statement: statement} = query, state) when is_reference(ref) do
     case Client.com_stmt_prepare(statement, state) do
