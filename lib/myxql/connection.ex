@@ -74,29 +74,36 @@ defmodule MyXQL.Connection do
   def handle_prepare(query, opts, state) do
     query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
 
-    case prepare(query, state) do
-      {:ok, query, _statement_id, state} ->
-        {:ok, query, state}
+    case fetch_statement_id(state, query) do
+      {:ok, statement_id} ->
+        {:ok, %{query | statement_id: statement_id}, state}
 
-      {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
-        if Keyword.get(opts, :query_type) == :binary_then_text do
-          query = %MyXQL.TextQuery{statement: query.statement}
-          {:ok, query, state}
-        else
-          error
+      :error ->
+        case prepare(query, state) do
+          {:ok, query, state} ->
+            {:ok, query, state}
+
+          {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
+            if Keyword.get(opts, :query_type) == :binary_then_text do
+              query = %MyXQL.TextQuery{statement: query.statement}
+              {:ok, query, state}
+            else
+              error
+            end
+
+          other ->
+            other
         end
-
-      other ->
-        other
     end
   end
 
   @impl true
   def handle_execute(%Query{} = query, params, _opts, state) do
-    with {:ok, query, statement_id, state} <- maybe_reprepare(query, state),
-         result = Client.com_stmt_execute(statement_id, params, :cursor_type_no_cursor, state),
+    with {:ok, query, state} <- maybe_reprepare(query, state),
+         result =
+           Client.com_stmt_execute(query.statement_id, params, :cursor_type_no_cursor, state),
          {:ok, query, result, state} <- result(result, query, state) do
-      maybe_close(query, statement_id, result, state)
+      maybe_close(query, result, state)
     end
   end
 
@@ -109,7 +116,8 @@ defmodule MyXQL.Connection do
   def handle_close(%Query{} = query, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        state = close(query, statement_id, state)
+        query = %{query | statement_id: statement_id}
+        state = close(query, state)
         {:ok, nil, state}
 
       :error ->
@@ -240,7 +248,9 @@ defmodule MyXQL.Connection do
   def handle_deallocate(query, _cursor, _opts, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        case Client.com_stmt_reset(statement_id, state) do
+        query = %{query | statement_id: statement_id}
+
+        case Client.com_stmt_reset(query.statement_id, state) do
           {:ok, ok_packet(status_flags: status_flags)} ->
             {:ok, nil, put_status(state, status_flags)}
 
@@ -407,14 +417,15 @@ defmodule MyXQL.Connection do
     %{state | prepared_statements: Map.delete(state.prepared_statements, cache_key(query))}
   end
 
-  defp cache_key(%MyXQL.Query{ref: ref}), do: ref
+  defp cache_key(%MyXQL.Query{cache: :reference, ref: ref}), do: ref
+  defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
 
   defp prepare(%Query{ref: ref, statement: statement} = query, state) when is_reference(ref) do
     case Client.com_stmt_prepare(statement, state) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         state = put_statement_id(state, query, statement_id)
         query = %{query | num_params: num_params, statement_id: statement_id}
-        {:ok, query, statement_id, state}
+        {:ok, query, state}
 
       result ->
         result(result, query, state)
@@ -424,7 +435,8 @@ defmodule MyXQL.Connection do
   defp maybe_reprepare(query, state) do
     case fetch_statement_id(state, query) do
       {:ok, statement_id} ->
-        {:ok, query, statement_id, state}
+        query = %{query | statement_id: statement_id}
+        {:ok, query, state}
 
       :error ->
         reprepare(query, state)
@@ -432,23 +444,23 @@ defmodule MyXQL.Connection do
   end
 
   defp reprepare(query, state) do
-    with {:ok, query, statement_id, state} <- prepare(query, state) do
-      {:ok, query, statement_id, state}
+    with {:ok, query, state} <- prepare(query, state) do
+      {:ok, query, state}
     end
   end
 
   # Close unnamed queries after executing them
-  defp maybe_close(%Query{name: ""} = query, statement_id, result, state) do
-    state = close(query, statement_id, state)
+  defp maybe_close(%Query{name: ""} = query, result, state) do
+    state = close(query, state)
     {:ok, query, result, state}
   end
 
-  defp maybe_close(query, _statement_id, result, state) do
+  defp maybe_close(query, result, state) do
     {:ok, query, result, state}
   end
 
-  defp close(query, statement_id, state) do
-    :ok = Client.com_stmt_close(statement_id, state)
+  defp close(query, state) do
+    :ok = Client.com_stmt_close(query.statement_id, state)
     delete_statement_id(state, query)
   end
 end

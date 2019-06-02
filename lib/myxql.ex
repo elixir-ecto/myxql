@@ -191,6 +191,18 @@ defmodule MyXQL do
   @spec query(conn, iodata, list, [option()]) ::
           {:ok, MyXQL.Result.t()} | {:error, Exception.t()}
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
+    if name = Keyword.get(options, :cache_statement) do
+      statement = IO.iodata_to_binary(statement)
+      query = %MyXQL.Query{name: name, statement: statement, cache: :statement, ref: make_ref()}
+
+      DBConnection.prepare_execute(conn, query, params, options)
+      |> query_result()
+    else
+      do_query(conn, statement, params, options)
+    end
+  end
+
+  defp do_query(conn, statement, params, options) do
     case Keyword.get(options, :query_type, :binary) do
       :binary ->
         prepare_execute(conn, "", statement, params, options)

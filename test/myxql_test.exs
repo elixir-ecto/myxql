@@ -245,6 +245,20 @@ defmodule MyXQLTest do
       MyXQL.query!(c.conn, "DROP TABLE IF EXISTS test_prepared_schema_change")
     end
 
+    @tag :skip
+    test "query not properly prepared", c do
+      assert_raise ArgumentError, ~r"has not been prepared", fn ->
+        query = %MyXQL.Query{statement: "SELECT 1", ref: nil, num_params: 0}
+        MyXQL.execute(c.conn, query, [])
+      end
+
+      assert_raise ArgumentError, ~r"has not been prepared", fn ->
+        query = %MyXQL.Query{statement: "SELECT 1", ref: make_ref(), num_params: nil}
+        MyXQL.execute(c.conn, query, [])
+      end
+    end
+
+    @tag :skip
     test "invalid number of params", c do
       assert_raise ArgumentError, ~r"parameters must be of length 2 for query", fn ->
         MyXQL.query(c.conn, "SELECT ? * ?", [1])
@@ -286,6 +300,19 @@ defmodule MyXQLTest do
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query2.ref == query3.ref
       assert query2.statement_id != query3.statement_id
+    end
+
+    test "statement cache", c do
+      self = self()
+
+      MyXQL.query!(c.conn, "SELECT 1024", [], cache_statement: true, log: &send(self, &1))
+      assert_receive %DBConnection.LogEntry{} = entry
+      {:ok, query1, _result} = entry.result
+
+      MyXQL.query!(c.conn, "SELECT 1024", [], cache_statement: true, log: &send(self, &1))
+      assert_receive %DBConnection.LogEntry{} = entry
+      {:ok, query2, _result} = entry.result
+      assert query2.statement_id == query1.statement_id
     end
 
     test "disconnect on errors" do
@@ -497,6 +524,7 @@ defmodule MyXQLTest do
       end
     end
 
+    @tag :skip
     test "invalid params", c do
       assert_raise ArgumentError, ~r"parameters must be of length 2", fn ->
         MyXQL.transaction(c.conn, fn conn ->

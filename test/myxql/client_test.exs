@@ -260,9 +260,38 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "recv_packets/4" do
+    test "simple" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          :gen_tcp.send(sock, <<3::24-little, 0, "foo">>)
+        end)
+
+      decoder = fn payload, _next_data, :initial ->
+        {:halt, payload}
+      end
+
+      {:ok, state} = Client.do_connect(Client.Config.new(port: port))
+      assert Client.recv_packets(decoder, :initial, state) == {:ok, "foo"}
+    end
+  end
+
   defp connect(_) do
     {:ok, state} = Client.connect(@opts)
     {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
     {:ok, [state: state]}
+  end
+
+  defp start_fake_server(fun) do
+    {:ok, listen_socket} = :gen_tcp.listen(0, mode: :binary, active: false)
+    {:ok, port} = :inet.port(listen_socket)
+
+    {:ok, pid} =
+      Task.start_link(fn ->
+        {:ok, accept_socket} = :gen_tcp.accept(listen_socket)
+        fun.(%{accept_socket: accept_socket, listen_socket: listen_socket})
+      end)
+
+    %{pid: pid, port: port}
   end
 end
