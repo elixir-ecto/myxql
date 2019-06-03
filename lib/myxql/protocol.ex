@@ -439,7 +439,7 @@ defmodule MyXQL.Protocol do
     <<
       0x0C,
       _character_set::uint2,
-      _column_length::uint4,
+      column_length::uint4,
       type::uint1,
       flags::uint2,
       _decimals::uint1,
@@ -449,6 +449,7 @@ defmodule MyXQL.Protocol do
     column_def(
       name: name,
       type: Values.type_code_to_atom(type),
+      length: column_length,
       flags: flags,
       unsigned?: has_column_flag?(flags, :unsigned_flag)
     )

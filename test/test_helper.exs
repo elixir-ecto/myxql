@@ -108,8 +108,7 @@ defmodule TestHelper do
 
       my_enum ENUM('red', 'green', 'blue'),
       my_set SET('red', 'green', 'blue'),
-      my_bit2 BIT(2),
-      my_bit8 BIT(8),
+      my_bit3 BIT(3),
       my_date DATE,
       my_time TIME,
       my_timestamp TIMESTAMP,

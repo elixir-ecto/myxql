@@ -56,11 +56,37 @@ defmodule MyXQL.Protocol.Values do
     def type_atom_to_code(unquote(atom)), do: unquote(code)
   end
 
+  defp column_def_to_type(column_def(type: :mysql_type_tiny, unsigned?: true)), do: :uint1
+  defp column_def_to_type(column_def(type: :mysql_type_tiny, unsigned?: false)), do: :int1
+  defp column_def_to_type(column_def(type: :mysql_type_short, unsigned?: true)), do: :uint2
+  defp column_def_to_type(column_def(type: :mysql_type_short, unsigned?: false)), do: :int2
+  defp column_def_to_type(column_def(type: :mysql_type_long, unsigned?: true)), do: :uint4
+  defp column_def_to_type(column_def(type: :mysql_type_long, unsigned?: false)), do: :int4
+  defp column_def_to_type(column_def(type: :mysql_type_int24, unsigned?: true)), do: :uint4
+  defp column_def_to_type(column_def(type: :mysql_type_int24, unsigned?: false)), do: :int4
+  defp column_def_to_type(column_def(type: :mysql_type_longlong, unsigned?: true)), do: :uint8
+  defp column_def_to_type(column_def(type: :mysql_type_longlong, unsigned?: false)), do: :int8
+  defp column_def_to_type(column_def(type: :mysql_type_year)), do: :uint2
+  defp column_def_to_type(column_def(type: :mysql_type_float)), do: :float
+  defp column_def_to_type(column_def(type: :mysql_type_double)), do: :double
+  defp column_def_to_type(column_def(type: :mysql_type_timestamp)), do: :datetime
+  defp column_def_to_type(column_def(type: :mysql_type_date)), do: :date
+  defp column_def_to_type(column_def(type: :mysql_type_time)), do: :time
+  defp column_def_to_type(column_def(type: :mysql_type_datetime)), do: :naive_datetime
+  defp column_def_to_type(column_def(type: :mysql_type_newdecimal)), do: :decimal
+  defp column_def_to_type(column_def(type: :mysql_type_json)), do: :json
+  defp column_def_to_type(column_def(type: :mysql_type_blob)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_long_blob)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_var_string)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_string)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_bit, length: length)), do: {:bit, length}
+  defp column_def_to_type(column_def(type: :mysql_type_null)), do: :null
+
   # Text values
 
   def decode_text_row(values, column_defs) do
-    column_types = Enum.map(column_defs, &elem(&1, 2))
-    decode_text_row(values, column_types, [])
+    types = Enum.map(column_defs, &column_def_to_type/1)
+    decode_text_row(values, types, [])
   end
 
   # null value
@@ -80,57 +106,55 @@ defmodule MyXQL.Protocol.Values do
 
   def decode_text_value(value, type)
       when type in [
-             :mysql_type_tiny,
-             :mysql_type_short,
-             :mysql_type_long,
-             :mysql_type_longlong,
-             :mysql_type_int24,
-             :mysql_type_year
+             :uint1,
+             :uint2,
+             :uint4,
+             :uint8,
+             :int1,
+             :int2,
+             :int4,
+             :int8
            ] do
     String.to_integer(value)
   end
 
-  def decode_text_value(value, type) when type in [:mysql_type_float, :mysql_type_double] do
+  def decode_text_value(value, type) when type in [:float, :double] do
     String.to_float(value)
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
-  def decode_text_value(value, :mysql_type_newdecimal) do
+  def decode_text_value(value, :decimal) do
     Decimal.new(value)
   end
 
-  def decode_text_value(value, :mysql_type_date) do
+  def decode_text_value(value, :date) do
     Date.from_iso8601!(value)
   end
 
-  def decode_text_value(value, :mysql_type_time) do
+  def decode_text_value(value, :time) do
     Time.from_iso8601!(value)
   end
 
-  def decode_text_value(value, :mysql_type_datetime) do
+  def decode_text_value(value, :naive_datetime) do
     NaiveDateTime.from_iso8601!(value)
   end
 
-  def decode_text_value(value, :mysql_type_timestamp) do
+  def decode_text_value(value, :datetime) do
     value
     |> NaiveDateTime.from_iso8601!()
     |> DateTime.from_naive!("Etc/UTC")
   end
 
-  def decode_text_value(value, type)
-      when type in [
-             :mysql_type_varchar,
-             :mysql_type_var_string,
-             :mysql_type_string,
-             :mysql_type_blob,
-             :mysql_type_long_blob
-             # :mysql_type_bit
-           ] do
+  def decode_text_value(value, :binary) do
     value
   end
 
-  def decode_text_value(value, :mysql_type_json) do
+  def decode_text_value(value, :json) do
     json_library().decode!(value)
+  end
+
+  def decode_text_value(value, {:bit, size}) do
+    decode_bit(value, size)
   end
 
   # Binary values
@@ -163,9 +187,12 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_var_string, encode_string_lenenc(binary)}
   end
 
-  # def encode_binary_value(bitstring) when is_bitstring(bitstring) do
-  #   {:mysql_type_bit, bitstring}
-  # end
+  def encode_binary_value(bitstring) when is_bitstring(bitstring) do
+    size = bit_size(bitstring)
+    pad = 8 - rem(size, 8)
+    bitstring = <<0::size(pad), bitstring::bitstring>>
+    {:mysql_type_bit, encode_string_lenenc(bitstring)}
+  end
 
   def encode_binary_value(true) do
     {:mysql_type_tiny, <<1>>}
@@ -261,34 +288,6 @@ defmodule MyXQL.Protocol.Values do
     decode_binary_row(values, null_bitmap, types, [])
   end
 
-  defp column_def_to_type(column_def(type: type, unsigned?: unsigned?)),
-    do: column_def_to_type(type, unsigned?)
-
-  defp column_def_to_type(:mysql_type_tiny, true), do: :uint1
-  defp column_def_to_type(:mysql_type_tiny, false), do: :int1
-  defp column_def_to_type(:mysql_type_short, true), do: :uint2
-  defp column_def_to_type(:mysql_type_short, false), do: :int2
-  defp column_def_to_type(:mysql_type_long, true), do: :uint4
-  defp column_def_to_type(:mysql_type_long, false), do: :int4
-  defp column_def_to_type(:mysql_type_int24, true), do: :uint4
-  defp column_def_to_type(:mysql_type_int24, false), do: :int4
-  defp column_def_to_type(:mysql_type_longlong, true), do: :uint8
-  defp column_def_to_type(:mysql_type_longlong, false), do: :int8
-  defp column_def_to_type(:mysql_type_year, _), do: :uint2
-  defp column_def_to_type(:mysql_type_float, _), do: :float
-  defp column_def_to_type(:mysql_type_double, _), do: :double
-  defp column_def_to_type(:mysql_type_timestamp, _), do: :datetime
-  defp column_def_to_type(:mysql_type_date, _), do: :date
-  defp column_def_to_type(:mysql_type_time, _), do: :time
-  defp column_def_to_type(:mysql_type_datetime, _), do: :naive_datetime
-  defp column_def_to_type(:mysql_type_newdecimal, _), do: :decimal
-  defp column_def_to_type(:mysql_type_json, _), do: :json
-  defp column_def_to_type(:mysql_type_blob, _), do: :binary
-  defp column_def_to_type(:mysql_type_long_blob, _), do: :binary
-  defp column_def_to_type(:mysql_type_var_string, _), do: :binary
-  defp column_def_to_type(:mysql_type_string, _), do: :binary
-  defp column_def_to_type(:mysql_type_null, _), do: :null
-
   defp decode_binary_row(<<rest::bits>>, null_bitmap, [_type | t], acc)
        when (null_bitmap &&& 1) == 1 do
     decode_binary_row(rest, null_bitmap >>> 1, t, [nil | acc])
@@ -344,6 +343,9 @@ defmodule MyXQL.Protocol.Values do
 
   defp decode_binary_row(<<r::bits>>, null_bitmap, [:datetime | t], acc),
     do: decode_datetime(r, null_bitmap, t, acc, :datetime)
+
+  defp decode_binary_row(<<r::bits>>, null_bitmap, [{:bit, size} | t], acc),
+    do: decode_bit(r, size, null_bitmap, t, acc)
 
   defp decode_binary_row(<<>>, _null_bitmap, [], acc) do
     Enum.reverse(acc)
@@ -507,5 +509,23 @@ defmodule MyXQL.Protocol.Values do
 
   defp json_library() do
     Application.get_env(:myxql, :json_library, Jason)
+  end
+
+  defp decode_bit(<<n::uint1, v::string(n), r::bits>>, size, null_bitmap, t, acc) when n < 251,
+    do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
+
+  defp decode_bit(<<0xFC, n::uint2, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+    do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
+
+  defp decode_bit(<<0xFD, n::uint3, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+    do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
+
+  defp decode_bit(<<0xFE, n::uint8, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+    do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
+
+  defp decode_bit(binary, size) do
+    pad = 8 - rem(size, 8)
+    <<0::size(pad), bitstring::size(size)-bits>> = binary
+    bitstring
   end
 end

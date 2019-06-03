@@ -67,5 +67,5 @@ defmodule MyXQL.Protocol.Records do
   ]
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-  defrecord :column_def, [:name, :type, :flags, :unsigned?]
+  defrecord :column_def, [:name, :type, :length, :flags, :unsigned?]
 end

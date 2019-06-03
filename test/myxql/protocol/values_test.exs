@@ -160,11 +160,11 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
-      # if @protocol == :binary do
-      #   test "MYSQL_TYPE_BIT", c do
-      #     assert_roundtrip(c, "my_bit2", <<1::1, 0::1>>)
-      #   end
-      # end
+      test "MYSQL_TYPE_BIT", c do
+        assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 1::1>>)
+        assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 0::1>>)
+        assert_roundtrip(c, "my_bit3", <<0::1, 0::1, 1::1>>)
+      end
 
       test "MYSQL_TYPE_NEWDECIMAL - SQL DECIMAL", c do
         assert_roundtrip(c, "my_decimal", Decimal.new(-13))
@@ -323,14 +323,37 @@ defmodule MyXQL.Protocol.ValueTest do
 
     values =
       Enum.map_join(values, ", ", fn
-        nil -> "NULL"
-        true -> "TRUE"
-        false -> "FALSE"
-        %DateTime{} = datetime -> "'#{NaiveDateTime.to_iso8601(datetime)}'"
-        list when is_list(list) -> "'#{Jason.encode!(list)}'"
-        %_{} = struct -> "'#{struct}'"
-        map when is_map(map) -> "'#{Jason.encode!(map)}'"
-        value -> "'#{value}'"
+        nil ->
+          "NULL"
+
+        true ->
+          "TRUE"
+
+        false ->
+          "FALSE"
+
+        %DateTime{} = datetime ->
+          "'#{NaiveDateTime.to_iso8601(datetime)}'"
+
+        list when is_list(list) ->
+          "'#{Jason.encode!(list)}'"
+
+        %_{} = struct ->
+          "'#{struct}'"
+
+        map when is_map(map) ->
+          "'#{Jason.encode!(map)}'"
+
+        value when is_binary(value) ->
+          "'#{value}'"
+
+        value when is_bitstring(value) ->
+          size = bit_size(value)
+          <<value::size(size)>> = value
+          "B'#{Integer.to_string(value, 2)}'"
+
+        value ->
+          "'#{value}'"
       end)
 
     %MyXQL.Result{last_insert_id: id} =
