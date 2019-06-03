@@ -133,7 +133,7 @@ defmodule MyXQL.Client do
   end
 
   def send_packet(payload, sequence_id, state) do
-    data = encode_packet(payload, sequence_id)
+    data = encode_packet(payload, sequence_id, state.max_packet_size)
     send_data(state, data)
   end
 
@@ -206,7 +206,7 @@ defmodule MyXQL.Client do
     } = config
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
-    state = %{connection_id: nil}
+    state = %{connection_id: nil, max_packet_size: nil}
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
@@ -307,6 +307,7 @@ defmodule MyXQL.Client do
       )
 
     payload = encode_handshake_response_41(handshake_response)
+    state = %{state | max_packet_size: handshake_response_41(handshake_response, :max_packet_size)}
 
     case send_recv_packet(payload, &decode_auth_response/1, sequence_id, state) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->

@@ -17,7 +17,8 @@ defmodule MyXQL.Connection do
     ping_timeout: 15_000,
     prepare: :named,
     queries: nil,
-    transaction_status: :idle
+    transaction_status: :idle,
+    max_packet_size: nil
   ]
 
   @impl true

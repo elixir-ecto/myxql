@@ -21,9 +21,18 @@ defmodule MyXQL.Protocol do
   # https://dev.mysql.com/doc/internals/en/mysql-packet.html
   ###########################################################
 
-  def encode_packet(payload, sequence_id) do
+  def encode_packet(payload, sequence_id, max_packet_size) do
     payload_length = IO.iodata_length(payload)
-    [<<payload_length::uint3, sequence_id::uint1>>, payload]
+
+    if payload_length > max_packet_size do
+      raise "foo"
+      payload = IO.iodata_to_binary(payload)
+      <<payload::size(payload_length)-binary, rest::bits>> = payload
+      next_sequence_id = if sequence_id < 255, do: sequence_id + 1, else: 0
+      [payload, encode_packet(rest, next_sequence_id, max_packet_size)]
+    else
+      [<<payload_length::uint3, sequence_id::uint1>>, payload]
+    end
   end
 
   def decode_generic_response(<<0x00, rest::bits>>) do
