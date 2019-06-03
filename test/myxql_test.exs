@@ -276,20 +276,20 @@ defmodule MyXQLTest do
     end
 
     test "named and unnamed queries" do
-      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
-      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query == query2
-      {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query == query3
+      # {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
+      # {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
+      # {:ok, query2, _} = MyXQL.execute(pid, query, [])
+      # assert query == query2
+      # {:ok, query3, _} = MyXQL.execute(pid, query, [])
+      # assert query == query3
 
-      # unnamed queries are closed
-      {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query == query2
-      {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref == query3.ref
-      assert query2.statement_id != query3.statement_id
+      # # unnamed queries are closed
+      # {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
+      # {:ok, query2, _} = MyXQL.execute(pid, query, [])
+      # assert query == query2
+      # {:ok, query3, _} = MyXQL.execute(pid, query, [])
+      # assert query2.ref == query3.ref
+      # assert query2.statement_id != query3.statement_id
 
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")

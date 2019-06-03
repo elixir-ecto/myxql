@@ -16,7 +16,7 @@ defmodule MyXQL.Connection do
     disconnect_on_error_codes: [],
     ping_timeout: 15_000,
     prepare: :named,
-    queries: %{},
+    queries: nil,
     transaction_status: :idle
   ]
 
@@ -36,7 +36,8 @@ defmodule MyXQL.Connection do
           disconnect_on_error_codes: disconnect_on_error_codes,
           ping_timeout: ping_timeout,
           sock: state.sock,
-          connection_id: state.connection_id
+          connection_id: state.connection_id,
+          queries: queries_new()
         }
 
         {:ok, state}
@@ -391,27 +392,65 @@ defmodule MyXQL.Connection do
     %{state | transaction_status: transaction_status(status_flags)}
   end
 
-  defp queries_put(state, query) do
-    key = cache_key(query)
-    %{state | queries: Map.put(state.queries, key, query)}
+  defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
+
+  defp queries_put(state, %Query{cache: :reference} = query) do
+    try do
+      :ets.insert(state.queries, {cache_key(query), query.statement_id})
+    rescue
+      ArgumentError ->
+        :ok
+    else
+      true -> :ok
+    end
   end
 
-  defp queries_delete(state, query) do
-    %{state | queries: Map.delete(state.queries, cache_key(query))}
+  defp queries_put(%{prepare: :unnamed}, %Query{cache: :statement}), do: :ok
+
+  defp queries_put(state, %Query{cache: :statement} = query) do
+    try do
+      :ets.insert(state.queries, {cache_key(query), query})
+    rescue
+      ArgumentError ->
+        :ok
+    else
+      true -> :ok
+    end
   end
 
-  defp queries_get(state, query) do
-    case Map.fetch(state.queries, cache_key(query)) do
-      {:ok, query} ->
-        query
+  defp queries_delete(%{prepare: :unnamed}, %Query{cache: :statement}), do: :ok
 
-      :error ->
-        nil
+  defp queries_delete(state, %Query{} = query) do
+    try do
+      :ets.delete(state.queries, cache_key(query))
+    rescue
+      ArgumentError -> :ok
+    else
+      true -> :ok
+    end
+  end
+
+  defp queries_get(state, %{cache: :reference} = query) do
+    try do
+      statement_id = :ets.lookup_element(state.queries, cache_key(query), 2)
+      %{query | statement_id: statement_id}
+    rescue
+      ArgumentError -> nil
+    end
+  end
+
+  defp queries_get(%{prepare: :unnamed}, %Query{cache: :statement}), do: nil
+
+  defp queries_get(state, %{cache: :statement} = query) do
+    try do
+      :ets.lookup_element(state.queries, cache_key(query), 2)
+    rescue
+      ArgumentError -> nil
     end
   end
 
   defp queries_fetch!(state, query) do
-    Map.fetch!(state.queries, cache_key(query))
+    queries_get(state, query) || raise ArgumentError, "cannot fetch query #{inspect(query)}"
   end
 
   defp cache_key(%MyXQL.Query{cache: :reference, ref: ref}), do: ref
@@ -421,7 +460,7 @@ defmodule MyXQL.Connection do
     case Client.com_stmt_prepare(statement, state) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         query = %{query | num_params: num_params, statement_id: statement_id}
-        state = queries_put(state, query)
+        queries_put(state, query)
         {:ok, query, state}
 
       result ->
@@ -456,5 +495,6 @@ defmodule MyXQL.Connection do
   defp close(query, state) do
     :ok = Client.com_stmt_close(query.statement_id, state)
     queries_delete(state, query)
+    state
   end
 end
