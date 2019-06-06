@@ -307,7 +307,11 @@ defmodule MyXQL.Client do
       )
 
     payload = encode_handshake_response_41(handshake_response)
-    state = %{state | max_packet_size: handshake_response_41(handshake_response, :max_packet_size)}
+
+    state = %{
+      state
+      | max_packet_size: handshake_response_41(handshake_response, :max_packet_size)
+    }
 
     case send_recv_packet(payload, &decode_auth_response/1, sequence_id, state) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->
