@@ -160,6 +160,7 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
+      @tag bit: true
       test "MYSQL_TYPE_BIT", c do
         assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 1::1>>)
         assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 0::1>>)

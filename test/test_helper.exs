@@ -215,6 +215,7 @@ defmodule TestHelper do
   def excludes() do
     supported_auth_plugins = [:mysql_native_password, :sha256_password, :caching_sha2_password]
     available_auth_plugins = available_auth_plugins()
+    mariadb? = mysql!("select @@version") =~ ~r"mariadb"i
 
     exclude =
       for plugin <- supported_auth_plugins,
@@ -227,6 +228,7 @@ defmodule TestHelper do
     exclude = [{:public_key_exchange, not supports_public_key_exchange?()} | exclude]
     exclude = [{:json, not supports_json?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
+    exclude = if mariadb?, do: [{:bit, true} | exclude], else: exclude
     exclude
   end
 end
