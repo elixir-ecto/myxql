@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.4 (2019-06-10)
+
+### Enhancements
+
+* Add statement cache
+* Support BIT data type
+* Encode packets larger than `max_packet_size`
+
+### Bug fixes
+
+* Fix selecting nulls in binary protocol
+* Raise error when :ssl is required and not started in `child_spec/1`
+
 ## v0.2.3 (2019-05-23)
 
 ### Enhancements
