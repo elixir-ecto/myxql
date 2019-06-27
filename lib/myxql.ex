@@ -172,6 +172,8 @@ defmodule MyXQL do
       executing a binary query and if that fails fallback to executing a text query, and `:text` for text protocol
       (default: `:binary`)
 
+    * `:cache_statement` - caches the query with the given name
+
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
   options.
