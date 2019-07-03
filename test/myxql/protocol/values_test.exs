@@ -100,6 +100,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_date", ~D[1999-12-31])
       end
 
+      test "MYSQL_TYPE_DATE - Zero date", c do
+        assert_roundtrip(c, "my_date", ~D[0000-00-00])
+      end
+
       test "MYSQL_TYPE_TIME", c do
         assert_roundtrip(c, "my_time", ~T[09:10:20])
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
@@ -134,6 +138,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert insert_and_get(c, "my_datetime", datetime) == ndt
       end
 
+      test "MYSQL_TYPE_DATETIME - Zero datetime", c do
+        assert_roundtrip(c, "my_datetime", ~N[0000-00-00 00:00:00])
+      end
+
       if @protocol == :binary do
         test "MYSQL_TYPE_DATETIME - non-UTC datetimes", c do
           ndt = ~N[1999-12-31 09:10:20]
@@ -147,6 +155,10 @@ defmodule MyXQL.Protocol.ValueTest do
 
       test "MYSQL_TYPE_TIMESTAMP", c do
         assert_roundtrip(c, "my_timestamp", ~U[1999-12-31 09:10:20Z])
+      end
+
+      test "MYSQL_TYPE_TIMESTAMP - Zero timestamp", c do
+        assert_roundtrip(c, "my_timestamp", ~U[0000-00-00 00:00:00Z])
       end
 
       test "MYSQL_TYPE_TIMESTAMP - time zones", c do
