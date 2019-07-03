@@ -11,7 +11,22 @@ defmodule MyXQL.Protocol.ValueTest do
   for protocol <- [:text, :binary] do
     @protocol protocol
 
-    describe "#{@protocol} protocol" do
+    describe "#{@protocol} protocol - empty mode" do
+      setup do
+        connect(protocol: @protocol, sql_mode: "")
+      end
+
+      test "MYSQL_TYPE_TIMESTAMP - Zero timestamp", c do
+        query!(c, "SELECT TIMESTAMP '0000-00-00 00:00:00'")
+      end
+
+
+      test "MYSQL_TYPE_DATE - Zero date", c do
+        query!(c, "SELECT DATE '0000-00-00'")
+      end
+    end
+
+    describe "#{@protocol} protocol - strict mode" do
       setup do
         connect(protocol: @protocol)
       end
@@ -295,8 +310,9 @@ defmodule MyXQL.Protocol.ValueTest do
   end
 
   defp connect(c) do
+    sql_mode = Keyword.get(c, :sql_mode, "STRICT_TRANS_TABLES")
     after_connect = fn conn ->
-      MyXQL.query!(conn, "SET SESSION sql_mode = 'STRICT_TRANS_TABLES'")
+      MyXQL.query!(conn, "SET SESSION sql_mode = '#{sql_mode}'")
     end
 
     {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ TestHelper.opts())

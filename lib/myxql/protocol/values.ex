@@ -129,6 +129,10 @@ defmodule MyXQL.Protocol.Values do
     Decimal.new(value)
   end
 
+  def decode_text_value("0000-00-00", :date) do
+    :zero_date
+  end
+
   def decode_text_value(value, :date) do
     Date.from_iso8601!(value)
   end
@@ -137,8 +141,16 @@ defmodule MyXQL.Protocol.Values do
     Time.from_iso8601!(value)
   end
 
+  def decode_text_value("0000-00-00 00:00:00", :naive_datetime) do
+    :zero_datetime
+  end
+
   def decode_text_value(value, :naive_datetime) do
     NaiveDateTime.from_iso8601!(value)
+  end
+
+  def decode_text_value("0000-00-00 00:00:00", :datetime) do
+    :zero_datetime
   end
 
   def decode_text_value(value, :datetime) do
@@ -393,8 +405,9 @@ defmodule MyXQL.Protocol.Values do
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
-  defp decode_date(<<0, _r::bits>>, _null_bitmap, _t, _acc) do
-    raise ArgumentError, "cannot decode MySQL \"zero\" date as Date"
+  defp decode_date(<<0, r::bits>>, null_bitmap, t, acc) do
+    v = :zero_date
+    decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
   defp decode_time(
@@ -458,12 +471,15 @@ defmodule MyXQL.Protocol.Values do
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
-  defp decode_datetime(<<0, _r::bits>>, _null_bitmap, _t, _acc, :naive_datetime) do
-    raise ArgumentError, "cannot decode MySQL \"zero\" date as NaiveDateTime"
-  end
-
-  defp decode_datetime(<<0, _r::bits>>, _null_bitmap, _t, _acc, :datetime) do
-    raise ArgumentError, "cannot decode MySQL \"zero\" date as DateTime"
+  defp decode_datetime(
+         <<0, r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         _type
+       ) do
+    v = :zero_datetime
+    decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
   defp new_datetime(:datetime, year, month, day, hour, minute, second, microsecond) do
