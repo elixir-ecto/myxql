@@ -452,6 +452,17 @@ defmodule MyXQL.Protocol.Values do
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
+  defp decode_datetime(
+         <<0, r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         type
+       ) do
+    v = new_datetime(type, 0, 0, 0, 0, 0, 0, {0, 0})
+    decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  end
+
   defp new_datetime(:datetime, year, month, day, hour, minute, second, microsecond) do
     %DateTime{
       year: year,
