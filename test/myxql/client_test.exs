@@ -185,6 +185,18 @@ defmodule MyXQL.ClientTest do
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
+
+    test "encode large packets", %{state: state} do
+      x = String.duplicate("x", 20_000_000)
+
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+        Client.com_stmt_prepare("select length(?)", state)
+
+      {:ok, resultset(rows: rows)} =
+        Client.com_stmt_execute(statement_id, [x], :cursor_type_no_cursor, state)
+
+      assert rows == [[20_000_000]]
+    end
   end
 
   describe "com_stmt_prepare + com_stmt_execute + com_stmt_fetch" do

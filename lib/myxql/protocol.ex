@@ -23,15 +23,21 @@ defmodule MyXQL.Protocol do
 
   def encode_packet(payload, sequence_id, max_packet_size) do
     payload_length = IO.iodata_length(payload)
+    encode_packet(payload, payload_length, sequence_id, max_packet_size)
+  end
 
-    if payload_length > max_packet_size do
-      raise "foo"
-      payload = IO.iodata_to_binary(payload)
-      <<payload::size(payload_length)-binary, rest::bits>> = payload
+  defp encode_packet(payload, payload_size, sequence_id, max_packet_size) do
+    if payload_size > max_packet_size do
+      <<new_payload::size(max_packet_size)-binary, rest::binary>> = payload
+      rest_size = payload_size - max_packet_size
       next_sequence_id = if sequence_id < 255, do: sequence_id + 1, else: 0
-      [payload, encode_packet(rest, next_sequence_id, max_packet_size)]
+
+      [
+        encode_packet(new_payload, max_packet_size, sequence_id, max_packet_size),
+        encode_packet(rest, rest_size, next_sequence_id, max_packet_size)
+      ]
     else
-      [<<payload_length::uint3, sequence_id::uint1>>, payload]
+      [<<payload_size::uint3, sequence_id::uint1>>, payload]
     end
   end
 
@@ -97,7 +103,7 @@ defmodule MyXQL.Protocol do
       auth_plugin_data1::string(8),
       0,
       capability_flags1::uint2,
-      character_set::uint1,
+      charset::uint1,
       status_flags::uint2,
       capability_flags2::uint2,
       rest::binary
@@ -126,7 +132,7 @@ defmodule MyXQL.Protocol do
         auth_plugin_name: auth_plugin_name,
         auth_plugin_data: auth_plugin_data,
         capability_flags: capability_flags,
-        character_set: character_set,
+        charset: charset,
         status_flags: status_flags
       )
     end
@@ -180,7 +186,7 @@ defmodule MyXQL.Protocol do
         handshake_response_41(
           capability_flags: capability_flags,
           max_packet_size: max_packet_size,
-          character_set: character_set,
+          charset: charset,
           username: username,
           auth_plugin_name: auth_plugin_name,
           auth_response: auth_response,
@@ -193,7 +199,7 @@ defmodule MyXQL.Protocol do
     <<
       capability_flags::uint4,
       max_packet_size::uint4,
-      character_set,
+      charset,
       0::uint(23),
       <<username::binary, 0x00>>,
       auth_response::binary,
@@ -206,13 +212,13 @@ defmodule MyXQL.Protocol do
         ssl_request(
           capability_flags: capability_flags,
           max_packet_size: max_packet_size,
-          character_set: character_set
+          charset: charset
         )
       ) do
     <<
       capability_flags::uint4,
       max_packet_size::uint4,
-      character_set,
+      charset,
       0::uint(23)
     >>
   end

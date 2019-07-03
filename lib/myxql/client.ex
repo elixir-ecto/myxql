@@ -8,6 +8,8 @@ defmodule MyXQL.Client do
   defmodule Config do
     @moduledoc false
 
+    @default_timeout 15_000
+
     defstruct [
       :address,
       :port,
@@ -18,7 +20,9 @@ defmodule MyXQL.Client do
       :ssl_opts,
       :connect_timeout,
       :handshake_timeout,
-      :socket_options
+      :socket_options,
+      :charset,
+      :max_packet_size
     ]
 
     def new(opts) do
@@ -33,8 +37,8 @@ defmodule MyXQL.Client do
         database: Keyword.get(opts, :database),
         ssl?: Keyword.get(opts, :ssl, false),
         ssl_opts: Keyword.get(opts, :ssl_opts, []),
-        connect_timeout: Keyword.get(opts, :connect_timeout, 15_000),
-        handshake_timeout: Keyword.get(opts, :handshake_timeout, 15_000),
+        connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
+        handshake_timeout: Keyword.get(opts, :handshake_timeout, @default_timeout),
         socket_options:
           Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || [])
       }
@@ -65,6 +69,12 @@ defmodule MyXQL.Client do
       end
     end
   end
+
+  @default_max_packet_size 16_777_215
+
+  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
+  # utf8mb4
+  @default_charset 45
 
   def connect(opts) when is_list(opts) do
     connect(Config.new(opts))
@@ -133,7 +143,7 @@ defmodule MyXQL.Client do
   end
 
   def send_packet(payload, sequence_id, state) do
-    data = encode_packet(payload, sequence_id, state.max_packet_size)
+    data = encode_packet(payload, sequence_id, @default_max_packet_size)
     send_data(state, data)
   end
 
@@ -206,7 +216,7 @@ defmodule MyXQL.Client do
     } = config
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
-    state = %{connection_id: nil, max_packet_size: nil}
+    state = %{connection_id: nil, sock: nil}
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
@@ -218,7 +228,7 @@ defmodule MyXQL.Client do
 
         buffer = buffer |> max(sndbuf) |> max(recbuf)
         :ok = :inet.setopts(sock, buffer: buffer)
-        {:ok, Map.put(state, :sock, {:gen_tcp, sock})}
+        {:ok, %{state | sock: {:gen_tcp, sock}}}
 
       other ->
         other
@@ -272,7 +282,14 @@ defmodule MyXQL.Client do
 
   defp maybe_upgrade_to_ssl(%{ssl?: true} = config, capability_flags, sequence_id, state) do
     {_, sock} = state.sock
-    ssl_request = ssl_request(capability_flags: capability_flags)
+
+    ssl_request =
+      ssl_request(
+        capability_flags: capability_flags,
+        charset: @default_charset,
+        max_packet_size: @default_max_packet_size
+      )
+
     payload = encode_ssl_request(ssl_request)
 
     with :ok <- send_packet(payload, sequence_id, state),
@@ -303,15 +320,12 @@ defmodule MyXQL.Client do
         username: config.username,
         auth_plugin_name: initial_auth_plugin_name,
         auth_response: auth_response,
-        database: config.database
+        database: config.database,
+        charset: @default_charset,
+        max_packet_size: @default_max_packet_size
       )
 
     payload = encode_handshake_response_41(handshake_response)
-
-    state = %{
-      state
-      | max_packet_size: handshake_response_41(handshake_response, :max_packet_size)
-    }
 
     case send_recv_packet(payload, &decode_auth_response/1, sequence_id, state) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->

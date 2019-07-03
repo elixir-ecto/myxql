@@ -3,12 +3,6 @@ defmodule MyXQL.Protocol.Records do
 
   import Record
 
-  @default_max_packet_size 16_777_215
-
-  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-  # utf8mb4
-  @default_charset 45
-
   # https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
   defrecord :ok_packet, [:affected_rows, :last_insert_id, :status_flags, :num_warnings, :info]
 
@@ -23,27 +17,25 @@ defmodule MyXQL.Protocol.Records do
     :auth_plugin_data,
     :auth_plugin_name,
     :capability_flags,
-    :character_set,
+    :charset,
     :conn_id,
     :server_version,
     :status_flags
   ]
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse
-  defrecord :handshake_response_41,
-    capability_flags: nil,
-    max_packet_size: @default_max_packet_size,
-    character_set: @default_charset,
-    username: nil,
-    database: nil,
-    auth_plugin_name: nil,
-    auth_response: nil
+  defrecord :handshake_response_41, [
+    :capability_flags,
+    :max_packet_size,
+    :charset,
+    :username,
+    :database,
+    :auth_plugin_name,
+    :auth_response
+  ]
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
-  defrecord :ssl_request,
-    capability_flags: nil,
-    max_packet_size: @default_max_packet_size,
-    character_set: @default_charset
+  defrecord :ssl_request, [:capability_flags, :max_packet_size, :charset]
 
   # https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchRequest
   defrecord :auth_switch_request, [:plugin_name, :plugin_data]
