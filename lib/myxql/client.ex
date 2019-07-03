@@ -33,7 +33,7 @@ defmodule MyXQL.Client do
         port: port,
         username:
           Keyword.get(opts, :username, System.get_env("USER")) || raise(":username is missing"),
-        password: Keyword.get(opts, :password),
+        password: nilify(Keyword.get(opts, :password)),
         database: Keyword.get(opts, :database),
         ssl?: Keyword.get(opts, :ssl, false),
         ssl_opts: Keyword.get(opts, :ssl_opts, []),
@@ -43,6 +43,9 @@ defmodule MyXQL.Client do
           Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || [])
       }
     end
+
+    defp nilify(""), do: nil
+    defp nilify(other), do: other
 
     defp address_and_port(opts) do
       default_protocol =

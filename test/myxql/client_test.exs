@@ -36,11 +36,17 @@ defmodule MyXQL.ClientTest do
     test "no password" do
       opts = [username: "nopassword"] ++ @opts
       assert {:ok, _} = Client.connect(opts)
+
+      opts = [username: "nopassword", password: ""] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
     end
 
     @tag ssl: true
     test "no password (ssl)" do
       opts = [username: "nopassword", ssl: true] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+
+      opts = [username: "nopassword", password: ""] ++ @opts
       assert {:ok, _} = Client.connect(opts)
     end
 
