@@ -391,6 +391,10 @@ defmodule MyXQL.Protocol.Values do
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
+  defp decode_date(<<0, _r::bits>>, _null_bitmap, _t, _acc) do
+    raise ArgumentError, "cannot decode MySQL \"zero\" date as Date"
+  end
+
   defp decode_time(
          <<8, 0, 0::uint4, hour::uint1, minute::uint1, second::uint1, r::bits>>,
          null_bitmap,
@@ -450,6 +454,14 @@ defmodule MyXQL.Protocol.Values do
        ) do
     v = new_datetime(type, year, month, day, hour, minute, second, {microsecond, 6})
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  end
+
+  defp decode_datetime(<<0, _r::bits>>, _null_bitmap, _t, _acc, :naive_datetime) do
+    raise ArgumentError, "cannot decode MySQL \"zero\" date as NaiveDateTime"
+  end
+
+  defp decode_datetime(<<0, _r::bits>>, _null_bitmap, _t, _acc, :datetime) do
+    raise ArgumentError, "cannot decode MySQL \"zero\" date as DateTime"
   end
 
   defp new_datetime(:datetime, year, month, day, hour, minute, second, microsecond) do
