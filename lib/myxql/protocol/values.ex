@@ -76,6 +76,8 @@ defmodule MyXQL.Protocol.Values do
   defp column_def_to_type(column_def(type: :mysql_type_newdecimal)), do: :decimal
   defp column_def_to_type(column_def(type: :mysql_type_json)), do: :json
   defp column_def_to_type(column_def(type: :mysql_type_blob)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_tiny_blob)), do: :binary
+  defp column_def_to_type(column_def(type: :mysql_type_medium_blob)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_long_blob)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_var_string)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_string)), do: :binary

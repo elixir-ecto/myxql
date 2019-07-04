@@ -191,7 +191,11 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_blob", <<1, 2, 3>>)
       end
 
-      test "MYSQL_TYPE_MEDIUMBLOB", c do
+      test "MYSQL_TYPE_TINY_BLOB", c do
+        assert_roundtrip(c, "my_tinyblob", <<1, 2, 3>>)
+      end
+
+      test "MYSQL_TYPE_MEDIUM_BLOB", c do
         blob = String.duplicate("a", 1000)
         assert_roundtrip(c, "my_mediumblob", blob)
 
@@ -200,6 +204,11 @@ defmodule MyXQL.Protocol.ValueTest do
 
         blob = String.duplicate("a", 16_777_000)
         assert_roundtrip(c, "my_mediumblob", blob)
+      end
+
+      test "MYSQL_TYPE_LONG_BLOB", c do
+        blob = String.duplicate("a", 16_777_000)
+        assert_roundtrip(c, "my_longblob", blob)
       end
 
       test "MYSQL_TYPE_VAR_STRING - SQL VARBINARY", c do

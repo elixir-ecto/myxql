@@ -119,7 +119,9 @@ defmodule TestHelper do
       my_varbinary3 VARBINARY(3),
       my_boolean BOOLEAN,
       my_blob BLOB,
+      my_tinyblob TINYBLOB,
       my_mediumblob MEDIUMBLOB,
+      my_longblob LONGBLOB,
       #{if supports_json?(), do: "my_json JSON,", else: ""}
       my_char CHAR
     );
