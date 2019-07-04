@@ -117,6 +117,7 @@ defmodule TestHelper do
       my_year YEAR,
       my_binary3 BINARY(3),
       my_varbinary3 VARBINARY(3),
+      my_varchar3 VARCHAR(3),
       my_boolean BOOLEAN,
       my_blob BLOB,
       my_tinyblob TINYBLOB,

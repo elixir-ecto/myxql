@@ -215,6 +215,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_varbinary3", <<1, 2, 3>>)
       end
 
+      test "MYSQL_TYPE_VARCHAR", c do
+        assert_roundtrip(c, "my_varchar3", <<1, 2, 3>>)
+      end
+
       test "MYSQL_TYPE_STRING - SQL BINARY", c do
         assert_roundtrip(c, "my_binary3", <<1, 2, 3>>)
       end
