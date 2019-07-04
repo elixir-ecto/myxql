@@ -337,7 +337,7 @@ defmodule MyXQL.Connection do
   defp format_reason(:timeout), do: "timeout"
   defp format_reason(:closed), do: "socket closed"
 
-  defp format_reason({:tls_alert, 'bad record mac'} = reason) do
+  defp format_reason({:tls_alert, {:bad_record_mac, _}} = reason) do
     versions = :ssl.versions()[:supported]
 
     """
