@@ -349,6 +349,10 @@ defmodule MyXQL.Connection do
     """
   end
 
+  defp format_reason(reason) when is_atom(reason) do
+    List.to_string(:inet.format_error(reason))
+  end
+
   defp format_reason(reason) do
     case :ssl.format_error(reason) do
       'Unexpected error' ++ _ ->
