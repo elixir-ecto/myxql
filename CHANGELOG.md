@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.6 (2019-07-04)
+
+### Bug fixes
+
+* Fix VARCHAR handling
+* Fix TINY, MEDIUM, and LONG BLOBs handling
+* Fix dialyzer errors
+
 ## v0.2.5 (2019-07-04)
 
 ### Bug fixes
