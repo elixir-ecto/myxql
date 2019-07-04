@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.5 (2019-07-04)
+
+### Bug fixes
+
+* Fix encoding large packets
+* Consider `""` as empty password
+* Raise better error messages on "zero" dates
+
 ## v0.2.4 (2019-06-10)
 
 ### Enhancements
