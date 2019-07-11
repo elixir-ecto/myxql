@@ -1,7 +1,8 @@
 defmodule MyXQL.Protocol.ValueTest do
   use ExUnit.Case, async: true
   use Bitwise
-  @default_mode "STRICT_TRANS_TABLES"
+
+  @default_sql_mode "STRICT_TRANS_TABLES"
 
   unless macro_exported?(Kernel, :sigil_U, 2) do
     defmacrop sigil_U({:<<>>, _, [string]}, _) do
@@ -13,9 +14,10 @@ defmodule MyXQL.Protocol.ValueTest do
     @protocol protocol
 
     describe "#{@protocol} protocol" do
-      setup context do
-        mode = Map.get(context, :mode, @default_mode)
-        connect(protocol: @protocol, mode: mode)
+      setup c do
+        c
+        |> Map.put(:protocol, @protocol)
+        |> connect()
       end
 
       test "MYSQL_TYPE_TINY", c do
@@ -119,12 +121,12 @@ defmodule MyXQL.Protocol.ValueTest do
                  ~N[1999-12-31 09:10:20]
       end
 
-      @tag mode: "ALLOW_INVALID_DATES"
+      @tag sql_mode: "ALLOW_INVALID_DATES"
       test "MYSQL_TYPE_TIMESTAMP - Zero timestamp", c do
         assert query!(c, "SELECT TIMESTAMP '0000-00-00 00:00:00'").rows == [[:zero_datetime]]
       end
 
-      @tag mode: "ALLOW_INVALID_DATES"
+      @tag sql_mode: "ALLOW_INVALID_DATES"
       test "MYSQL_TYPE_DATE - Zero date", c do
         assert query!(c, "SELECT DATE '0000-00-00'").rows == [[:zero_date]]
       end
@@ -307,13 +309,14 @@ defmodule MyXQL.Protocol.ValueTest do
   end
 
   defp connect(c) do
+    sql_mode = Map.get(c, :sql_mode, @default_sql_mode)
+
     after_connect = fn conn ->
-      mode = Keyword.get(c, :mode, @default_mode)
-      MyXQL.query!(conn, "SET SESSION sql_mode = '#{mode}'")
+      MyXQL.query!(conn, "SET SESSION sql_mode = '#{sql_mode}'")
     end
 
     {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ TestHelper.opts())
-    Keyword.put(c, :conn, conn)
+    Map.put(c, :conn, conn)
   end
 
   defp assert_roundtrip(c, field, value) do
@@ -336,11 +339,11 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp assert_discrepancy(field, text: expected_text, binary: expected_binary)
        when is_binary(field) do
-    c = [protocol: :text] |> connect() |> Map.new()
+    c = connect(%{protocol: :text})
     assert_roundtrip(c, field, expected_text)
     assert insert_and_get(c, field, expected_binary) == expected_text
 
-    c = [protocol: :binary] |> connect() |> Map.new()
+    c = connect(%{protocol: :binary})
     assert_roundtrip(c, field, expected_binary)
     assert insert_and_get(c, field, expected_text) == expected_binary
   end
