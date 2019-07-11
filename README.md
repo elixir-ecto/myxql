@@ -14,7 +14,7 @@ Documentation: <http://hexdocs.pm/myxql>
   * Supports `mysql_native_password`, `sha256_password` (\*), and `caching_sha256_password` (\*)
     authentication plugins
 
-\* Requires either SSL connection or the server must exchange its public key during handshake.
+\* These authentication methods require either an SSL connection or the server must exchange its public key during handshake.
 
 ## Usage
 
