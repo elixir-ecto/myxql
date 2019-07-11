@@ -20,7 +20,6 @@ defmodule MyXQL.Protocol.ValueTest do
         query!(c, "SELECT TIMESTAMP '0000-00-00 00:00:00'")
       end
 
-
       test "MYSQL_TYPE_DATE - Zero date", c do
         query!(c, "SELECT DATE '0000-00-00'")
       end
@@ -311,6 +310,7 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp connect(c) do
     sql_mode = Keyword.get(c, :sql_mode, "STRICT_TRANS_TABLES")
+
     after_connect = fn conn ->
       MyXQL.query!(conn, "SET SESSION sql_mode = '#{sql_mode}'")
     end
