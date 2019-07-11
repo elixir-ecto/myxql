@@ -14,7 +14,7 @@ Documentation: <http://hexdocs.pm/myxql>
   * Supports `mysql_native_password`, `sha256_password` (\*), and `caching_sha256_password` (\*)
     authentication plugins
 
-\* Requires either SSL connection or the server must exchange it's public key during handshake.
+\* Requires either SSL connection or the server must exchange its public key during handshake.
 
 ## Usage
 
@@ -69,7 +69,7 @@ defmodule MyApp.Application do
 end
 ```
 
-and then we can refer to it by it's `:name`:
+and then we can refer to it by its `:name`:
 
 ```elixir
 iex> MyXQL.query!(:myxql, "SELECT NOW()").rows
