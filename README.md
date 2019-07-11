@@ -103,7 +103,7 @@ bit             <<1::size(1), 0::size(1)>>
 
 \* See [Decimal](https://github.com/ericmj/decimal)
 
-\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well. Also when not using sql strict mode, zero dates and datetimes ("0000-00-00") will be returned as atoms (`:zero_date`, `:zero_datetime`).
 
 ## JSON support
 

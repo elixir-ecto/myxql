@@ -1,6 +1,7 @@
 defmodule MyXQL.Protocol.ValueTest do
   use ExUnit.Case, async: true
   use Bitwise
+  @default_mode "STRICT_TRANS_TABLES"
 
   unless macro_exported?(Kernel, :sigil_U, 2) do
     defmacrop sigil_U({:<<>>, _, [string]}, _) do
@@ -12,8 +13,9 @@ defmodule MyXQL.Protocol.ValueTest do
     @protocol protocol
 
     describe "#{@protocol} protocol" do
-      setup do
-        connect(protocol: @protocol)
+      setup context do
+        mode = Map.get(context, :mode, @default_mode)
+        connect(protocol: @protocol, mode: mode)
       end
 
       test "MYSQL_TYPE_TINY", c do
@@ -115,6 +117,16 @@ defmodule MyXQL.Protocol.ValueTest do
 
         assert insert_and_get(c, "my_datetime", ~N[1999-12-31 09:10:20.123]) ==
                  ~N[1999-12-31 09:10:20]
+      end
+
+      @tag mode: "ALLOW_INVALID_DATES"
+      test "MYSQL_TYPE_TIMESTAMP - Zero timestamp", c do
+        assert query!(c, "SELECT TIMESTAMP '0000-00-00 00:00:00'").rows == [[:zero_datetime]]
+      end
+
+      @tag mode: "ALLOW_INVALID_DATES"
+      test "MYSQL_TYPE_DATE - Zero date", c do
+        assert query!(c, "SELECT DATE '0000-00-00'").rows == [[:zero_date]]
       end
 
       @tag timestamp_precision: true
@@ -296,7 +308,8 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp connect(c) do
     after_connect = fn conn ->
-      MyXQL.query!(conn, "SET SESSION sql_mode = 'STRICT_TRANS_TABLES'")
+      mode = Keyword.get(c, :mode, @default_mode)
+      MyXQL.query!(conn, "SET SESSION sql_mode = '#{mode}'")
     end
 
     {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ TestHelper.opts())
