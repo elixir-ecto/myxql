@@ -90,10 +90,10 @@ bool            1 | 0
 int             42
 float           42.0
 decimal         #Decimal<42.0> *
-date            ~D[2013-10-12]
+date            ~D[2013-10-12] **
 time            ~T[00:37:14]
-datetime        ~N[2013-10-12 00:37:14] **
-timestamp       #DateTime<2013-10-12 00:37:14Z>
+datetime        ~N[2013-10-12 00:37:14] **, ***
+timestamp       #DateTime<2013-10-12 00:37:14Z> ***
 json            %{"foo" => "bar"}
 char            "é"
 text            "myxql"
@@ -103,7 +103,9 @@ bit             <<1::size(1), 0::size(1)>>
 
 \* See [Decimal](https://github.com/ericmj/decimal)
 
-\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well. Also when not using sql strict mode, zero dates and datetimes ("0000-00-00") will be returned as atoms (`:zero_date`, `:zero_datetime`).
+\*\* When using SQL mode that allows them, MySQL "zero" dates and datetimes are represented as `:zero_date` and `:zero_datetime` respectively.
+
+\*\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
 
 ## JSON support
 
