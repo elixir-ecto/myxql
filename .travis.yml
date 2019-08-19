@@ -1,15 +1,9 @@
-dist: trusty
+dist: xenial
 language: elixir
 elixir: 1.9
 otp_release: 22.0
 services:
   - docker
-addons:
-  apt:
-    sources:
-      - mysql-5.7-trusty
-    packages:
-      - mysql-client
 env:
   global:
     - MYSQL_SOCKET_DIR=/var/run/mysqld
@@ -22,11 +16,13 @@ env:
 matrix:
   include:
     - elixir: 1.4
-      otp_release: 18.3
+      otp_release: 19.3
     - elixir: 1.5
       otp_release: 19.3
-    - script:
+    - env: DB=none
+      script:
         - mix compile --warnings-as-errors
         - mix format --check-formatted
 script:
+  - sudo service mysql stop
   - scripts/ci.sh
