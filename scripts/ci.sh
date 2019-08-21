@@ -7,7 +7,7 @@ set -x
 : "${MYSQL_SOCKET_DIR:=/tmp/mysqld}"
 name="myxql-ci"
 
-mkdir -p $MYSQL_SOCKET_DIR
+sudo mkdir -p $MYSQL_SOCKET_DIR
 sudo chmod 777 $MYSQL_SOCKET_DIR
 
 docker pull $DB || true
