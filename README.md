@@ -94,7 +94,7 @@ date            ~D[2013-10-12] **
 time            ~T[00:37:14]
 datetime        ~N[2013-10-12 00:37:14] **, ***
 timestamp       #DateTime<2013-10-12 00:37:14Z> ***
-json            %{"foo" => "bar"}
+json            %{"foo" => "bar"} ****
 char            "é"
 text            "myxql"
 binary          <<1, 2, 3>>
@@ -105,7 +105,10 @@ bit             <<1::size(1), 0::size(1)>>
 
 \*\* When using SQL mode that allows them, MySQL "zero" dates and datetimes are represented as `:zero_date` and `:zero_datetime` respectively.
 
-\*\*\* datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+\*\*\* Datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+
+\*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
+remember to use TEXT column for your JSON field.
 
 ## JSON support
 
