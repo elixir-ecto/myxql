@@ -21,8 +21,9 @@ defmodule MyXQL.Client do
       :connect_timeout,
       :handshake_timeout,
       :socket_options,
+      :max_packet_size,
       :charset,
-      :max_packet_size
+      :collation
     ]
 
     def new(opts) do
@@ -40,7 +41,9 @@ defmodule MyXQL.Client do
         connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
         handshake_timeout: Keyword.get(opts, :handshake_timeout, @default_timeout),
         socket_options:
-          Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || [])
+          Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
+        charset: Keyword.get(opts, :charset),
+        collation: Keyword.get(opts, :collation)
       }
     end
 
@@ -77,7 +80,7 @@ defmodule MyXQL.Client do
 
   # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
   # utf8mb4
-  @default_charset 45
+  @default_charset_code 45
 
   def connect(opts) when is_list(opts) do
     connect(Config.new(opts))
@@ -270,10 +273,10 @@ defmodule MyXQL.Client do
           state
         )
 
-      case result do
-        {:ok, ok_packet()} ->
-          {:ok, state}
-
+      with {:ok, ok_packet()} <- result,
+           {:ok, ok_packet()} <- maybe_set_names(config, state) do
+        {:ok, state}
+      else
         {:ok, err_packet() = err_packet} ->
           {:error, err_packet}
 
@@ -283,13 +286,26 @@ defmodule MyXQL.Client do
     end
   end
 
+  defp maybe_set_names(%{charset: nil, collation: nil}, state) do
+    {:ok, state}
+  end
+
+  defp maybe_set_names(%{charset: charset, collation: nil}, state) when is_binary(charset) do
+    com_query("SET NAMES '#{charset}'", state)
+  end
+
+  defp maybe_set_names(%{charset: charset, collation: collation}, state)
+       when is_binary(charset) and is_binary(collation) do
+    com_query("SET NAMES '#{charset}' COLLATE '#{collation}'", state)
+  end
+
   defp maybe_upgrade_to_ssl(%{ssl?: true} = config, capability_flags, sequence_id, state) do
     {_, sock} = state.sock
 
     ssl_request =
       ssl_request(
         capability_flags: capability_flags,
-        charset: @default_charset,
+        charset: @default_charset_code,
         max_packet_size: @default_max_packet_size
       )
 
@@ -324,7 +340,7 @@ defmodule MyXQL.Client do
         auth_plugin_name: initial_auth_plugin_name,
         auth_response: auth_response,
         database: config.database,
-        charset: @default_charset,
+        charset: @default_charset_code,
         max_packet_size: @default_max_packet_size
       )
 

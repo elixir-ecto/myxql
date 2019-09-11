@@ -135,6 +135,38 @@ defmodule MyXQL.ClientTest do
       opts = [ssl: true] ++ @opts
       assert {:error, :server_does_not_support_ssl} = Client.connect(opts)
     end
+
+    test "default charset" do
+      {:ok, client} = Client.connect(@opts)
+
+      {:ok, resultset(rows: [[charset, collation]])} =
+        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+
+      assert charset == "utf8mb4"
+      assert collation =~ "utf8mb4_"
+
+      assert {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query("SELECT 'hello 😃'", client)
+    end
+
+    test "set charset" do
+      {:ok, client} = Client.connect([charset: "latin1"] ++ @opts)
+
+      {:ok, resultset(rows: [[charset, collation]])} =
+        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+
+      assert charset == "latin1"
+      assert collation == "latin1_swedish_ci"
+    end
+
+    test "set charset and collation" do
+      {:ok, client} = Client.connect([charset: "latin1", collation: "latin1_general_ci"] ++ @opts)
+
+      {:ok, resultset(rows: [[charset, collation]])} =
+        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+
+      assert charset == "latin1"
+      assert collation == "latin1_general_ci"
+    end
   end
 
   describe "com_query/2" do

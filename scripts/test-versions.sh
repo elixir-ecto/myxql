@@ -3,7 +3,7 @@
 # Usage:
 #   ./test.sh [-c COMMAND] [NAME1 [NAME2 [...]]]
 
-set -e
+# set -e
 
 if [[ "$1" == "-c" ]]; then
   cmd="$2"

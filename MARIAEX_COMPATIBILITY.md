@@ -26,9 +26,6 @@ Connection:
   * MyXQL does not support `:timeout` option which specifies default timeout for queries, pass
     explicit `:timeout` when invoking `MyXQL.query`, `MyXQL.execute` etc instead
 
-  * MyXQL does not support `:charset` option, UTF-8 (`utf8mb4`) is always used instead. To set
-    connection charset, do: `MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET names 'utf8mb4'"))`
-
   * MyXQL does not support `:encoder`, `:decoder`, `sync_connect`, `formatter`, `:parameters`, and `:insecure_auth` options
 
 Queries:
