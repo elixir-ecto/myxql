@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.7 (2019-09-11)
+
+### Enhancements
+
+* Decode "zero dates" as `:zero_date` and `:zero_datetime`. Note, this only works on specific
+  server `sql_mode` settings, it's disabled by default and not recommended.
+
+* Support `MYSQL_HOST` and `MYSQL_PWD` env variables
+
+* Add `:charset` and `:collation` options to `start_link/2`
+
 ## v0.2.6 (2019-07-04)
 
 ### Bug fixes
