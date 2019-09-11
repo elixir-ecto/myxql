@@ -42,7 +42,7 @@ defmodule MyXQL do
     * `:socket_options` - Options to be given to the underlying socket, applies to both TCP and
       UNIX sockets. See `:gen_tcp.connect/3` for more information.  (default: `[]`)
 
-    * `:hostname` - Server hostname (default: `"localhost"`)
+    * `:hostname` - Server hostname (default: `MYSQL_HOST` env variable, then `"localhost"`)
 
     * `:port` - Server port (default: `MYSQL_TCP_PORT` env variable, then `3306`)
 
@@ -50,7 +50,7 @@ defmodule MyXQL do
 
     * `:username` - Username (default: `USER` env variable)
 
-    * `:password` - Password (default: `nil`)
+    * `:password` - Password (default: `MYSQL_PWD` env variable, then `nil`)
 
     * `:ssl` - Set to `true` if SSL should be used (default: `false`)
 

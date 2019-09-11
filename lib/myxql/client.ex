@@ -33,7 +33,7 @@ defmodule MyXQL.Client do
         port: port,
         username:
           Keyword.get(opts, :username, System.get_env("USER")) || raise(":username is missing"),
-        password: nilify(Keyword.get(opts, :password)),
+        password: nilify(Keyword.get(opts, :password, System.get_env("MYSQL_PWD"))),
         database: Keyword.get(opts, :database),
         ssl?: Keyword.get(opts, :ssl, false),
         ssl_opts: Keyword.get(opts, :ssl_opts, []),
@@ -48,8 +48,10 @@ defmodule MyXQL.Client do
     defp nilify(other), do: other
 
     defp address_and_port(opts) do
+      hostname = Keyword.get(opts, :hostname, System.get_env("MYSQL_HOST"))
+
       default_protocol =
-        if (Keyword.has_key?(opts, :hostname) or Keyword.has_key?(opts, :port)) and
+        if (!is_nil(hostname) or Keyword.has_key?(opts, :port)) and
              not Keyword.has_key?(opts, :socket) do
           :tcp
         else
@@ -65,10 +67,10 @@ defmodule MyXQL.Client do
           {{:local, socket}, 0}
 
         :tcp ->
-          hostname = Keyword.get(opts, :hostname, "localhost")
+          hostname = String.to_charlist(hostname || "localhost")
           default_port = String.to_integer(System.get_env("MYSQL_TCP_PORT") || "3306")
           port = Keyword.get(opts, :port, default_port)
-          {String.to_charlist(hostname), port}
+          {hostname, port}
       end
     end
   end
