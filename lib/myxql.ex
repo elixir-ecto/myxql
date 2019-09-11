@@ -14,6 +14,8 @@ defmodule MyXQL do
           | {:database, String.t() | nil}
           | {:username, String.t()}
           | {:password, String.t() | nil}
+          | {:charset, String.t() | nil}
+          | {:collation, String.t() | nil}
           | {:ssl, boolean()}
           | {:ssl_opts, [:ssl.tls_client_option()]}
           | {:connect_timeout, timeout()}
@@ -52,15 +54,17 @@ defmodule MyXQL do
 
     * `:password` - Password (default: `MYSQL_PWD` env variable, then `nil`)
 
+    * `:charset` - A connection charset. On connection handshake, the charset is set to `utf8mb4`,
+      but if this option is set, an additional `SET NAMES <charset> [COLLATE <collation>]` query
+      will be executed after establishing the connection. `COLLATE` will be added if `:collation`
+      is set. (default: `nil`)
+
+    * `:collation` - A connection collation. Must be given with `:charset` option, and if set
+      it overwrites the default collation for the given charset. (default: `nil`)
+
     * `:ssl` - Set to `true` if SSL should be used (default: `false`)
 
     * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
-
-    * `:pool` - The pool module to use (default: `DBConnection.ConnectionPool`)
-
-      See the pool documentation for more options. The default `:pool_size` for
-      the default pool is `1`. If you set a different pool, this option must be
-      included with all requests contacting the pool
 
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
@@ -80,9 +84,17 @@ defmodule MyXQL do
        will disconnect the connection. See "Disconnecting on Errors" section below for more
        information.
 
-  MyXQL uses the `DBConnection` library and supports all `DBConnection`
-  options like `:pool_size`, `:after_connect` etc. See `DBConnection.start_link/2`
-  for more information.
+   The given options are passed down to DBConnection, some of the most commonly used ones are
+   documented below:
+
+    * `:after_connect` - A function to run after the connection has been established, either a
+      1-arity fun, a `{module, function, args}` tuple, or `nil` (default: `nil`)
+
+    * `:pool` - The pool module to use (default: `DBConnection.ConnectionPool`)
+
+    * `:pool_size` - The size of the pool
+
+  See `DBConnection.start_link/2` for more information and a full list of available options.
 
   ## Examples
 
@@ -129,9 +141,9 @@ defmodule MyXQL do
 
   """
   @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
-  def start_link(opts) do
-    ensure_deps_started!(opts)
-    DBConnection.start_link(MyXQL.Connection, opts)
+  def start_link(options) do
+    ensure_deps_started!(options)
+    DBConnection.start_link(MyXQL.Connection, options)
   end
 
   defmacrop is_iodata(data) do
