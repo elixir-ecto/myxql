@@ -25,7 +25,7 @@ defmodule MyXQL.Query do
         }
 
   defstruct name: "",
-            cache: :reference,
+            cache: :statement,
             num_params: nil,
             ref: nil,
             statement: nil,
