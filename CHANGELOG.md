@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.8 (2019-09-14)
+
+### Bug fixes
+
+* Encode params in MyXQL.Query and gracefully handle encoding errors
+
 ## v0.2.7 (2019-09-11)
 
 ### Enhancements
