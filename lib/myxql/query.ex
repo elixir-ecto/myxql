@@ -50,8 +50,11 @@ defmodule MyXQL.Query do
 
     def encode(%{num_params: num_params} = query, params, _opts)
         when num_params != length(params) do
-      raise ArgumentError,
-            "parameters must be of length #{num_params} for query #{inspect(query)}"
+      message =
+        "expected params count: #{inspect(num_params)}, got values: #{inspect(params)}" <>
+          " for query: #{inspect(query)}"
+
+      raise ArgumentError, message
     end
 
     def encode(_query, params, _opts) do

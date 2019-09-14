@@ -251,8 +251,8 @@ defmodule MyXQLTest do
       end
     end
 
-    test "invalid number of params", c do
-      assert_raise ArgumentError, ~r"parameters must be of length 2 for query", fn ->
+    test "invalid params", c do
+      assert_raise ArgumentError, ~r"expected params count: 2, got values: \[1\]", fn ->
         MyXQL.query(c.conn, "SELECT ? * ?", [1])
       end
     end
@@ -527,7 +527,7 @@ defmodule MyXQLTest do
     end
 
     test "invalid params", c do
-      assert_raise ArgumentError, ~r"parameters must be of length 2", fn ->
+      assert_raise ArgumentError, ~r"expected params count: 2, got values: \[1\]", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT ? * ?", [1])
           Enum.to_list(stream)
