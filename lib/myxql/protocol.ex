@@ -279,25 +279,24 @@ defmodule MyXQL.Protocol do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-  def encode_com({:com_stmt_execute, statement_id, params, cursor_type}) do
+  def encode_com({:com_stmt_execute, statement_id, params, cursor_type}) when is_list(params) do
+    params = encode_params(params)
+    encode_com({:com_stmt_execute, statement_id, params, cursor_type})
+  end
+
+  def encode_com({:com_stmt_execute, statement_id, params, cursor_type}) when is_binary(params) do
     command = 0x17
     flags = Map.fetch!(@cursor_types, cursor_type)
 
     # Always 0x01
     iteration_count = 0x01
 
-    new_params_bound_flag = 1
-    {null_bitmap, types, values} = encode_params(params)
-
     <<
       command,
       statement_id::uint4,
       flags::uint1,
       iteration_count::uint4,
-      null_bitmap::bitstring,
-      new_params_bound_flag::uint1,
-      types::binary,
-      values::binary
+      params::binary
     >>
   end
 
@@ -391,7 +390,7 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  defp encode_params(params) do
+  def encode_params(params) do
     null_type = 0x06
 
     {count, null_bitmap, types, values} =
@@ -412,7 +411,10 @@ defmodule MyXQL.Protocol do
       end)
 
     null_bitmap_size = div(count + 7, 8)
-    {<<null_bitmap::uint(null_bitmap_size)>>, types, values}
+    new_params_bound_flag = 1
+
+    <<null_bitmap::uint(null_bitmap_size), new_params_bound_flag::uint1, types::binary,
+      values::binary>>
   end
 
   defp unsigned_flag(value) when is_integer(value) and value >= 1 <<< 63, do: 0x80

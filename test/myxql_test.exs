@@ -257,6 +257,16 @@ defmodule MyXQLTest do
       end
     end
 
+    test "graceful handling of encode errors", c do
+      assert_raise Jason.EncodeError, fn ->
+        MyXQL.query!(c.conn, "SELECT ?", [%{a: <<232>>}])
+      end
+
+      assert_raise Jason.EncodeError, fn ->
+        MyXQL.query!(c.conn, "SELECT ?", [%{a: <<232>>}])
+      end
+    end
+
     test "many rows", c do
       num = 10_000
 

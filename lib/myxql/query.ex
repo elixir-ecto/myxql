@@ -55,7 +55,7 @@ defmodule MyXQL.Query do
     end
 
     def encode(_query, params, _opts) do
-      params
+      MyXQL.Protocol.encode_params(params)
     end
 
     def decode(_query, result, _opts) do
