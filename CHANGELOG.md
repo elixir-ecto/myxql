@@ -11,7 +11,7 @@
 ### Enhancements
 
 * Decode "zero dates" as `:zero_date` and `:zero_datetime`. Note, this only works on specific
-  server `sql_mode` settings, it's disabled by default and not recommended.
+  server `sql_mode` settings, it's disabled by default in servers and in general not recommended.
 
 * Support `MYSQL_HOST` and `MYSQL_PWD` env variables
 
