@@ -135,8 +135,9 @@ defmodule MyXQL.Client do
     :ok = send_com({:com_stmt_close, statement_id}, state)
   end
 
-  def disconnect(state) do
-    sock_close(state)
+  def disconnect(%{sock: {sock_mod, sock}}) do
+    sock_mod.close(sock)
+    :ok
   end
 
   def send_com(com, state) do
@@ -210,10 +211,6 @@ defmodule MyXQL.Client do
     end
   end
 
-  defp sock_close(%{sock: {sock_mod, sock}}) do
-    sock_mod.close(sock)
-  end
-
   @doc false
   def do_connect(config) do
     %{
@@ -279,11 +276,16 @@ defmodule MyXQL.Client do
            {:ok, ok_packet()} <- maybe_set_names(config, state) do
         {:ok, state}
       else
+        {:ok, %{}} = ok ->
+          ok
+
         {:ok, err_packet() = err_packet} ->
+          disconnect(state)
           {:error, err_packet}
 
-        other ->
-          other
+        {:error, reason} ->
+          disconnect(state)
+          {:error, reason}
       end
     end
   end
