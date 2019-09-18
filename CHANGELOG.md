@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.9 (2019-09-18)
+
+### Bug fixes
+
+* Disconnect on handshake errors
+
 ## v0.2.8 (2019-09-14)
 
 ### Bug fixes
