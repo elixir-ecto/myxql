@@ -21,7 +21,10 @@ defmodule MyXQL.MixProject do
 
   def application() do
     [
-      extra_applications: extra_applications(Mix.env())
+      extra_applications: extra_applications(Mix.env()),
+      env: [
+        json_library: Jason
+      ]
     ]
   end
 

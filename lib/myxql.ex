@@ -520,13 +520,13 @@ defmodule MyXQL do
 
   To customize the JSON library, include the following in your `config/config.exs`:
 
-      config :myxql, :json_library, SomeJSONModule
+      config :myxql, json_library: SomeJSONModule
 
   Defaults to `Jason`.
   """
   @spec json_library() :: module()
   def json_library() do
-    Application.get_env(:myxql, :json_library, Jason)
+    Application.fetch_env!(:myxql, :json_library)
   end
 
   ## Helpers
