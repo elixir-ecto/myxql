@@ -5,6 +5,8 @@ defmodule MyXQL.Client do
   import MyXQL.{Protocol, Protocol.Records, Protocol.Types}
   alias MyXQL.Protocol.Auth
 
+  defstruct [:sock, :connection_id]
+
   defmodule Config do
     @moduledoc false
 
@@ -94,9 +96,9 @@ defmodule MyXQL.Client do
     end
   end
 
-  def com_ping(client) do
+  def com_ping(client, ping_timeout) do
     with :ok <- send_com(client, :com_ping) do
-      recv_packet(client, &decode_generic_response/1, client.ping_timeout)
+      recv_packet(client, &decode_generic_response/1, ping_timeout)
     end
   end
 
@@ -221,7 +223,7 @@ defmodule MyXQL.Client do
     } = config
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
-    client = %{connection_id: nil, sock: nil}
+    client = %__MODULE__{connection_id: nil, sock: nil}
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
