@@ -28,7 +28,7 @@ defmodule MyXQL.Connection do
     disconnect_on_error_codes =
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
 
-    case Client.connect(opts) do
+    case Client.connect(config) do
       {:ok, %Client{} = client} ->
         state = %__MODULE__{
           client: client,

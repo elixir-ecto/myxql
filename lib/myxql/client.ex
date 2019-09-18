@@ -86,14 +86,14 @@ defmodule MyXQL.Client do
   # utf8mb4
   @default_charset_code 45
 
-  def connect(opts) when is_list(opts) do
-    connect(Config.new(opts))
-  end
-
   def connect(%Config{} = config) do
     with {:ok, client} <- do_connect(config) do
       handshake(client, config)
     end
+  end
+
+  def connect(opts) when is_list(opts) do
+    connect(Config.new(opts))
   end
 
   def com_ping(client, ping_timeout) do
