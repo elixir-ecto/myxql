@@ -98,7 +98,12 @@ defmodule MyXQL.Connection do
   def handle_execute(%Query{} = query, params, _opts, state) do
     with {:ok, query, state} <- maybe_reprepare(query, state),
          result =
-           Client.com_stmt_execute(state.client, query.statement_id, params, :cursor_type_no_cursor),
+           Client.com_stmt_execute(
+             state.client,
+             query.statement_id,
+             params,
+             :cursor_type_no_cursor
+           ),
          {:ok, query, result, state} <- result(result, query, state) do
       maybe_close(query, result, state)
     end
