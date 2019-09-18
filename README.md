@@ -28,6 +28,8 @@ def deps() do
 end
 ```
 
+Make sure you are using the latest version!
+
 ```elixir
 iex> {:ok, pid} = MyXQL.start_link(username: "root")
 iex> MyXQL.query!(pid, "CREATE DATABASE IF NOT EXISTS blog")
