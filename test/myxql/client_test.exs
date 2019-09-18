@@ -140,19 +140,19 @@ defmodule MyXQL.ClientTest do
       {:ok, client} = Client.connect(@opts)
 
       {:ok, resultset(rows: [[charset, collation]])} =
-        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+        Client.com_query(client, "select @@character_set_connection, @@collation_connection")
 
       assert charset == "utf8mb4"
       assert collation =~ "utf8mb4_"
 
-      assert {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query("SELECT 'hello 😃'", client)
+      assert {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query(client, "SELECT 'hello 😃'")
     end
 
     test "set charset" do
       {:ok, client} = Client.connect([charset: "latin1"] ++ @opts)
 
       {:ok, resultset(rows: [[charset, collation]])} =
-        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+        Client.com_query(client, "select @@character_set_connection, @@collation_connection")
 
       assert charset == "latin1"
       assert collation == "latin1_swedish_ci"
@@ -162,7 +162,7 @@ defmodule MyXQL.ClientTest do
       {:ok, client} = Client.connect([charset: "latin1", collation: "latin1_general_ci"] ++ @opts)
 
       {:ok, resultset(rows: [[charset, collation]])} =
-        Client.com_query("select @@character_set_connection, @@collation_connection", client)
+        Client.com_query(client, "select @@character_set_connection, @@collation_connection")
 
       assert charset == "latin1"
       assert collation == "latin1_general_ci"
@@ -172,8 +172,8 @@ defmodule MyXQL.ClientTest do
   describe "com_query/2" do
     setup :connect
 
-    test "simple query", %{state: state} do
-      {:ok, resultset(rows: rows)} = Client.com_query("SELECT 1024 as a, 2048 as b", state)
+    test "simple query", %{client: client} do
+      {:ok, resultset(rows: rows)} = Client.com_query(client, "SELECT 1024 as a, 2048 as b")
       assert rows == [[1024, 2048]]
     end
   end
@@ -181,13 +181,13 @@ defmodule MyXQL.ClientTest do
   describe "com_stmt_prepare/2 + com_stmt_execute/2" do
     setup :connect
 
-    test "no results", %{state: state} do
+    test "no results", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select x from integers", state)
+        Client.com_stmt_prepare(client, "select x from integers")
 
       {:ok,
        resultset(num_rows: 0, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
-        Client.com_stmt_execute(statement_id, [], :cursor_type_no_cursor, state)
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor)
 
       assert list_status_flags(status_flags) == [
                :server_status_autocommit,
@@ -198,40 +198,40 @@ defmodule MyXQL.ClientTest do
       assert rows == []
     end
 
-    test "no params", %{state: state} do
+    test "no params", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select 1024 as a, 2048 as b", state)
+        Client.com_stmt_prepare(client, "select 1024 as a, 2048 as b")
 
       {:ok,
        resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
-        Client.com_stmt_execute(statement_id, [], :cursor_type_no_cursor, state)
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor)
 
       assert [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
 
-    test "params", %{state: state} do
+    test "params", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select ? as a, ? as b", state)
+        Client.com_stmt_prepare(client, "select ? as a, ? as b")
 
       {:ok,
        resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
-        Client.com_stmt_execute(statement_id, [1024, 2048], :cursor_type_no_cursor, state)
+        Client.com_stmt_execute(client, statement_id, [1024, 2048], :cursor_type_no_cursor)
 
       assert [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
 
-    test "encode large packets", %{state: state} do
+    test "encode large packets", %{client: client} do
       x = String.duplicate("x", 20_000_000)
 
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select length(?)", state)
+        Client.com_stmt_prepare(client, "select length(?)")
 
       {:ok, resultset(rows: rows)} =
-        Client.com_stmt_execute(statement_id, [x], :cursor_type_no_cursor, state)
+        Client.com_stmt_execute(client, statement_id, [x], :cursor_type_no_cursor)
 
       assert rows == [[20_000_000]]
     end
@@ -240,73 +240,73 @@ defmodule MyXQL.ClientTest do
   describe "com_stmt_prepare + com_stmt_execute + com_stmt_fetch" do
     setup :connect
 
-    test "with no results", %{state: state} do
+    test "with no results", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select * from integers", state)
+        Client.com_stmt_prepare(client, "select * from integers")
 
       {:ok,
        resultset(num_rows: 0, status_flags: status_flags, rows: [], column_defs: column_defs)} =
-        Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert :server_status_cursor_exists in list_status_flags(status_flags)
 
       {:ok, resultset(num_rows: 0, status_flags: status_flags, rows: [])} =
-        Client.com_stmt_fetch(statement_id, column_defs, 5, state)
+        Client.com_stmt_fetch(client, statement_id, column_defs, 5)
 
       refute :server_status_cursor_exists in list_status_flags(status_flags)
       assert :server_status_last_row_sent in list_status_flags(status_flags)
     end
 
-    test "with simple query", %{state: state} do
+    test "with simple query", %{client: client} do
       values = Enum.map_join(1..4, ", ", &"(#{&1})")
-      {:ok, ok_packet()} = Client.com_query("insert into integers values #{values}", state)
+      {:ok, ok_packet()} = Client.com_query(client, "insert into integers values #{values}")
 
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("select * from integers", state)
+        Client.com_stmt_prepare(client, "select * from integers")
 
       {:ok,
        resultset(num_rows: 0, status_flags: status_flags, rows: [], column_defs: column_defs)} =
-        Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert :server_status_cursor_exists in list_status_flags(status_flags)
 
       {:ok, resultset(num_rows: 2, status_flags: status_flags, rows: [[1], [2]])} =
-        Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+        Client.com_stmt_fetch(client, statement_id, column_defs, 2)
 
       assert :server_status_cursor_exists in list_status_flags(status_flags)
 
       {:ok, resultset(num_rows: 2, status_flags: status_flags, rows: [[3], [4]])} =
-        Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+        Client.com_stmt_fetch(client, statement_id, column_defs, 2)
 
       assert :server_status_cursor_exists in list_status_flags(status_flags)
 
       {:ok, resultset(num_rows: 0, status_flags: status_flags, rows: [])} =
-        Client.com_stmt_fetch(statement_id, column_defs, 5, state)
+        Client.com_stmt_fetch(client, statement_id, column_defs, 5)
 
       refute :server_status_cursor_exists in list_status_flags(status_flags)
       assert :server_status_last_row_sent in list_status_flags(status_flags)
 
-      {:ok, err_packet(code: code)} = Client.com_stmt_fetch(statement_id, column_defs, 2, state)
+      {:ok, err_packet(code: code)} = Client.com_stmt_fetch(client, statement_id, column_defs, 2)
 
       assert Protocol.error_code_to_name(code) == :ER_STMT_HAS_NO_OPEN_CURSOR
     end
 
-    test "with stored procedure of single result", %{state: state} do
+    test "with stored procedure of single result", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("CALL single_procedure()", state)
+        Client.com_stmt_prepare(client, "CALL single_procedure()")
 
       {:ok, resultset(num_rows: 1, status_flags: status_flags)} =
-        Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
 
-    test "with stored procedure of multiple results", %{state: state} do
+    test "with stored procedure of multiple results", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare("CALL multi_procedure()", state)
+        Client.com_stmt_prepare(client, "CALL multi_procedure()")
 
       assert {:error, :multiple_results} =
-               Client.com_stmt_execute(statement_id, [], :cursor_type_read_only, state)
+               Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
     end
   end
 
@@ -321,15 +321,15 @@ defmodule MyXQL.ClientTest do
         {:halt, payload}
       end
 
-      {:ok, state} = Client.do_connect(Client.Config.new(port: port))
-      assert Client.recv_packets(decoder, :initial, state) == {:ok, "foo"}
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+      assert Client.recv_packets(client, decoder, :initial) == {:ok, "foo"}
     end
   end
 
   defp connect(_) do
-    {:ok, state} = Client.connect(@opts)
-    {:ok, ok_packet()} = Client.com_query("create temporary table integers (x int)", state)
-    {:ok, [state: state]}
+    {:ok, client} = Client.connect(@opts)
+    {:ok, ok_packet()} = Client.com_query(client, "create temporary table integers (x int)")
+    {:ok, [client: client]}
   end
 
   defp start_fake_server(fun) do

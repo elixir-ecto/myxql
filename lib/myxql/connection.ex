@@ -30,13 +30,13 @@ defmodule MyXQL.Connection do
       @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
 
     case Client.connect(opts) do
-      {:ok, %{} = state} ->
+      {:ok, %{} = client} ->
         state = %__MODULE__{
           prepare: prepare,
           disconnect_on_error_codes: disconnect_on_error_codes,
           ping_timeout: ping_timeout,
-          sock: state.sock,
-          connection_id: state.connection_id,
+          sock: client.sock,
+          connection_id: client.connection_id,
           queries: queries_new()
         }
 
@@ -100,14 +100,14 @@ defmodule MyXQL.Connection do
   def handle_execute(%Query{} = query, params, _opts, state) do
     with {:ok, query, state} <- maybe_reprepare(query, state),
          result =
-           Client.com_stmt_execute(query.statement_id, params, :cursor_type_no_cursor, state),
+           Client.com_stmt_execute(state, query.statement_id, params, :cursor_type_no_cursor),
          {:ok, query, result, state} <- result(result, query, state) do
       maybe_close(query, result, state)
     end
   end
 
   def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
-    Client.com_query(statement, state)
+    Client.com_query(state, statement)
     |> result(query, state)
   end
 
@@ -203,7 +203,7 @@ defmodule MyXQL.Connection do
   end
 
   defp fetch_first(query, cursor_ref, params, _opts, state) do
-    case Client.com_stmt_execute(query.statement_id, params, :cursor_type_read_only, state) do
+    case Client.com_stmt_execute(state, query.statement_id, params, :cursor_type_read_only) do
       {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
         {:ok, _query, result, state} = result(result, query, state)
         cursors = Map.put(state.cursors, cursor_ref, {:column_defs, column_defs})
@@ -222,7 +222,7 @@ defmodule MyXQL.Connection do
 
   defp fetch_next(query, _cursor_ref, column_defs, opts, state) do
     max_rows = Keyword.get(opts, :max_rows, 500)
-    result = Client.com_stmt_fetch(query.statement_id, column_defs, max_rows, state)
+    result = Client.com_stmt_fetch(state, query.statement_id, column_defs, max_rows)
 
     case result do
       {:ok, resultset(status_flags: status_flags)} ->
@@ -243,7 +243,7 @@ defmodule MyXQL.Connection do
   @impl true
   def handle_deallocate(query, _cursor, _opts, state) do
     if cached_query = queries_get(state, query) do
-      case Client.com_stmt_reset(cached_query.statement_id, state) do
+      case Client.com_stmt_reset(state, cached_query.statement_id) do
         {:ok, ok_packet(status_flags: status_flags)} ->
           {:ok, nil, put_status(state, status_flags)}
 
@@ -374,7 +374,7 @@ defmodule MyXQL.Connection do
   end
 
   defp handle_transaction(call, statement, state) do
-    case Client.com_query(statement, state) do
+    case Client.com_query(state, statement) do
       {:ok, ok_packet()} = ok ->
         {:ok, _query, result, state} = result(ok, call, state)
         {:ok, result, state}
@@ -461,7 +461,7 @@ defmodule MyXQL.Connection do
   defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
 
   defp prepare(%Query{ref: ref, statement: statement} = query, state) when is_reference(ref) do
-    case Client.com_stmt_prepare(statement, state) do
+    case Client.com_stmt_prepare(state, statement) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         query = %{query | num_params: num_params, statement_id: statement_id}
         queries_put(state, query)
@@ -497,7 +497,7 @@ defmodule MyXQL.Connection do
   end
 
   defp close(query, state) do
-    :ok = Client.com_stmt_close(query.statement_id, state)
+    :ok = Client.com_stmt_close(state, query.statement_id)
     queries_delete(state, query)
     state
   end

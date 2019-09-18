@@ -89,50 +89,50 @@ defmodule MyXQL.Client do
   end
 
   def connect(%Config{} = config) do
-    with {:ok, state} <- do_connect(config) do
-      handshake(config, state)
+    with {:ok, client} <- do_connect(config) do
+      handshake(client, config)
     end
   end
 
-  def com_ping(state) do
-    with :ok <- send_com(:com_ping, state) do
-      recv_packet(&decode_generic_response/1, state.ping_timeout, state)
+  def com_ping(client) do
+    with :ok <- send_com(client, :com_ping) do
+      recv_packet(client, &decode_generic_response/1, client.ping_timeout)
     end
   end
 
-  def com_query(statement, state) do
-    with :ok <- send_com({:com_query, statement}, state) do
-      recv_packets(&decode_com_query_response/3, :initial, state)
+  def com_query(client, statement) do
+    with :ok <- send_com(client, {:com_query, statement}) do
+      recv_packets(client, &decode_com_query_response/3, :initial)
     end
   end
 
-  def com_stmt_prepare(statement, state) do
-    with :ok <- send_com({:com_stmt_prepare, statement}, state) do
-      recv_packets(&decode_com_stmt_prepare_response/3, :initial, state)
+  def com_stmt_prepare(client, statement) do
+    with :ok <- send_com(client, {:com_stmt_prepare, statement}) do
+      recv_packets(client, &decode_com_stmt_prepare_response/3, :initial)
     end
   end
 
-  def com_stmt_execute(statement_id, params, cursor_type, state) do
-    with :ok <- send_com({:com_stmt_execute, statement_id, params, cursor_type}, state) do
-      recv_packets(&decode_com_stmt_execute_response/3, :initial, state)
+  def com_stmt_execute(client, statement_id, params, cursor_type) do
+    with :ok <- send_com(client, {:com_stmt_execute, statement_id, params, cursor_type}) do
+      recv_packets(client, &decode_com_stmt_execute_response/3, :initial)
     end
   end
 
-  def com_stmt_fetch(statement_id, column_defs, max_rows, state) do
-    with :ok <- send_com({:com_stmt_fetch, statement_id, max_rows}, state) do
-      recv_packets(&decode_com_stmt_fetch_response/3, {:initial, column_defs}, state)
+  def com_stmt_fetch(client, statement_id, column_defs, max_rows) do
+    with :ok <- send_com(client, {:com_stmt_fetch, statement_id, max_rows}) do
+      recv_packets(client, &decode_com_stmt_fetch_response/3, {:initial, column_defs})
     end
   end
 
-  def com_stmt_reset(statement_id, state) do
-    with :ok <- send_com({:com_stmt_reset, statement_id}, state) do
-      recv_packet(&decode_generic_response/1, state)
+  def com_stmt_reset(client, statement_id) do
+    with :ok <- send_com(client, {:com_stmt_reset, statement_id}) do
+      recv_packet(client, &decode_generic_response/1)
     end
   end
 
-  def com_stmt_close(statement_id, state) do
+  def com_stmt_close(client, statement_id) do
     # No response is sent back to the client.
-    :ok = send_com({:com_stmt_close, statement_id}, state)
+    :ok = send_com(client, {:com_stmt_close, statement_id})
   end
 
   def disconnect(%{sock: {sock_mod, sock}}) do
@@ -140,35 +140,35 @@ defmodule MyXQL.Client do
     :ok
   end
 
-  def send_com(com, state) do
+  def send_com(client, com) do
     payload = encode_com(com)
-    send_packet(payload, 0, state)
+    send_packet(client, payload, 0)
   end
 
-  def send_recv_packet(payload, decoder, sequence_id, sock) do
-    with :ok <- send_packet(payload, sequence_id, sock) do
-      recv_packet(decoder, sock)
+  def send_recv_packet(client, payload, decoder, sequence_id) do
+    with :ok <- send_packet(client, payload, sequence_id) do
+      recv_packet(client, decoder)
     end
   end
 
-  def send_packet(payload, sequence_id, state) do
+  def send_packet(client, payload, sequence_id) do
     data = encode_packet(payload, sequence_id, @default_max_packet_size)
-    send_data(state, data)
+    send_data(client, data)
   end
 
   def send_data(%{sock: {sock_mod, sock}}, data) do
     sock_mod.send(sock, data)
   end
 
-  def recv_packet(decoder, timeout \\ :infinity, state) do
+  def recv_packet(client, decoder, timeout \\ :infinity) do
     new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
-    recv_packets(new_decoder, nil, timeout, state)
+    recv_packets(client, new_decoder, nil, timeout)
   end
 
-  def recv_packets(decoder, decoder_state, timeout \\ :infinity, state) do
-    case recv_data(state, timeout) do
+  def recv_packets(client, decoder, decoder_state, timeout \\ :infinity) do
+    case recv_data(client, timeout) do
       {:ok, data} ->
-        recv_packets(data, decoder, decoder_state, timeout, state)
+        recv_packets(data, decoder, decoder_state, timeout, client)
 
       {:error, _} = error ->
         error
@@ -186,11 +186,11 @@ defmodule MyXQL.Client do
          decoder,
          decoder_state,
          timeout,
-         state
+         client
        ) do
     case decoder.(payload, rest, decoder_state) do
       {:cont, decoder_state} ->
-        recv_packets(rest, decoder, decoder_state, timeout, state)
+        recv_packets(rest, decoder, decoder_state, timeout, client)
 
       {:halt, result} ->
         {:ok, result}
@@ -201,10 +201,10 @@ defmodule MyXQL.Client do
   end
 
   # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, timeout, state) do
-    case recv_data(state, timeout) do
+  defp recv_packets(rest, decoder, decoder_state, timeout, client) do
+    case recv_data(client, timeout) do
       {:ok, data} ->
-        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, state)
+        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, client)
 
       {:error, _} = error ->
         error
@@ -221,11 +221,11 @@ defmodule MyXQL.Client do
     } = config
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
-    state = %{connection_id: nil, sock: nil}
+    client = %{connection_id: nil, sock: nil}
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
-        {:ok, Map.put(state, :sock, {:gen_tcp, sock})}
+        {:ok, %{client | sock: {:gen_tcp, sock}}}
 
       {:ok, sock} ->
         {:ok, [sndbuf: sndbuf, recbuf: recbuf, buffer: buffer]} =
@@ -233,7 +233,7 @@ defmodule MyXQL.Client do
 
         buffer = buffer |> max(sndbuf) |> max(recbuf)
         :ok = :inet.setopts(sock, buffer: buffer)
-        {:ok, %{state | sock: {:gen_tcp, sock}}}
+        {:ok, %{client | sock: {:gen_tcp, sock}}}
 
       other ->
         other
@@ -242,13 +242,14 @@ defmodule MyXQL.Client do
 
   ## Handshake
 
-  defp handshake(config, %{sock: {:gen_tcp, sock}} = state) do
+  defp handshake(client, config) do
+    %{sock: {:gen_tcp, sock}} = client
     timer = start_handshake_timer(config.handshake_timeout, sock)
 
-    case do_handshake(config, state) do
-      {:ok, state} ->
+    case do_handshake(client, config) do
+      {:ok, client} ->
         cancel_handshake_timer(timer)
-        {:ok, state}
+        {:ok, client}
 
       {:error, reason} ->
         cancel_handshake_timer(timer)
@@ -256,55 +257,55 @@ defmodule MyXQL.Client do
     end
   end
 
-  defp do_handshake(config, state) do
-    with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(state),
-         state = %{state | connection_id: conn_id},
+  defp do_handshake(client, config) do
+    with {:ok, initial_handshake(conn_id: conn_id) = initial_handshake} <- recv_handshake(client),
+         client = %{client | connection_id: conn_id},
          sequence_id = 1,
          {:ok, capability_flags} <- build_capability_flags(config, initial_handshake),
-         {:ok, sequence_id, state} <-
-           maybe_upgrade_to_ssl(config, capability_flags, sequence_id, state) do
+         {:ok, sequence_id, client} <-
+           maybe_upgrade_to_ssl(client, config, capability_flags, sequence_id) do
       result =
         handle_handshake_response(
+          client,
           config,
           initial_handshake,
           capability_flags,
-          sequence_id,
-          state
+          sequence_id
         )
 
       with {:ok, ok_packet()} <- result,
-           {:ok, ok_packet()} <- maybe_set_names(config, state) do
-        {:ok, state}
+           {:ok, ok_packet()} <- maybe_set_names(client, config) do
+        {:ok, client}
       else
         {:ok, %{}} = ok ->
           ok
 
         {:ok, err_packet() = err_packet} ->
-          disconnect(state)
+          disconnect(client)
           {:error, err_packet}
 
         {:error, reason} ->
-          disconnect(state)
+          disconnect(client)
           {:error, reason}
       end
     end
   end
 
-  defp maybe_set_names(%{charset: nil, collation: nil}, state) do
-    {:ok, state}
+  defp maybe_set_names(client, %{charset: nil, collation: nil}) do
+    {:ok, client}
   end
 
-  defp maybe_set_names(%{charset: charset, collation: nil}, state) when is_binary(charset) do
-    com_query("SET NAMES '#{charset}'", state)
+  defp maybe_set_names(client, %{charset: charset, collation: nil}) when is_binary(charset) do
+    com_query(client, "SET NAMES '#{charset}'")
   end
 
-  defp maybe_set_names(%{charset: charset, collation: collation}, state)
+  defp maybe_set_names(client, %{charset: charset, collation: collation})
        when is_binary(charset) and is_binary(collation) do
-    com_query("SET NAMES '#{charset}' COLLATE '#{collation}'", state)
+    com_query(client, "SET NAMES '#{charset}' COLLATE '#{collation}'")
   end
 
-  defp maybe_upgrade_to_ssl(%{ssl?: true} = config, capability_flags, sequence_id, state) do
-    {_, sock} = state.sock
+  defp maybe_upgrade_to_ssl(client, %{ssl?: true} = config, capability_flags, sequence_id) do
+    {_, sock} = client.sock
 
     ssl_request =
       ssl_request(
@@ -315,21 +316,21 @@ defmodule MyXQL.Client do
 
     payload = encode_ssl_request(ssl_request)
 
-    with :ok <- send_packet(payload, sequence_id, state),
+    with :ok <- send_packet(client, payload, sequence_id),
          {:ok, ssl_sock} <- :ssl.connect(sock, config.ssl_opts, config.connect_timeout) do
-      {:ok, sequence_id + 1, %{state | sock: {:ssl, ssl_sock}}}
+      {:ok, sequence_id + 1, %{client | sock: {:ssl, ssl_sock}}}
     end
   end
 
-  defp maybe_upgrade_to_ssl(%{ssl?: false}, _capability_flags, sequence_id, state) do
-    {:ok, sequence_id, state}
+  defp maybe_upgrade_to_ssl(client, %{ssl?: false}, _capability_flags, sequence_id) do
+    {:ok, sequence_id, client}
   end
 
-  defp recv_handshake(state) do
-    recv_packet(&decode_initial_handshake/1, state)
+  defp recv_handshake(client) do
+    recv_packet(client, &decode_initial_handshake/1)
   end
 
-  defp handle_handshake_response(config, initial_handshake, capability_flags, sequence_id, state) do
+  defp handle_handshake_response(client, config, initial_handshake, capability_flags, sequence_id) do
     initial_handshake(
       auth_plugin_name: initial_auth_plugin_name,
       auth_plugin_data: initial_auth_plugin_data
@@ -350,21 +351,21 @@ defmodule MyXQL.Client do
 
     payload = encode_handshake_response_41(handshake_response)
 
-    case send_recv_packet(payload, &decode_auth_response/1, sequence_id, state) do
+    case send_recv_packet(client, payload, &decode_auth_response/1, sequence_id) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->
         auth_response = Auth.auth_response(config, auth_plugin_name, initial_auth_plugin_data)
 
-        case send_recv_packet(auth_response, &decode_auth_response/1, sequence_id + 2, state) do
+        case send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id + 2) do
           {:ok, :full_auth} ->
-            perform_full_auth(config, auth_plugin_name, auth_plugin_data, sequence_id + 2, state)
+            perform_full_auth(client, config, auth_plugin_name, auth_plugin_data, sequence_id + 2)
 
           {:ok, auth_more_data(data: public_key)} ->
             perform_public_key_auth(
+              client,
               config.password,
               public_key,
               auth_plugin_data,
-              sequence_id + 4,
-              state
+              sequence_id + 4
             )
 
           other ->
@@ -373,20 +374,20 @@ defmodule MyXQL.Client do
 
       {:ok, :full_auth} ->
         perform_full_auth(
+          client,
           config,
           initial_auth_plugin_name,
           initial_auth_plugin_data,
-          sequence_id,
-          state
+          sequence_id
         )
 
       {:ok, auth_more_data(data: public_key)} ->
         perform_public_key_auth(
+          client,
           config.password,
           public_key,
           initial_auth_plugin_data,
-          sequence_id + 2,
-          state
+          sequence_id + 2
         )
 
       other ->
@@ -394,12 +395,12 @@ defmodule MyXQL.Client do
     end
   end
 
-  defp perform_public_key_auth(password, public_key, auth_plugin_data, sequence_id, state) do
+  defp perform_public_key_auth(client, password, public_key, auth_plugin_data, sequence_id) do
     auth_response = Auth.encrypt_sha_password(password, public_key, auth_plugin_data)
-    send_recv_packet(auth_response, &decode_auth_response/1, sequence_id, state)
+    send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id)
   end
 
-  defp perform_full_auth(config, "caching_sha2_password", auth_plugin_data, sequence_id, state) do
+  defp perform_full_auth(client, config, "caching_sha2_password", auth_plugin_data, sequence_id) do
     auth_response =
       if config.ssl? do
         [config.password, 0]
@@ -408,14 +409,14 @@ defmodule MyXQL.Client do
         <<2>>
       end
 
-    case send_recv_packet(auth_response, &decode_auth_response/1, sequence_id + 2, state) do
+    case send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id + 2) do
       {:ok, auth_more_data(data: public_key)} ->
         perform_public_key_auth(
+          client,
           config.password,
           public_key,
           auth_plugin_data,
-          sequence_id + 4,
-          state
+          sequence_id + 4
         )
 
       other ->
