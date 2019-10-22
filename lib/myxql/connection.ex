@@ -412,8 +412,6 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_put(%{prepare: :unnamed}, %Query{cache: :statement}), do: :ok
-
   defp queries_put(state, %Query{cache: :statement} = query) do
     try do
       :ets.insert(state.queries, {cache_key(query), query})
@@ -445,8 +443,6 @@ defmodule MyXQL.Connection do
       ArgumentError -> nil
     end
   end
-
-  defp queries_get(%{prepare: :unnamed}, %Query{cache: :statement}), do: nil
 
   defp queries_get(state, %{cache: :statement} = query) do
     try do
