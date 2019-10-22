@@ -423,8 +423,6 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_delete(%{prepare: :unnamed}, %Query{cache: :statement}), do: :ok
-
   defp queries_delete(state, %Query{} = query) do
     try do
       :ets.delete(state.queries, cache_key(query))
