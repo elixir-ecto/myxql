@@ -160,8 +160,8 @@ defmodule TestHelper do
   end
 
   def supports_public_key_exchange?() do
-    [%{"Value" => value}] = mysql!("SHOW STATUS LIKE 'Rsa_public_key'")
-    value != ""
+    result = mysql!("SHOW STATUS LIKE 'Rsa_public_key'")
+    match?([%{"Value" => "-----BEGIN PUBLIC KEY-----" <> _}], result)
   end
 
   def supports_json?() do
