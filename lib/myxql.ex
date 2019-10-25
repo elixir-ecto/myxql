@@ -21,7 +21,7 @@ defmodule MyXQL do
           | {:connect_timeout, timeout()}
           | {:handshake_timeout, timeout()}
           | {:ping_timeout, timeout()}
-          | {:prepare, :named | :unnamed}
+          | {:prepare, :force_named | :named | :unnamed}
           | {:disconnect_on_error_codes, [atom()]}
           | DBConnection.start_option()
 
@@ -74,15 +74,24 @@ defmodule MyXQL do
     * `:ping_timeout` - Socket receive timeout when idle in milliseconds (default:
       `15_000`). See `c:DBConnection.ping/1` for more information
 
-    * `:prepare` - How to prepare queries, either `:named` to use named queries or `:unnamed` to
-       force unnamed queries (default: :named)
+    * `:prepare` - How to cache prepared queries. Queries can be named or unnamed. Named
+      queries are cached, unnamed queries are never cache by default. The possible values
+      for this option are:
 
-       See "Named and Unnamed Queries" section of the `MyXQL.Query` documentation for more
-       information
+        * `:named` - cache only named queries
+        * `:unnamed` - treat all queries as unnamed (i.e. nothing is ever cached)
+        * `:force_named` - treat all queries as named (i.e. everything is cached)
+
+      Note that MySQL has a global limit on the number of prepared queries. So if you
+      enable `:force_named` in production, you may cache more queries than allowed by
+      MySQL, leading to disconnections and user errors. Use `:force_named` only in a
+      controlled environment, such as `:test`, and in `:prod` only if you are monitoring
+      the prepare statement count of your databases (such as using a dashboard or
+      setting alarm handlers)
 
     * `:disconnect_on_error_codes` - List of error code atoms that when encountered
-       will disconnect the connection. See "Disconnecting on Errors" section below for more
-       information.
+      will disconnect the connection. See "Disconnecting on Errors" section below for more
+      information.
 
    The given options are passed down to DBConnection, some of the most commonly used ones are
    documented below:

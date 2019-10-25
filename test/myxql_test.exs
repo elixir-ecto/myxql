@@ -189,6 +189,36 @@ defmodule MyXQLTest do
     end
   end
 
+  describe ":prepare option" do
+    test ":named" do
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
+      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
+      assert query == query2
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
+      assert query == query3
+    end
+
+    test ":unnamed" do
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
+      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
+      assert query == query2
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
+      assert query2.ref == query3.ref
+      assert query2.statement_id != query3.statement_id
+    end
+
+    test ":force_named" do
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :force_named])
+      {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
+      {:ok, query2, _} = MyXQL.execute(pid, query, [])
+      assert query == query2
+      {:ok, query3, _} = MyXQL.execute(pid, query, [])
+      assert query == query3
+    end
+  end
+
   describe "prepared queries" do
     setup [:connect, :truncate]
 
@@ -277,31 +307,6 @@ defmodule MyXQLTest do
       {_query, result} = MyXQL.prepare_execute!(c.conn, "", "SELECT x FROM integers")
       assert List.flatten(result.rows) == Enum.to_list(1..num)
       assert result.num_rows == num
-    end
-
-    test "named and unnamed queries" do
-      # {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :named])
-      # {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
-      # {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      # assert query == query2
-      # {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      # assert query == query3
-
-      # # unnamed queries are closed
-      # {:ok, query} = MyXQL.prepare(pid, "", "SELECT 1")
-      # {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      # assert query == query2
-      # {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      # assert query2.ref == query3.ref
-      # assert query2.statement_id != query3.statement_id
-
-      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
-      {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
-      {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query == query2
-      {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref == query3.ref
-      assert query2.statement_id != query3.statement_id
     end
 
     test "statement cache", c do

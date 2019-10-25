@@ -72,7 +72,7 @@ defmodule MyXQL.Connection do
 
   @impl true
   def handle_prepare(query, opts, state) do
-    query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
+    query = rename_query(state, query)
 
     if cached_query = queries_get(state, query) do
       {:ok, cached_query, %{state | last_ref: cached_query.ref}}
@@ -402,6 +402,10 @@ defmodule MyXQL.Connection do
   defp put_status(state, status_flags) do
     %{state | transaction_status: transaction_status(status_flags)}
   end
+
+  defp rename_query(%{prepare: :force_named}, query), do: %{query | name: "force_named"}
+  defp rename_query(%{prepare: :named}, query), do: query
+  defp rename_query(%{prepare: :unnamed}, query), do: %{query | name: ""}
 
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
