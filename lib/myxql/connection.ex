@@ -16,7 +16,8 @@ defmodule MyXQL.Connection do
     ping_timeout: 15_000,
     prepare: :named,
     queries: nil,
-    transaction_status: :idle
+    transaction_status: :idle,
+    last_ref: nil
   ]
 
   @impl true
@@ -74,11 +75,11 @@ defmodule MyXQL.Connection do
     query = if state.prepare == :unnamed, do: %{query | name: ""}, else: query
 
     if cached_query = queries_get(state, query) do
-      {:ok, cached_query, state}
+      {:ok, cached_query, %{state | last_ref: cached_query.ref}}
     else
       case prepare(query, state) do
         {:ok, query, state} ->
-          {:ok, query, state}
+          {:ok, query, %{state | last_ref: query.ref}}
 
         {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
           if Keyword.get(opts, :query_type) == :binary_then_text do
@@ -188,20 +189,18 @@ defmodule MyXQL.Connection do
   @impl true
   def handle_declare(query, params, _opts, state) do
     cursor = %Cursor{ref: make_ref()}
-    state = %{state | cursors: Map.put(state.cursors, cursor.ref, {:params, params})}
+    state = %{state | cursors: Map.put(state.cursors, cursor.ref, {:params, params, query.statement_id})}
     {:ok, query, cursor, state}
   end
 
   @impl true
   def handle_fetch(query, %Cursor{ref: cursor_ref}, opts, state) do
-    query = queries_fetch!(state, query)
-
     case Map.fetch!(state.cursors, cursor_ref) do
-      {:params, params} ->
-        fetch_first(query, cursor_ref, params, opts, state)
+      {:params, params, statement_id} ->
+        fetch_first(%{query | statement_id: statement_id}, cursor_ref, params, opts, state)
 
-      {:column_defs, column_defs} ->
-        fetch_next(query, cursor_ref, column_defs, opts, state)
+      {:column_defs, column_defs, statement_id} ->
+        fetch_next(%{query | statement_id: statement_id}, cursor_ref, column_defs, opts, state)
     end
   end
 
@@ -209,7 +208,7 @@ defmodule MyXQL.Connection do
     case Client.com_stmt_execute(state.client, query.statement_id, params, :cursor_type_read_only) do
       {:ok, resultset(column_defs: column_defs, status_flags: status_flags)} = result ->
         {:ok, _query, result, state} = result(result, query, state)
-        cursors = Map.put(state.cursors, cursor_ref, {:column_defs, column_defs})
+        cursors = Map.put(state.cursors, cursor_ref, {:column_defs, column_defs, query.statement_id})
         state = put_status(%{state | cursors: cursors}, status_flags)
 
         if has_status_flag?(status_flags, :server_status_cursor_exists) do
@@ -401,6 +400,8 @@ defmodule MyXQL.Connection do
 
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
+  defp queries_put(_state, %Query{name: ""}), do: :ok
+
   defp queries_put(state, %Query{cache: :reference} = query) do
     try do
       :ets.insert(state.queries, {cache_key(query), query.statement_id})
@@ -423,6 +424,8 @@ defmodule MyXQL.Connection do
     end
   end
 
+  defp queries_delete(_state, %Query{name: ""}), do: :ok
+
   defp queries_delete(state, %Query{} = query) do
     try do
       :ets.delete(state.queries, cache_key(query))
@@ -432,6 +435,8 @@ defmodule MyXQL.Connection do
       true -> :ok
     end
   end
+
+  defp queries_get(_state, %Query{name: ""}), do: nil
 
   defp queries_get(state, %{cache: :reference} = query) do
     try do
@@ -450,10 +455,6 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_fetch!(state, query) do
-    queries_get(state, query) || raise ArgumentError, "cannot fetch query #{inspect(query)}"
-  end
-
   defp cache_key(%MyXQL.Query{cache: :reference, ref: ref}), do: ref
   defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
 
@@ -467,6 +468,10 @@ defmodule MyXQL.Connection do
       result ->
         result(result, query, state)
     end
+  end
+
+  defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state) do
+    {:ok, query, state}
   end
 
   defp maybe_reprepare(query, state) do
@@ -491,6 +496,10 @@ defmodule MyXQL.Connection do
 
   defp maybe_close(query, result, state) do
     {:ok, query, result, state}
+  end
+
+  defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
+    close(query, %{state | last_ref: nil})
   end
 
   defp close(query, state) do
