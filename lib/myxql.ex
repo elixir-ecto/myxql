@@ -498,12 +498,13 @@ defmodule MyXQL do
       num_params: length(params)
     }
 
-    stream(conn, query, params, opts)
+    opts = Keyword.put_new(opts, :max_rows, 500)
+    DBConnection.prepare_stream(conn, query, params, opts)
   end
 
   def stream(%DBConnection{} = conn, %MyXQL.Query{} = query, params, opts) do
     opts = Keyword.put_new(opts, :max_rows, 500)
-    DBConnection.prepare_stream(conn, query, params, opts)
+    DBConnection.stream(conn, query, params, opts)
   end
 
   @doc """
