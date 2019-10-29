@@ -25,12 +25,17 @@ defmodule MyXQL.SyncTest do
   end
 
   test "do not leak statements with prepare+stream" do
+    num = 1500
+    values = Enum.map_join(1..num, ", ", &"(#{&1})")
+    TestHelper.mysql!("TRUNCATE TABLE #{@opts[:database]}.integers")
+    TestHelper.mysql!("INSERT INTO #{@opts[:database]}.integers VALUES " <> values)
+
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
 
     {:ok, query} = MyXQL.prepare(conn, "", "SELECT * FROM integers")
 
-    {:ok, [_, _]} =
+    {:ok, [_, _, _, _, _]} =
       MyXQL.transaction(conn, fn conn ->
         Enum.to_list(MyXQL.stream(conn, query))
       end)
@@ -42,7 +47,7 @@ defmodule MyXQL.SyncTest do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
 
-    {:ok, query} = MyXQL.prepare(conn, "", "SELECT * FROM integers")
+    {:ok, query} = MyXQL.prepare(conn, "", "SELECT 42")
     :ok = MyXQL.close(conn, query)
     assert prepared_stmt_count() == 0
   end
