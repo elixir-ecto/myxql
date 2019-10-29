@@ -62,17 +62,18 @@ defmodule MyXQL do
     * `:collation` - A connection collation. Must be given with `:charset` option, and if set
       it overwrites the default collation for the given charset. (default: `nil`)
 
-    * `:ssl` - Set to `true` if SSL should be used (default: `false`)
+    * `:ssl` - Set to `true` if SSL should be used, see "SSL" section below for more information
+      (default: `false`)
 
-    * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
+    * `:ssl_opts` - A list of SSL options, see "SSL" section below for more information
+      (default: `[]`)
 
-    * `:connect_timeout` - Socket connect timeout in milliseconds (default:
-      `15_000`)
+    * `:connect_timeout` - Socket connect timeout in milliseconds (default: `15_000`)
 
     * `:handshake_timeout` - Connection handshake timeout in milliseconds (default: `15_000`)
 
-    * `:ping_timeout` - Socket receive timeout when idle in milliseconds (default:
-      `15_000`). See `c:DBConnection.ping/1` for more information
+    * `:ping_timeout` - Socket receive timeout when idle in milliseconds (default: `15_000`).
+      See `c:DBConnection.ping/1` for more information
 
     * `:prepare` - How to cache prepared queries. Queries can be named or unnamed. Named
       queries are cached, unnamed queries are never cache by default. The possible values
@@ -122,6 +123,19 @@ defmodule MyXQL do
       iex> {:ok, pid} = MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
       {:ok, #PID<0.69.0>}
 
+  ## SSL
+
+  When using `ssl: true`, it's recommended to use non-empty `:ssl_opts` given the defaults are
+  insecure.
+
+  Make sure to enable public key, hostname, and other verification mechanisms appropriate for your
+  MySQL server installation, by passing options like `:verify_fun` which allows you to write
+  your own verification function. You may also consider using packages like
+  [`ssl_verify_fun`](https://hex.pm/packages/ssl_verify_fun).
+
+  See [`:ssl.tls_client_option`](http://erlang.org/doc/man/ssl.html#type-tls_client_option) in
+  ssl documentation for a list of all available options.
+
   ## Disconnecting on Errors
 
   Sometimes the connection becomes unusable. For example, some services, such as AWS Aurora,
@@ -151,6 +165,13 @@ defmodule MyXQL do
   """
   @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
   def start_link(options) do
+    if options[:ssl] && not Keyword.has_key?(options, :ssl_opts) do
+      IO.warn(
+        "it's recommended to set `:ssl_opts` when using `ssl: true`, see \"SSL\" section " <>
+          "in `MyXQL.start_link/1` documentation for more information."
+      )
+    end
+
     ensure_deps_started!(options)
     DBConnection.start_link(MyXQL.Connection, options)
   end

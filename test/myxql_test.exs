@@ -1,6 +1,7 @@
 defmodule MyXQLTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureLog
+  import ExUnit.CaptureIO
 
   @opts TestHelper.opts()
 
@@ -11,6 +12,14 @@ defmodule MyXQLTest do
                opts = [ssl: true, ssl_opts: [ciphers: [:bad]]] ++ @opts
                assert_start_and_killed(opts)
              end) =~ "** (DBConnection.ConnectionError) Invalid TLS option: {ciphers,[bad]}"
+    end
+
+    @tag ssl: true
+    test "connect with ssl: true but no ssl_opts warns" do
+      assert capture_io(:stderr, fn ->
+               opts = @opts |> Keyword.put(:ssl, true) |> Keyword.drop([:ssl_opts])
+               MyXQL.start_link(opts)
+             end) =~ "it's recommended to set `:ssl_opts` when using `ssl: true`"
     end
 
     test "connect with host down" do
