@@ -59,20 +59,6 @@ defmodule MyXQLTest do
              end) =~ "** (DBConnection.ConnectionError) no such file or directory \"/bad\""
     end
 
-    @tag capture_log: true
-    test "connect with SSL but without starting :ssl" do
-      Application.stop(:ssl)
-
-      assert_raise RuntimeError,
-                   ~r"cannot be established because `:ssl` application is not started",
-                   fn ->
-                     opts = [ssl: true] ++ @opts
-                     MyXQL.start_link(opts)
-                   end
-    after
-      Application.ensure_all_started(:ssl)
-    end
-
     test "custom socket options" do
       opts = [socket_options: [buffer: 4]] ++ @opts
       {:ok, conn} = MyXQL.start_link(opts)

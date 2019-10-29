@@ -51,4 +51,18 @@ defmodule MyXQL.SyncTest do
     [%{"Value" => count}] = TestHelper.mysql!("show global status like 'Prepared_stmt_count'")
     String.to_integer(count)
   end
+
+  @tag capture_log: true
+  test "connect with SSL but without starting :ssl" do
+    Application.stop(:ssl)
+
+    assert_raise RuntimeError,
+                 ~r"cannot be established because `:ssl` application is not started",
+                 fn ->
+                   opts = [ssl: true] ++ @opts
+                   MyXQL.start_link(opts)
+                 end
+  after
+    Application.ensure_all_started(:ssl)
+  end
 end
