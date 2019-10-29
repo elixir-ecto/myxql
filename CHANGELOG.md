@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.10 (2019-10-29)
+
+### Enhancements
+
+* Add `prepare: :force_named` option
+
+### Bug fixes
+
+* Fix prepared queries leaks
+
 ## v0.2.9 (2019-09-18)
 
 ### Bug fixes
