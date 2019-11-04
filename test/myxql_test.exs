@@ -192,7 +192,11 @@ defmodule MyXQLTest do
       assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query2.ref == query3.ref
-      assert query2.statement_id != query3.statement_id
+      assert query2.statement_id == query3.statement_id
+
+      {:ok, query4} = MyXQL.prepare(pid, "2", "SELECT 2")
+      assert query3.ref != query4.ref
+      assert query3.statement_id != query4.statement_id
     end
 
     test ":force_named" do
