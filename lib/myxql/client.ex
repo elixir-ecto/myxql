@@ -355,7 +355,7 @@ defmodule MyXQL.Client do
 
     case send_recv_packet(client, payload, &decode_auth_response/1, sequence_id) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->
-        auth_response = Auth.auth_response(config, auth_plugin_name, initial_auth_plugin_data)
+        auth_response = Auth.auth_response(config, auth_plugin_name, auth_plugin_data)
 
         case send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id + 2) do
           {:ok, :full_auth} ->
