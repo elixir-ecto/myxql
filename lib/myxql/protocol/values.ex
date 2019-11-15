@@ -83,6 +83,7 @@ defmodule MyXQL.Protocol.Values do
   defp column_def_to_type(column_def(type: :mysql_type_string)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_bit, length: length)), do: {:bit, length}
   defp column_def_to_type(column_def(type: :mysql_type_null)), do: :null
+  defp column_def_to_type(column_def(type: :mysql_type_geometry)), do: :geometry
 
   # Text values
 
@@ -308,7 +309,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(<<r::bits>>, null_bitmap, [:binary | t], acc),
-    do: decode_string_lenenc(r, null_bitmap, t, acc)
+    do: decode_string_lenenc(r, null_bitmap, t, acc, & &1)
 
   defp decode_binary_row(<<r::bits>>, null_bitmap, [:int1 | t], acc),
     do: decode_int1(r, null_bitmap, t, acc)
@@ -361,8 +362,56 @@ defmodule MyXQL.Protocol.Values do
   defp decode_binary_row(<<r::bits>>, null_bitmap, [{:bit, size} | t], acc),
     do: decode_bit(r, size, null_bitmap, t, acc)
 
+  defp decode_binary_row(<<r::bits>>, null_bitmap, [:geometry | t], acc),
+    do: decode_string_lenenc(r, null_bitmap, t, acc, &decode_geometry/1)
+
   defp decode_binary_row(<<>>, _null_bitmap, [], acc) do
     Enum.reverse(acc)
+  end
+
+  # this looks similar to WKB [1] but instead of:
+  #
+  #     <<byte_order::8, type::32, ...>>
+  #
+  # we have:
+  #
+  #     <<0::32, byte_order::8, type::32, ...>>
+  #
+  # so seems there's some extra padding in front. Maybe it's a 4-byte srid?
+  #
+  # byte_order is allegedly big endian (0x01) but we need to decode floats as little-endian. (lol.)
+  #
+  # Looking at [2]
+  #
+  # > Values should be stored in internal geometry format, but you can convert them to that
+  # > format from either Well-Known Text (WKT) or Well-Known Binary (WKB) format.
+  #
+  # so yeah, looks like mysql might be storing it in an internal format that is not WKB.
+  # There's a ST_ToBinary() function that allegedly returns data in WKB so this might be helpful
+  # for debugging.
+  #
+  # [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
+  # [2] https://dev.mysql.com/doc/refman/8.0/en/populating-spatial-columns.html
+  defp decode_geometry(<<0::uint4, 1::uint1, type::uint4, r::bits>>) do
+    #                    ^         ^ big endian
+    #                    |
+    #                    some padding? maybe srid?
+    decode_geometry(type, r)
+  end
+
+  defp decode_geometry(1, <<x::64-signed-little-float, y::64-signed-little-float>>),
+    do: %MyXQL.Geometry.Point{x: x, y: y}
+
+  defp decode_geometry(4, <<size::uint4, r::bits>>),
+    do: decode_multipoint(r, size, [])
+
+  # <<1, 1, 0, 0, 0>> in front seems like some kind of header?
+  defp decode_multipoint(<<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float, r::bits>>, size, acc) do
+    decode_multipoint(r, size - 1, [{x, y} | acc])
+  end
+
+  defp decode_multipoint("", 0, acc) do
+    %MyXQL.Geometry.Multipoint{points: Enum.reverse(acc)}
   end
 
   defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),
@@ -510,18 +559,36 @@ defmodule MyXQL.Protocol.Values do
     }
   end
 
-  defp decode_string_lenenc(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc)
+  defp decode_string_lenenc(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc, decoder)
        when n < 251,
-       do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFC, n::uint2, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFC, n::uint2, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFD, n::uint3, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFD, n::uint3, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFE, n::uint8, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
   defp decode_json(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc) when n < 251,
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])

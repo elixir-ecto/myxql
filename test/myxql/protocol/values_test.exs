@@ -273,6 +273,18 @@ defmodule MyXQL.Protocol.ValueTest do
       test "CHAR", c do
         assert_roundtrip(c, "my_char", "é")
       end
+
+      if @protocol == :binary do
+        test "POINT", c do
+          assert query!(c, "SELECT ST_GeomFromText('POINT(1 2.2)')").rows == [
+                   [%MyXQL.Geometry.Point{x: 1.0, y: 2.2}]
+                 ]
+
+          assert query!(c, "SELECT ST_GeomFromText('MULTIPOINT(1 1, 2 2)')").rows == [
+                   [%MyXQL.Geometry.Multipoint{points: [{1.0, 1.0}, {2.0, 2.0}]}]
+                 ]
+        end
+      end
     end
   end
 
