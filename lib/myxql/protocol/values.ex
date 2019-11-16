@@ -221,18 +221,8 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
-  def encode_binary_value(%MyXQL.Geometry.Point{x: x, y: y}) do
-    encode_geometry(<<1::uint4, x::64-signed-little-float, y::64-signed-little-float>>)
-  end
-
-  def encode_binary_value(%MyXQL.Geometry.Multipoint{points: points}) do
-    binary =
-      Enum.map_join(points, "", fn {x, y} ->
-        <<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float>>
-      end)
-
-    encode_geometry(<<4::uint4, length(points)::uint4, binary::binary>>)
-  end
+  def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
@@ -243,8 +233,9 @@ defmodule MyXQL.Protocol.Values do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
   end
 
-  defp encode_geometry(binary) do
-    {:mysql_type_geometry, encode_string_lenenc(<<0::uint4, 1::uint1, binary::binary>>)}
+  defp encode_geometry(geo) do
+    binary = geo |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
+    {:mysql_type_geometry, encode_string_lenenc(<<0::uint4, binary::binary>>)}
   end
 
   ## Time/DateTime
@@ -413,30 +404,8 @@ defmodule MyXQL.Protocol.Values do
   #
   # [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
   # [2] https://dev.mysql.com/doc/refman/8.0/en/populating-spatial-columns.html
-  defp decode_geometry(<<0::uint4, 1::uint1, type::uint4, r::bits>>) do
-    #                    ^         ^ big endian
-    #                    |
-    #                    some padding? maybe srid?
-    decode_geometry(type, r)
-  end
-
-  defp decode_geometry(1, <<x::64-signed-little-float, y::64-signed-little-float>>),
-    do: %MyXQL.Geometry.Point{x: x, y: y}
-
-  defp decode_geometry(4, <<size::uint4, r::bits>>),
-    do: decode_multipoint(r, size, [])
-
-  # <<1, 1, 0, 0, 0>> in front seems like some kind of header?
-  defp decode_multipoint(
-         <<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float, r::bits>>,
-         size,
-         acc
-       ) do
-    decode_multipoint(r, size - 1, [{x, y} | acc])
-  end
-
-  defp decode_multipoint("", 0, acc) do
-    %MyXQL.Geometry.Multipoint{points: Enum.reverse(acc)}
+  defp decode_geometry(<<0::uint4, r::bits>>) do
+    r |> Base.encode16() |> Geo.WKB.decode!()
   end
 
   defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),

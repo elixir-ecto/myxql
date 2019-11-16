@@ -51,6 +51,7 @@ defmodule MyXQL.MixProject do
       {:db_connection, "~> 2.0", db_connection_opts()},
       {:decimal, "~> 1.6"},
       {:jason, "~> 1.0", optional: true},
+      {:geo, "~> 3.3"},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.0-rc", only: :dev, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},

@@ -275,13 +275,11 @@ defmodule MyXQL.Protocol.ValueTest do
       end
 
       test "POINT", c do
-        assert_roundtrip(c, "my_point", %MyXQL.Geometry.Point{x: 1.0, y: 2.2})
+        assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {1.0, 2.2}})
       end
 
       test "MULTIPOINT", c do
-        assert_roundtrip(c, "my_multipoint", %MyXQL.Geometry.Multipoint{
-          points: [{1.0, 1.0}, {2.0, 2.0}]
-        })
+        assert_roundtrip(c, "my_multipoint", %Geo.MultiPoint{coordinates: [{1.0, 1.0}, {2.0, 2.0}]})
       end
     end
   end
@@ -380,11 +378,11 @@ defmodule MyXQL.Protocol.ValueTest do
         list when is_list(list) ->
           "'#{Jason.encode!(list)}'"
 
-        %MyXQL.Geometry.Point{x: x, y: y} ->
+        %Geo.Point{coordinates: {x, y}} ->
           "POINT(#{x}, #{y})"
 
-        %MyXQL.Geometry.Multipoint{points: points} ->
-          binary = Enum.map_join(points, ", ", fn {x, y} -> "POINT(#{x}, #{y})" end)
+        %Geo.MultiPoint{coordinates: coordinates} ->
+          binary = Enum.map_join(coordinates, ", ", fn {x, y} -> "POINT(#{x}, #{y})" end)
           "MULTIPOINT(" <> binary <> ")"
 
         %_{} = struct ->
