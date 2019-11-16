@@ -172,6 +172,10 @@ defmodule MyXQL.Protocol.Values do
     decode_bit(value, size)
   end
 
+  def decode_text_value(value, :geometry) do
+    decode_geometry(value)
+  end
+
   # Binary values
 
   def encode_binary_value(value)
@@ -217,6 +221,19 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
+  def encode_binary_value(%MyXQL.Geometry.Point{x: x, y: y}) do
+    encode_geometry(<<1::uint4, x::64-signed-little-float, y::64-signed-little-float>>)
+  end
+
+  def encode_binary_value(%MyXQL.Geometry.Multipoint{points: points}) do
+    binary =
+      Enum.map_join(points, "", fn {x, y} ->
+        <<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float>>
+      end)
+
+    encode_geometry(<<4::uint4, length(points)::uint4, binary::binary>>)
+  end
+
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
     {:mysql_type_var_string, encode_string_lenenc(string)}
@@ -224,6 +241,10 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(other) do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
+  end
+
+  defp encode_geometry(binary) do
+    {:mysql_type_geometry, encode_string_lenenc(<<0::uint4, 1::uint1, binary::binary>>)}
   end
 
   ## Time/DateTime
@@ -406,7 +427,11 @@ defmodule MyXQL.Protocol.Values do
     do: decode_multipoint(r, size, [])
 
   # <<1, 1, 0, 0, 0>> in front seems like some kind of header?
-  defp decode_multipoint(<<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float, r::bits>>, size, acc) do
+  defp decode_multipoint(
+         <<1, 1, 0, 0, 0, x::64-signed-little-float, y::64-signed-little-float, r::bits>>,
+         size,
+         acc
+       ) do
     decode_multipoint(r, size - 1, [{x, y} | acc])
   end
 

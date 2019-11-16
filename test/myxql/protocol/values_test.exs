@@ -274,16 +274,14 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_char", "é")
       end
 
-      if @protocol == :binary do
-        test "POINT", c do
-          assert query!(c, "SELECT ST_GeomFromText('POINT(1 2.2)')").rows == [
-                   [%MyXQL.Geometry.Point{x: 1.0, y: 2.2}]
-                 ]
+      test "POINT", c do
+        assert_roundtrip(c, "my_point", %MyXQL.Geometry.Point{x: 1.0, y: 2.2})
+      end
 
-          assert query!(c, "SELECT ST_GeomFromText('MULTIPOINT(1 1, 2 2)')").rows == [
-                   [%MyXQL.Geometry.Multipoint{points: [{1.0, 1.0}, {2.0, 2.0}]}]
-                 ]
-        end
+      test "MULTIPOINT", c do
+        assert_roundtrip(c, "my_multipoint", %MyXQL.Geometry.Multipoint{
+          points: [{1.0, 1.0}, {2.0, 2.0}]
+        })
       end
     end
   end
@@ -381,6 +379,13 @@ defmodule MyXQL.Protocol.ValueTest do
 
         list when is_list(list) ->
           "'#{Jason.encode!(list)}'"
+
+        %MyXQL.Geometry.Point{x: x, y: y} ->
+          "POINT(#{x}, #{y})"
+
+        %MyXQL.Geometry.Multipoint{points: points} ->
+          binary = Enum.map_join(points, ", ", fn {x, y} -> "POINT(#{x}, #{y})" end)
+          "MULTIPOINT(" <> binary <> ")"
 
         %_{} = struct ->
           "'#{struct}'"

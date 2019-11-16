@@ -124,7 +124,9 @@ defmodule TestHelper do
       my_mediumblob MEDIUMBLOB,
       my_longblob LONGBLOB,
       #{if supports_json?(), do: "my_json JSON,", else: ""}
-      my_char CHAR
+      my_char CHAR,
+      my_point POINT,
+      my_multipoint MULTIPOINT
     );
 
     DROP PROCEDURE IF EXISTS single_procedure;
