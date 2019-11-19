@@ -126,6 +126,56 @@ You can customize it to use another library via the `:json_library` configuratio
 config :myxql, :json_library, SomeJSONModule
 ```
 
+## Geometry support
+
+MyXQL comes with support for PostGIS data type support out of the box via the [Geo](https://github.com/bryanjos/geo/) library, which itself has zero dependencies. Bear in mind: inserting is best done via the `ST_GeomFromText` functions provided by MySQL. The `Geo` library can encode the `%Geo.DATA_TYPE{}` structs to the WKT string that functions expects.
+
+So you can do the following:
+
+```elixir
+
+iex> {:ok, pid} = MyXQL.start_link(username: "root")
+iex> MyXQL.query!(pid, "CREATE DATABASE IF NOT EXISTS geo_db")
+
+# setup some geo fields
+iex> {:ok, pid} = MyXQL.start_link(username: "root", database: "geo_db")
+iex> MyXQL.query!(pid, "CREATE TABLE IF NOT EXISTS geo (id serial primary key, point POINT, polygon POLYGON)")
+
+# starting with one of the `Geo` data structs:
+iex> point = %Geo.Point{coordinates: {1.0, 2.2}}
+iex> MyXQL.query!(pid, "INSERT INTO geo (`point`) VALUES (ST_GeomFromText('#{Geo.WKT.encode!(point)}'))")
+%MyXQL.Result{columns: nil, connection_id: 11204,, last_insert_id: 1, num_rows: 1, num_warnings: 0, rows: nil}
+
+iex> polygon = %Geo.Polygon{coordinates: [[{30, 10}, {40, 40}, {20, 40}, {10, 20}, {30, 10}]]}
+iex> MyXQL.query!(pid, "INSERT INTO geo (`polygon`) VALUES (ST_GeomFromText('#{Geo.WKT.encode!(polygon)}'))")
+
+iex> MyXQL.query!(pid, "SELECT * FROM geo")
+%MyXQL.Result{
+  columns: ["id", "point", "polygon"],
+  connection_id: 2078,
+  last_insert_id: nil,
+  num_rows: 2,
+  num_warnings: 0,
+  rows: [
+    [1, %Geo.Point{coordinates: {1.0, 2.2}, properties: %{}, srid: nil}, nil],
+    [
+      2,
+      nil,
+      %Geo.Polygon{
+        coordinates: [
+          [{30.0, 10.0}, {40.0, 40.0}, {20.0, 40.0}, {10.0, 20.0}, {30.0, 10.0}]
+        ],
+        properties: %{},
+        srid: nil
+      }
+    ]
+  ]
+}
+```
+
+If you plan on using MyXQL with Ecto, and need to handle user input, you might need to add a (custom Ecto type)[https://hexdocs.pm/ecto/Ecto.Type.html
+] in order to construct a valid WKT string.
+
 ## Contributing
 
 Run tests:
