@@ -392,29 +392,23 @@ defmodule MyXQL.Protocol.Values do
     Enum.reverse(acc)
   end
 
-  # this looks similar to WKB [1] but instead of:
+  # Geometry
+  # =======
   #
-  #     <<byte_order::8, type::32, ...>>
+  # Here, we use the awesome Geo [1] package to help encode and decode the WKT and WKB data in and out of the db.
+  # There still is some mistery about the first 32-bit integer, which most likely is the srid, judging.
   #
-  # we have:
+  # In the future, it would be nice to completely parse this ourselves, @jeroenbourgois got quite for, but not quite there.
+  # @wojtekmach then came to the rescue and proposed to use the Geo package, with is a no-dependency drop in.
   #
-  #     <<0::32, byte_order::8, type::32, ...>>
+  # For future reference, here are some interesting reads about the Well-Known Text (WKT) and Well-Known Binary (WKB) format used to store the geo data, and references to how MySQL stores these internally.
   #
-  # so seems there's some extra padding in front. Maybe it's a 4-byte srid?
+  # https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
+  # https://dev.mysql.com/doc/refman/8.0/en/populating-spatial-columns.html
+  # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-wkb-format
+  # https://www.ibm.com/support/knowledgecenter/en/SSEPGG_11.1.0/com.ibm.db2.luw.spatial.topics.doc/doc/rsbp4121.html
   #
-  # byte_order is allegedly big endian (0x01) but we need to decode floats as little-endian. (lol.)
-  #
-  # Looking at [2]
-  #
-  # > Values should be stored in internal geometry format, but you can convert them to that
-  # > format from either Well-Known Text (WKT) or Well-Known Binary (WKB) format.
-  #
-  # so yeah, looks like mysql might be storing it in an internal format that is not WKB.
-  # There's a ST_ToBinary() function that allegedly returns data in WKB so this might be helpful
-  # for debugging.
-  #
-  # [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
-  # [2] https://dev.mysql.com/doc/refman/8.0/en/populating-spatial-columns.html
+  # Still, all considered, this is a very elegant and readable solution!
   defp decode_geometry(<<0::uint4, r::bits>>) do
     r |> Base.encode16() |> Geo.WKB.decode!()
   end
