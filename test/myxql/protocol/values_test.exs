@@ -283,6 +283,12 @@ defmodule MyXQL.Protocol.ValueTest do
           coordinates: [{1.0, 1.0}, {2.0, 2.0}]
         })
       end
+
+      test "POLYGON", c do
+        assert_roundtrip(c, "my_polygon", %Geo.Polygon{
+          coordinates: [[{30, 10}, {40, 40}, {20, 40}, {10, 20}, {30, 10}]]
+        })
+      end
     end
   end
 
@@ -389,6 +395,7 @@ defmodule MyXQL.Protocol.ValueTest do
   defp encode_text(%DateTime{} = datetime), do: "'#{NaiveDateTime.to_iso8601(datetime)}'"
   defp encode_text(%Geo.Point{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.Polygon{} = geo), do: encode_text_geo(geo)
   defp encode_text(%_{} = struct), do: "'#{struct}'"
   defp encode_text(map) when is_map(map), do: "'#{Jason.encode!(map)}'"
   defp encode_text(list) when is_list(list), do: "'#{Jason.encode!(list)}'"
