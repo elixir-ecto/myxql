@@ -128,7 +128,9 @@ config :myxql, :json_library, SomeJSONModule
 
 ## Geometry support
 
-MyXQL comes with support for PostGIS data type support out of the box via the [Geo](https://github.com/bryanjos/geo/) library, which itself has zero dependencies. Bear in mind: inserting is best done via the `ST_GeomFromText` functions provided by MySQL. The `Geo` library can encode the `%Geo.DATA_TYPE{}` structs to the WKT string that functions expects.
+MyXQL comes with support for PostGIS data type support out of the box via the [Geo](https://github.com/bryanjos/geo/) library, which itself has zero dependencies.
+
+Bear in mind: inserting is best done via the `ST_GeomFromText` functions provided by MySQL. The `Geo` library can encode the `%Geo.DATA_TYPE{}` structs to the WKT string that functions expects.
 
 So you can do the following:
 
@@ -141,7 +143,6 @@ iex> MyXQL.query!(pid, "CREATE DATABASE IF NOT EXISTS geo_db")
 iex> {:ok, pid} = MyXQL.start_link(username: "root", database: "geo_db")
 iex> MyXQL.query!(pid, "CREATE TABLE IF NOT EXISTS geo (id serial primary key, point POINT, polygon POLYGON)")
 
-# starting with one of the `Geo` data structs:
 iex> point = %Geo.Point{coordinates: {1.0, 2.2}}
 iex> MyXQL.query!(pid, "INSERT INTO geo (`point`) VALUES (ST_GeomFromText('#{Geo.WKT.encode!(point)}'))")
 %MyXQL.Result{columns: nil, connection_id: 11204,, last_insert_id: 1, num_rows: 1, num_warnings: 0, rows: nil}
@@ -173,8 +174,8 @@ iex> MyXQL.query!(pid, "SELECT * FROM geo")
 }
 ```
 
-If you plan on using MyXQL with Ecto, and need to handle user input, you might need to add a (custom Ecto type)[https://hexdocs.pm/ecto/Ecto.Type.html
-] in order to construct a valid WKT string.
+If you plan on using MyXQL with Ecto, and need to handle user input, you might need to add a [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html
+) in order to construct a valid WKT string.
 
 ## Contributing
 
