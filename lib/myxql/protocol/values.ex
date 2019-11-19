@@ -222,7 +222,18 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.PointM{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.PointZ{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.PointZM{} = geo), do: encode_geometry(geo)
   def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.LineStringZ{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiLineStringZ{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.PolygonZ{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiPolygonZ{} = geo), do: encode_geometry(geo)
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
