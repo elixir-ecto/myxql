@@ -456,13 +456,11 @@ defmodule MyXQL.Protocol.ValueTest do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
     statement = "SELECT #{fields} FROM test_types WHERE id = '#{id}'"
     %MyXQL.Result{rows: [values]} = query!(c, statement)
-    IO.inspect(values)
     values
   end
 
   defp get(c, field, id) do
     [value] = get(c, [field], id)
-    IO.inspect(value)
     value
   end
 
