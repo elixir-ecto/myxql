@@ -320,13 +320,11 @@ defmodule MyXQL.Protocol.ValueTest do
         })
       end
 
-      if @protocol == :text do
-        @tag geometry: true
-        test "GEOMETRYCOLLECTION", c do
-          assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
-            geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}}]
-          })
-        end
+      @tag geometry: true
+      test "GEOMETRYCOLLECTION", c do
+        assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
+          geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}}]
+        })
       end
     end
   end
