@@ -492,19 +492,11 @@ defmodule MyXQL.Protocol.ValueTest do
   defp encode_text(false), do: "FALSE"
   defp encode_text(%DateTime{} = datetime), do: "'#{NaiveDateTime.to_iso8601(datetime)}'"
   defp encode_text(%Geo.Point{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.PointZ{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.PointM{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.PointZM{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.LineString{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.LineStringZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.Polygon{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.PolygonZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.MultiPointZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.MultiLineString{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.MultiLineStringZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.MultiPolygon{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.MultiPolygonZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.GeometryCollection{} = geo), do: encode_text_geo(geo)
   defp encode_text(%_{} = struct), do: "'#{struct}'"
   defp encode_text(map) when is_map(map), do: "'#{Jason.encode!(map)}'"
