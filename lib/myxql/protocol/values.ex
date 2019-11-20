@@ -227,6 +227,7 @@ defmodule MyXQL.Protocol.Values do
   def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
   def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
   def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
