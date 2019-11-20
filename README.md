@@ -113,9 +113,9 @@ point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... *****
 \*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
 remember to use TEXT column for your JSON field.
 
-\*\*\*\*\* Encoding/decoding between `Geo.*` structs and the PostGIS EWKB binary format is
+\*\*\*\*\* Encoding/decoding between `Geo.*` structs and the OpenGIS WKB binary format is
 done using the [Geo](https://github.com/bryanjos/geo) package. If you're using MyXQL geometry
-types with Ecto and need to for example accept EWKT format as user input, consider implementing an
+types with Ecto and need to for example accept a WKT format as user input, consider implementing an
 [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
 
 ## JSON support
