@@ -387,19 +387,7 @@ defmodule MyXQL.Protocol.Values do
     Enum.reverse(acc)
   end
 
-  # Geometry
-  #
-  # MySQL basically uses PostGIS EWKB binary representation (an extension to OpenGIS WKB standard) on
-  # the wire. The only difference is MySQL has additional 4 bytes just before the EWKB bytes,
-  # in all observed cases they're always `00 00 00 00`, and our best guess is they're left there
-  # for future extensibility.
-  #
-  # For future reference here are some resources that were useful when implementing this:
-  #
-  # https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
-  # https://dev.mysql.com/doc/refman/8.0/en/populating-spatial-columns.html
-  # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-wkb-format
-  # https://www.ibm.com/support/knowledgecenter/en/SSEPGG_11.1.0/com.ibm.db2.luw.spatial.topics.doc/doc/rsbp4121.html
+  # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
   defp decode_geometry(<<0::uint4, r::bits>>) do
     r |> Base.encode16() |> Geo.WKB.decode!()
   end
