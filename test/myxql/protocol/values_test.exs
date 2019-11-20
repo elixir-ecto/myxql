@@ -279,34 +279,12 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {0, 0}})
       end
 
-      # @tag geometry: true
-      # test "POINTM", c do
-      #   assert_roundtrip(c, "my_point", %Geo.PointM{coordinates: {1, 1, 1}})
-      # end
-
-      # @tag geometry: true
-      # test "POINTZ", c do
-      #   assert_roundtrip(c, "my_point", %Geo.PointZ{coordinates: {1, 1, 1}})
-      # end
-
-      # @tag geometry: true
-      # test "POINTZM", c do
-      #   assert_roundtrip(c, "my_point", %Geo.PointZM{coordinates: {1, 1, 1, 1}})
-      # end
-      #
       @tag geometry: true
       test "LINESTRING", c do
         assert_roundtrip(c, "my_linestring", %Geo.LineString{
           coordinates: [{30, 10}, {10, 30}, {40, 40}]
         })
       end
-
-      # @tag geometry: true
-      # test "LINESTRINGZ", c do
-      #   assert_roundtrip(c, "my_linestring", %Geo.LineStringZ{
-      #     coordinates: [{30, 10, 3}, {10, 30, 90}, {40, 40, 40}]
-      #   })
-      # end
 
       @tag geometry: true
       test "MULTIPOINT", c do
@@ -315,13 +293,6 @@ defmodule MyXQL.Protocol.ValueTest do
         })
       end
 
-      # @tag geometry: true
-      # test "MULTIPOINTZ", c do
-      #   assert_roundtrip(c, "my_multipoint", %Geo.MultiPointZ{
-      #     coordinates: [{0, 0, 0}, {20, 20, 20}, {60, 60, 60}]
-      #   })
-      # end
-
       @tag geometry: true
       test "MULTILINESTRING", c do
         assert_roundtrip(c, "my_multilinestring", %Geo.MultiLineString{
@@ -329,29 +300,12 @@ defmodule MyXQL.Protocol.ValueTest do
         })
       end
 
-      # @tag geometry: true
-      # test "MULTILINESTRINGZ", c do
-      #   assert_roundtrip(c, "my_multilinestring", %Geo.MultiLineStringZ{
-      #     coordinates: [[{10, 10, 10}, {20, 20, 20}], [{15, 15, 15}, {30, 15, 10}]]
-      #   })
-      # end
-
       @tag geometry: true
       test "POLYGON", c do
         assert_roundtrip(c, "my_polygon", %Geo.Polygon{
           coordinates: [[{30, 10}, {40, 40}, {20, 40}, {10, 20}, {30, 10}]]
         })
       end
-
-      # @tag geometry: true
-      # test "POLYGONZ", c do
-      #   assert_roundtrip(c, "my_polygon", %Geo.PolygonZ{
-      #     coordinates: [
-      #       [{35, 10}, {45, 45}, {15, 40}, {10, 20}, {35, 10}],
-      #       [{20, 30}, {35, 35}, {30, 20}, {20, 30}]
-      #     ]
-      #   })
-      # end
 
       @tag geometry: true
       test "MULTIPOLYGON", c do
@@ -365,19 +319,6 @@ defmodule MyXQL.Protocol.ValueTest do
           ]
         })
       end
-
-      # @tag geometry: true
-      # test "MULTIPOLYGONZ", c do
-      #   assert_roundtrip(c, "my_multipolygon", %Geo.MultiPolygonZ{
-      #     coordinates: [
-      #       [[{40, 40, 40}, {20, 45, 60}, {45, 30, 15}, {40, 40, 40}]],
-      #       [
-      #         [{20, 35, 48}, {10, 30, 50}, {10, 10, 10}, {30, 5, 18}, {45, 20, 10}, {20, 35, 48}],
-      #         [{30, 20, 10}, {20, 15, 10}, {20, 25, 4}, {30, 20, 10}]
-      #       ]
-      #     ]
-      #   })
-      # end
 
       if @protocol == :text do
         @tag geometry: true
