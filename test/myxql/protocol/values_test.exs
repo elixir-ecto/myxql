@@ -276,8 +276,39 @@ defmodule MyXQL.Protocol.ValueTest do
 
       @tag geometry: true
       test "POINT", c do
-        assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {1.0, 2.2}})
+        assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {0, 0}})
       end
+
+      # @tag geometry: true
+      # test "POINTM", c do
+      #   assert_roundtrip(c, "my_point", %Geo.PointM{coordinates: {1, 1, 1}})
+      # end
+
+      # @tag geometry: true
+      # test "POINTZ", c do
+      #   assert_roundtrip(c, "my_point", %Geo.PointZ{coordinates: {1, 1, 1}})
+      # end
+
+      # @tag geometry: true
+      # test "POINTZM", c do
+      #   assert_roundtrip(c, "my_point", %Geo.PointZM{coordinates: {1, 1, 1, 1}})
+      # end
+      #
+      @tag geometry: true
+      test "LINESTRING", c do
+        assert_roundtrip(c, "my_linestring", %Geo.LineString{
+          coordinates: [{30, 10}, {10, 30}, {40, 40}],
+          srid: 4326
+        })
+      end
+
+      # @tag geometry: true
+      # test "LINESTRINGZ", c do
+      #   assert_roundtrip(c, "my_linestring", %Geo.LineStringZ{
+      #     coordinates: [{30, 10, 3}, {10, 30, 90}, {40, 40, 40}],
+      #     srid: 4326
+      #   })
+      # end
 
       @tag geometry: true
       test "MULTIPOINT", c do
@@ -286,10 +317,78 @@ defmodule MyXQL.Protocol.ValueTest do
         })
       end
 
+      # @tag geometry: true
+      # test "MULTIPOINTZ", c do
+      #   assert_roundtrip(c, "my_multipoint", %Geo.MultiPointZ{
+      #     coordinates: [{0, 0, 0}, {20, 20, 20}, {60, 60, 60}]
+      #   })
+      # end
+
+      @tag geometry: true
+      test "MULTILINESTRING", c do
+        assert_roundtrip(c, "my_multilinestring", %Geo.MultiLineString{
+          coordinates: [[{10, 10}, {20, 20}], [{15, 15}, {30, 15}]]
+        })
+      end
+
+      # @tag geometry: true
+      # test "MULTILINESTRINGZ", c do
+      #   assert_roundtrip(c, "my_multilinestring", %Geo.MultiLineStringZ{
+      #     coordinates: [[{10, 10, 10}, {20, 20, 20}], [{15, 15, 15}, {30, 15, 10}]]
+      #   })
+      # end
+
       @tag geometry: true
       test "POLYGON", c do
         assert_roundtrip(c, "my_polygon", %Geo.Polygon{
           coordinates: [[{30, 10}, {40, 40}, {20, 40}, {10, 20}, {30, 10}]]
+        })
+      end
+
+      # @tag geometry: true
+      # test "POLYGONZ", c do
+      #   assert_roundtrip(c, "my_polygon", %Geo.PolygonZ{
+      #     coordinates: [
+      #       [{35, 10}, {45, 45}, {15, 40}, {10, 20}, {35, 10}],
+      #       [{20, 30}, {35, 35}, {30, 20}, {20, 30}]
+      #     ],
+      #     srid: 4326
+      #   })
+      # end
+
+      @tag geometry: true
+      test "MULTIPOLYGON", c do
+        assert_roundtrip(c, "my_multipolygon", %Geo.MultiPolygon{
+          coordinates: [
+            [[{40, 40}, {20, 45}, {45, 30}, {40, 40}]],
+            [
+              [{20, 35}, {10, 30}, {10, 10}, {30, 5}, {45, 20}, {20, 35}],
+              [{30, 20}, {20, 15}, {20, 25}, {30, 20}]
+            ]
+          ],
+          srid: 4326
+        })
+      end
+
+      # @tag geometry: true
+      # test "MULTIPOLYGONZ", c do
+      #   assert_roundtrip(c, "my_multipolygon", %Geo.MultiPolygonZ{
+      #     coordinates: [
+      #       [[{40, 40, 40}, {20, 45, 60}, {45, 30, 15}, {40, 40, 40}]],
+      #       [
+      #         [{20, 35, 48}, {10, 30, 50}, {10, 10, 10}, {30, 5, 18}, {45, 20, 10}, {20, 35, 48}],
+      #         [{30, 20, 10}, {20, 15, 10}, {20, 25, 4}, {30, 20, 10}]
+      #       ]
+      #     ],
+      #     srid: 4326
+      #   })
+      # end
+
+      @tag geometry: true
+      test "GEOMETRYCOLLECTION", c do
+        assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
+          geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}, srid: 4326}],
+          srid: 4326
         })
       end
     end
@@ -397,8 +496,20 @@ defmodule MyXQL.Protocol.ValueTest do
   defp encode_text(false), do: "FALSE"
   defp encode_text(%DateTime{} = datetime), do: "'#{NaiveDateTime.to_iso8601(datetime)}'"
   defp encode_text(%Geo.Point{} = geo), do: encode_text_geo(geo)
-  defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.PointZ{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.PointM{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.PointZM{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.LineString{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.LineStringZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.Polygon{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.PolygonZ{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.MultiPointZ{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.MultiLineString{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.MultiLineStringZ{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.MultiPolygon{} = geo), do: encode_text_geo(geo)
+  # defp encode_text(%Geo.MultiPolygonZ{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.GeometryCollection{} = geo), do: encode_text_geo(geo)
   defp encode_text(%_{} = struct), do: "'#{struct}'"
   defp encode_text(map) when is_map(map), do: "'#{Jason.encode!(map)}'"
   defp encode_text(list) when is_list(list), do: "'#{Jason.encode!(list)}'"

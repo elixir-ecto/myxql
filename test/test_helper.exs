@@ -75,6 +75,7 @@ defmodule TestHelper do
     my_time6 TIME(6),
     my_datetime3 DATETIME(3),
     my_datetime6 DATETIME(6),
+
     """
 
     mysql!("""
@@ -124,10 +125,14 @@ defmodule TestHelper do
       my_mediumblob MEDIUMBLOB,
       my_longblob LONGBLOB,
       #{if supports_json?(), do: "my_json JSON,", else: ""}
-      my_char CHAR,
       #{if supports_geometry?(), do: "my_point POINT,", else: ""}
-      #{if supports_geometry?(), do: "my_mulypoint MULTIPOINT,", else: ""}
-      #{if supports_geometry?(), do: "my_polygon POLYGON", else: ""}
+      #{if supports_geometry?(), do: "my_linestring LINESTRING,", else: ""}
+      #{if supports_geometry?(), do: "my_polygon POLYGON,", else: ""}
+      #{if supports_geometry?(), do: "my_multipoint MULTIPOINT,", else: ""}
+      #{if supports_geometry?(), do: "my_multilinestring MULTILINESTRING,", else: ""}
+      #{if supports_geometry?(), do: "my_multipolygon MULTIPOLYGON,", else: ""}
+      #{if supports_geometry?(), do: "my_geometrycollection GEOMETRYCOLLECTION,", else: ""}
+      my_char CHAR
     );
 
     DROP PROCEDURE IF EXISTS single_procedure;
@@ -183,12 +188,12 @@ defmodule TestHelper do
 
   def supports_geometry?() do
     sql =
-      "CREATE TEMPORARY TABLE myxql_test.test_geo (point POINT); SHOW COLUMNS IN myxql_test.test_json"
+      "CREATE TEMPORARY TABLE myxql_test.test_geo (point POINT); SHOW COLUMNS IN myxql_test.test_geo"
 
     case mysql(sql) do
       {:ok, result} ->
         [%{"Type" => type}] = result
-        type == "POINT"
+        type == "point"
 
       {:error, _} ->
         false
