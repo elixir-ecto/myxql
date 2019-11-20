@@ -297,16 +297,14 @@ defmodule MyXQL.Protocol.ValueTest do
       @tag geometry: true
       test "LINESTRING", c do
         assert_roundtrip(c, "my_linestring", %Geo.LineString{
-          coordinates: [{30, 10}, {10, 30}, {40, 40}],
-          srid: 4326
+          coordinates: [{30, 10}, {10, 30}, {40, 40}]
         })
       end
 
       # @tag geometry: true
       # test "LINESTRINGZ", c do
       #   assert_roundtrip(c, "my_linestring", %Geo.LineStringZ{
-      #     coordinates: [{30, 10, 3}, {10, 30, 90}, {40, 40, 40}],
-      #     srid: 4326
+      #     coordinates: [{30, 10, 3}, {10, 30, 90}, {40, 40, 40}]
       #   })
       # end
 
@@ -351,8 +349,7 @@ defmodule MyXQL.Protocol.ValueTest do
       #     coordinates: [
       #       [{35, 10}, {45, 45}, {15, 40}, {10, 20}, {35, 10}],
       #       [{20, 30}, {35, 35}, {30, 20}, {20, 30}]
-      #     ],
-      #     srid: 4326
+      #     ]
       #   })
       # end
 
@@ -365,8 +362,7 @@ defmodule MyXQL.Protocol.ValueTest do
               [{20, 35}, {10, 30}, {10, 10}, {30, 5}, {45, 20}, {20, 35}],
               [{30, 20}, {20, 15}, {20, 25}, {30, 20}]
             ]
-          ],
-          srid: 4326
+          ]
         })
       end
 
@@ -379,16 +375,14 @@ defmodule MyXQL.Protocol.ValueTest do
       #         [{20, 35, 48}, {10, 30, 50}, {10, 10, 10}, {30, 5, 18}, {45, 20, 10}, {20, 35, 48}],
       #         [{30, 20, 10}, {20, 15, 10}, {20, 25, 4}, {30, 20, 10}]
       #       ]
-      #     ],
-      #     srid: 4326
+      #     ]
       #   })
       # end
 
       @tag geometry: true
       test "GEOMETRYCOLLECTION", c do
         assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
-          geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}, srid: 4326}],
-          srid: 4326
+          geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}}]
         })
       end
     end
@@ -503,7 +497,7 @@ defmodule MyXQL.Protocol.ValueTest do
   # defp encode_text(%Geo.LineStringZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.Polygon{} = geo), do: encode_text_geo(geo)
   # defp encode_text(%Geo.PolygonZ{} = geo), do: encode_text_geo(geo)
-  # defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
+  defp encode_text(%Geo.MultiPoint{} = geo), do: encode_text_geo(geo)
   # defp encode_text(%Geo.MultiPointZ{} = geo), do: encode_text_geo(geo)
   defp encode_text(%Geo.MultiLineString{} = geo), do: encode_text_geo(geo)
   # defp encode_text(%Geo.MultiLineStringZ{} = geo), do: encode_text_geo(geo)
@@ -523,7 +517,11 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp encode_text(value), do: "'#{value}'"
 
-  defp encode_text_geo(value), do: "ST_GeomFromText('#{Geo.WKT.encode!(value)}')"
+  defp encode_text_geo(value) do
+    geom = Geo.WKT.encode!(value)
+    IO.inspect(geom)
+    "ST_GeomFromText('#{geom}')"
+  end
 
   defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
