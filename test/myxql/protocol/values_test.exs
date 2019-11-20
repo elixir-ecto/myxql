@@ -379,11 +379,13 @@ defmodule MyXQL.Protocol.ValueTest do
       #   })
       # end
 
-      @tag geometry: true
-      test "GEOMETRYCOLLECTION", c do
-        assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
-          geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}}]
-        })
+      if @protocol == :text do
+        @tag geometry: true
+        test "GEOMETRYCOLLECTION", c do
+          assert_roundtrip(c, "my_geometrycollection", %Geo.GeometryCollection{
+            geometries: [%Geo.Point{coordinates: {54.1745659, 15.5398456}}]
+          })
+        end
       end
     end
   end
@@ -517,11 +519,7 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp encode_text(value), do: "'#{value}'"
 
-  defp encode_text_geo(value) do
-    geom = Geo.WKT.encode!(value)
-    IO.inspect(geom)
-    "ST_GeomFromText('#{geom}')"
-  end
+  defp encode_text_geo(value), do: "ST_GeomFromText('#{Geo.WKT.encode!(value)}')"
 
   defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")
