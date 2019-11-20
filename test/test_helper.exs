@@ -193,7 +193,9 @@ defmodule TestHelper do
     case mysql(sql) do
       {:ok, result} ->
         [%{"Type" => type}] = result
-        type == "point"
+        IO.puts("geom type -> ")
+        IO.inspect(type)
+        String.downcase(type) == "point"
 
       {:error, _} ->
         false
