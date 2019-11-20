@@ -125,9 +125,9 @@ defmodule TestHelper do
       my_longblob LONGBLOB,
       #{if supports_json?(), do: "my_json JSON,", else: ""}
       my_char CHAR,
-      my_point POINT,
-      my_multipoint MULTIPOINT,
-      my_polygon POLYGON
+      #{if supports_geometry?(), do: "my_point POINT,", else: ""}
+      #{if supports_geometry?(), do: "my_mulypoint MULTIPOINT,", else: ""}
+      #{if supports_geometry?(), do: "my_polygon POLYGON", else: ""}
     );
 
     DROP PROCEDURE IF EXISTS single_procedure;
@@ -175,6 +175,20 @@ defmodule TestHelper do
       {:ok, result} ->
         [%{"Type" => type}] = result
         type == "json"
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  def supports_geometry?() do
+    sql =
+      "CREATE TEMPORARY TABLE myxql_test.test_geo (point POINT); SHOW COLUMNS IN myxql_test.test_json"
+
+    case mysql(sql) do
+      {:ok, result} ->
+        [%{"Type" => type}] = result
+        type == "POINT"
 
       {:error, _} ->
         false
@@ -246,6 +260,7 @@ defmodule TestHelper do
     exclude = [{:ssl, not supports_ssl?()} | exclude]
     exclude = [{:public_key_exchange, not supports_public_key_exchange?()} | exclude]
     exclude = [{:json, not supports_json?()} | exclude]
+    exclude = [{:geometry, not supports_geometry?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
     exclude = if mariadb?, do: [{:bit, true} | exclude], else: exclude
     exclude

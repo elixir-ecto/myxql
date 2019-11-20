@@ -274,16 +274,19 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_char", "é")
       end
 
+      @tag geometry: true
       test "POINT", c do
         assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {1.0, 2.2}})
       end
 
+      @tag geometry: true
       test "MULTIPOINT", c do
         assert_roundtrip(c, "my_multipoint", %Geo.MultiPoint{
           coordinates: [{1.0, 1.0}, {2.0, 2.0}]
         })
       end
 
+      @tag geometry: true
       test "POLYGON", c do
         assert_roundtrip(c, "my_polygon", %Geo.Polygon{
           coordinates: [[{30, 10}, {40, 40}, {20, 40}, {10, 20}, {30, 10}]]
