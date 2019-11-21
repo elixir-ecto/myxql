@@ -83,6 +83,7 @@ defmodule MyXQL.Protocol.Values do
   defp column_def_to_type(column_def(type: :mysql_type_string)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_bit, length: length)), do: {:bit, length}
   defp column_def_to_type(column_def(type: :mysql_type_null)), do: :null
+  defp column_def_to_type(column_def(type: :mysql_type_geometry)), do: :geometry
 
   # Text values
 
@@ -171,6 +172,10 @@ defmodule MyXQL.Protocol.Values do
     decode_bit(value, size)
   end
 
+  def decode_text_value(value, :geometry) do
+    decode_geometry(value)
+  end
+
   # Binary values
 
   def encode_binary_value(value)
@@ -216,6 +221,14 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
+  def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
+
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
     {:mysql_type_var_string, encode_string_lenenc(string)}
@@ -223,6 +236,12 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(other) do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
+  end
+
+  defp encode_geometry(geo) do
+    srid = geo.srid || 0
+    binary = %{geo | srid: nil} |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
+    {:mysql_type_geometry, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
   end
 
   ## Time/DateTime
@@ -308,7 +327,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_binary_row(<<r::bits>>, null_bitmap, [:binary | t], acc),
-    do: decode_string_lenenc(r, null_bitmap, t, acc)
+    do: decode_string_lenenc(r, null_bitmap, t, acc, & &1)
 
   defp decode_binary_row(<<r::bits>>, null_bitmap, [:int1 | t], acc),
     do: decode_int1(r, null_bitmap, t, acc)
@@ -361,8 +380,17 @@ defmodule MyXQL.Protocol.Values do
   defp decode_binary_row(<<r::bits>>, null_bitmap, [{:bit, size} | t], acc),
     do: decode_bit(r, size, null_bitmap, t, acc)
 
+  defp decode_binary_row(<<r::bits>>, null_bitmap, [:geometry | t], acc),
+    do: decode_string_lenenc(r, null_bitmap, t, acc, &decode_geometry/1)
+
   defp decode_binary_row(<<>>, _null_bitmap, [], acc) do
     Enum.reverse(acc)
+  end
+
+  # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
+  defp decode_geometry(<<srid::uint4, r::bits>>) do
+    srid = if srid == 0, do: nil, else: srid
+    r |> Base.encode16() |> Geo.WKB.decode!() |> Map.put(:srid, srid)
   end
 
   defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),
@@ -510,18 +538,36 @@ defmodule MyXQL.Protocol.Values do
     }
   end
 
-  defp decode_string_lenenc(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc)
+  defp decode_string_lenenc(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc, decoder)
        when n < 251,
-       do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFC, n::uint2, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFC, n::uint2, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFD, n::uint3, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFD, n::uint3, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_string_lenenc(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),
-    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  defp decode_string_lenenc(
+         <<0xFE, n::uint8, v::string(n), r::bits>>,
+         null_bitmap,
+         t,
+         acc,
+         decoder
+       ),
+       do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
   defp decode_json(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc) when n < 251,
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
