@@ -189,6 +189,8 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(%Decimal{} = value) do
     string = Decimal.to_string(value, :normal)
+    # per manual "The maximum number of digits for DECIMAL is 65" so we can
+    # encode this directly instead of going through encode_string_lenenc/1
     {:mysql_type_newdecimal, <<byte_size(string), string::binary>>}
   end
 
