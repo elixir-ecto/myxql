@@ -129,6 +129,9 @@ defmodule MyXQL.Connection do
       {:ok, ok_packet(status_flags: status_flags)} ->
         {:ok, put_status(state, status_flags)}
 
+      {:ok, err_packet() = err_packet} ->
+        {:disconnect, error(err_packet), state}
+
       {:error, reason} ->
         {:disconnect, error(reason), state}
     end

@@ -326,6 +326,37 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "com_ping/2" do
+    test "handles multiple packets" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          payload1 =
+            <<255, 211, 7, 35, 72, 89, 48, 48, 48, 76, 111, 115, 116, 32, 99, 111, 110, 110, 101,
+              99, 116, 105, 111, 110, 32, 116, 111, 32, 98, 97, 99, 107, 101, 110, 100, 32, 115,
+              101, 114, 118, 101, 114, 46>>
+
+          payload2 =
+            <<255, 135, 7, 35, 48, 56, 83, 48, 49, 67, 111, 110, 110, 101, 99, 116, 105, 111, 110,
+              32, 107, 105, 108, 108, 101, 100, 32, 98, 121, 32, 77, 97, 120, 83, 99, 97, 108,
+              101, 58, 32, 82, 111, 117, 116, 101, 114>>
+
+          :gen_tcp.send(sock, [
+            <<byte_size(payload1)::24-little>>,
+            0,
+            payload1,
+            <<byte_size(payload2)::24-little>>,
+            1,
+            payload2
+          ])
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:ok, err_packet(message: "Lost connection to backend server.")} =
+               Client.com_ping(client, 100)
+    end
+  end
+
   defp connect(_) do
     {:ok, client} = Client.connect(@opts)
     {:ok, ok_packet()} = Client.com_query(client, "create temporary table integers (x int)")

@@ -163,7 +163,8 @@ defmodule MyXQL.Client do
   end
 
   def recv_packet(client, decoder, timeout \\ :infinity) do
-    new_decoder = fn payload, "", nil -> {:halt, decoder.(payload)} end
+    # even if next packet follows, ignore it
+    new_decoder = fn payload, _next_packet, nil -> {:halt, decoder.(payload)} end
     recv_packets(client, new_decoder, nil, timeout)
   end
 
