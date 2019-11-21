@@ -280,6 +280,11 @@ defmodule MyXQL.Protocol.ValueTest do
       end
 
       @tag geometry: true
+      test "POINT with SRID", c do
+        assert_roundtrip(c, "my_point", %Geo.Point{coordinates: {0, 0}, srid: 4326})
+      end
+
+      @tag geometry: true
       test "LINESTRING", c do
         assert_roundtrip(c, "my_linestring", %Geo.LineString{
           coordinates: [{30, 10}, {10, 30}, {40, 40}]
@@ -450,7 +455,14 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp encode_text(value), do: "'#{value}'"
 
-  defp encode_text_geo(value), do: "ST_GeomFromText('#{Geo.WKT.encode!(value)}')"
+  defp encode_text_geo(value) do
+    if srid = value.srid do
+      value = %{value | srid: nil}
+      "ST_GeomFromText('#{Geo.WKT.encode!(value)}', #{srid})"
+    else
+      "ST_GeomFromText('#{Geo.WKT.encode!(value)}')"
+    end
+  end
 
   defp get(c, fields, id) when is_list(fields) do
     fields = Enum.map_join(fields, ", ", &"`#{&1}`")

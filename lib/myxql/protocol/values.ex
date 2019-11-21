@@ -388,8 +388,9 @@ defmodule MyXQL.Protocol.Values do
   end
 
   # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
-  defp decode_geometry(<<0::uint4, r::bits>>) do
-    r |> Base.encode16() |> Geo.WKB.decode!()
+  defp decode_geometry(<<srid::uint4, r::bits>>) do
+    srid = if srid == 0, do: nil, else: srid
+    r |> Base.encode16() |> Geo.WKB.decode!() |> Map.put(:srid, srid)
   end
 
   defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),
