@@ -190,17 +190,9 @@ defmodule TestHelper do
   end
 
   def supports_geometry?() do
-    sql =
-      "CREATE TEMPORARY TABLE myxql_test.test_geo (point POINT); SHOW COLUMNS IN myxql_test.test_geo"
-
-    case mysql(sql) do
-      {:ok, result} ->
-        [%{"Type" => type}] = result
-        String.downcase(type) == "point"
-
-      {:error, _} ->
-        false
-    end
+    # mysql 5.5 does not have ST_GeomFromText (it has GeomFromText) so we're excluding it
+    # (even though we could test against it) to keep the test suite simpler
+    match?({:ok, _}, mysql("SELECT ST_GeomFromText('POINT(0 0)')"))
   end
 
   def supports_timestamp_precision?() do
@@ -258,6 +250,12 @@ defmodule TestHelper do
     [%{"@@version" => version}] = mysql!("select @@version")
     mariadb? = version =~ ~r"mariadb"i
 
+    mariadb_exclude = [
+      # for both bit and geometry, inserting with wire protocol does not work for some reason
+      bit: true,
+      geometry: true
+    ]
+
     exclude =
       for plugin <- supported_auth_plugins,
           not (plugin in available_auth_plugins) do
@@ -270,7 +268,7 @@ defmodule TestHelper do
     exclude = [{:json, not supports_json?()} | exclude]
     exclude = [{:geometry, not supports_geometry?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
-    exclude = if mariadb?, do: [{:bit, true} | exclude], else: exclude
+    exclude = if mariadb?, do: mariadb_exclude ++ exclude, else: exclude
     exclude
   end
 end
