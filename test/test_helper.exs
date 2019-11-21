@@ -268,7 +268,7 @@ defmodule TestHelper do
     exclude = [{:json, not supports_json?()} | exclude]
     exclude = [{:geometry, not supports_geometry?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
-    exclude = if mariadb?, do: mariadb_exclude ++ exclude, else: exclude
+    exclude = if mariadb?, do: Keyword.merge(exclude, mariadb_exclude), else: exclude
     exclude
   end
 end
