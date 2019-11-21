@@ -75,7 +75,16 @@ defmodule TestHelper do
     my_time6 TIME(6),
     my_datetime3 DATETIME(3),
     my_datetime6 DATETIME(6),
+    """
 
+    geometry = """
+    my_point POINT,
+    my_linestring LINESTRING,
+    my_polygon POLYGON,
+    my_multipoint MULTIPOINT,
+    my_multilinestring MULTILINESTRING,
+    my_multipolygon MULTIPOLYGON,
+    my_geometrycollection GEOMETRYCOLLECTION,
     """
 
     mysql!("""
@@ -125,13 +134,7 @@ defmodule TestHelper do
       my_mediumblob MEDIUMBLOB,
       my_longblob LONGBLOB,
       #{if supports_json?(), do: "my_json JSON,", else: ""}
-      #{if supports_geometry?(), do: "my_point POINT,", else: ""}
-      #{if supports_geometry?(), do: "my_linestring LINESTRING,", else: ""}
-      #{if supports_geometry?(), do: "my_polygon POLYGON,", else: ""}
-      #{if supports_geometry?(), do: "my_multipoint MULTIPOINT,", else: ""}
-      #{if supports_geometry?(), do: "my_multilinestring MULTILINESTRING,", else: ""}
-      #{if supports_geometry?(), do: "my_multipolygon MULTIPOLYGON,", else: ""}
-      #{if supports_geometry?(), do: "my_geometrycollection GEOMETRYCOLLECTION,", else: ""}
+      #{if supports_geometry?(), do: geometry, else: ""}
       my_char CHAR
     );
 
