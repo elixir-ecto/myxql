@@ -116,7 +116,8 @@ remember to use TEXT column for your JSON field.
 \*\*\*\*\* Encoding/decoding between `Geo.*` structs and the OpenGIS WKB binary format is
 done using the [Geo](https://github.com/bryanjos/geo) package. If you're using MyXQL geometry
 types with Ecto and need to for example accept a WKT format as user input, consider implementing an
-[custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
+[custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html). Note, some structs like `%Geo.PointZ{}`
+does not have equivalent on the MySQL server side and thus shouldn't be used.
 
 ## JSON support
 
