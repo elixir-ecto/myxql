@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.0 (2019-11-25)
+
+### Enhancements
+
+* Re-use repeated prepared statements in `:unnamed` mode
+
+* Geometry types support
+
+### Bug fixes
+
+* Fix `mysql_native_authentication` on `auth_switch_request`
+
+* Handle multiple packets on ping
+
 ## v0.2.10 (2019-10-29)
 
 ### Enhancements
