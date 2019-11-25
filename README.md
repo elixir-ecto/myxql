@@ -113,15 +113,13 @@ point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... *****
 \*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
 remember to use TEXT column for your JSON field.
 
-\*\*\*\*\* Encoding/decoding between `Geo.*` structs and the OpenGIS WKB binary format is
-done using the [Geo](https://github.com/bryanjos/geo) package. If you're using MyXQL geometry
-types with Ecto and need to for example accept a WKT format as user input, consider implementing an
-[custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html). Note, some structs like `%Geo.PointZ{}`
-does not have equivalent on the MySQL server side and thus shouldn't be used.
+\*\*\*\*\* See "Geometry support" section below
 
 ## JSON support
 
-MyXQL comes with JSON support out of the box via the [Jason](https://github.com/michalmuskala/jason) library. To use it, add `:jason` to your dependencies:
+MyXQL comes with JSON support via the [Jason](https://github.com/michalmuskala/jason) library.
+
+To use it, add `:jason` to your dependencies:
 
 ```elixir
 {:jason, "~> 1.0"}
@@ -132,6 +130,22 @@ You can customize it to use another library via the `:json_library` configuratio
 ```elixir
 config :myxql, :json_library, SomeJSONModule
 ```
+
+## Geometry support
+
+MyXQL comes with Geometry types support via the [Geo](https://github.com/bryanjos/geo) package.
+
+To use it, add `:geo` to your dependencies:
+
+```elixir
+{:geo, "~> 3.3"}
+```
+
+Note, some structs like `%Geo.PointZ{}` does not have equivalent on the MySQL server side and thus
+shouldn't be used.
+
+If you're using MyXQL geometry types with Ecto and need to for example accept a WKT format as user
+input, consider implementing an [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
 
 ## Contributing
 

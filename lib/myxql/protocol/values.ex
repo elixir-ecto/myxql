@@ -223,13 +223,15 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
-  def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
-  def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
+  if Code.ensure_loaded?(Geo) do
+    def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
+    def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
+  end
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
     string = json_library().encode!(term)
@@ -240,10 +242,12 @@ defmodule MyXQL.Protocol.Values do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
   end
 
-  defp encode_geometry(geo) do
-    srid = geo.srid || 0
-    binary = %{geo | srid: nil} |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
-    {:mysql_type_geometry, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
+  if Code.ensure_loaded?(Geo) do
+    defp encode_geometry(geo) do
+      srid = geo.srid || 0
+      binary = %{geo | srid: nil} |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
+      {:mysql_type_geometry, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
+    end
   end
 
   ## Time/DateTime
@@ -389,10 +393,22 @@ defmodule MyXQL.Protocol.Values do
     Enum.reverse(acc)
   end
 
-  # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
-  defp decode_geometry(<<srid::uint4, r::bits>>) do
-    srid = if srid == 0, do: nil, else: srid
-    r |> Base.encode16() |> Geo.WKB.decode!() |> Map.put(:srid, srid)
+  if Code.ensure_loaded?(Geo) do
+    # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
+    defp decode_geometry(<<srid::uint4, r::bits>>) do
+      srid = if srid == 0, do: nil, else: srid
+      r |> Base.encode16() |> Geo.WKB.decode!() |> Map.put(:srid, srid)
+    end
+  else
+    defp decode_geometry(_) do
+      raise """
+      encoding/decoding geometry types requires :geo package, add:
+
+          {:geo, "~> 3.3"}
+
+      to your mix.exs and run `mix deps.compile --force myxql`.
+      """
+    end
   end
 
   defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),
