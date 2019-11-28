@@ -9,13 +9,7 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
 
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
-    assert prepared_stmt_count() == 1
-
-    MyXQL.query!(conn, "SELECT 1337", [], cache_statement: "69")
-    assert prepared_stmt_count() == 1
-
-    MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
-    assert prepared_stmt_count() == 1
+    assert prepared_stmt_count() == 0
   end
 
   test "do not leak statements with streams" do
