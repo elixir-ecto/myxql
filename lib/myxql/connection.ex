@@ -17,7 +17,7 @@ defmodule MyXQL.Connection do
     prepare: :named,
     queries: nil,
     transaction_status: :idle,
-    last_ref: nil
+    last_query: nil
   ]
 
   @impl true
@@ -75,11 +75,13 @@ defmodule MyXQL.Connection do
     query = rename_query(state, query)
 
     if cached_query = queries_get(state, query) do
-      {:ok, cached_query, %{state | last_ref: cached_query.ref}}
+      {:ok, cached_query, %{state | last_query: cached_query}}
     else
+      state = maybe_close(query, state)
+
       case prepare(query, state) do
         {:ok, query, state} ->
-          {:ok, query, %{state | last_ref: query.ref}}
+          {:ok, query, state}
 
         {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
           if Keyword.get(opts, :query_type) == :binary_then_text do
@@ -97,6 +99,8 @@ defmodule MyXQL.Connection do
 
   @impl true
   def handle_execute(%Query{} = query, params, _opts, state) do
+    state = maybe_close(query, state)
+
     with {:ok, query, state} <- maybe_reprepare(query, state),
          result =
            Client.com_stmt_execute(
@@ -104,9 +108,8 @@ defmodule MyXQL.Connection do
              query.statement_id,
              params,
              :cursor_type_no_cursor
-           ),
-         {:ok, query, result, state} <- result(result, query, state) do
-      {:ok, query, result, maybe_close(query, state)}
+           ) do
+      result(result, query, state)
     end
   end
 
@@ -412,8 +415,6 @@ defmodule MyXQL.Connection do
 
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
-  defp queries_put(_state, %Query{name: ""}), do: :ok
-
   defp queries_put(state, %Query{cache: :reference} = query) do
     try do
       :ets.insert(state.queries, {cache_key(query), query.statement_id})
@@ -436,8 +437,6 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_delete(_state, %Query{name: ""}), do: :ok
-
   defp queries_delete(state, %Query{} = query) do
     try do
       :ets.delete(state.queries, cache_key(query))
@@ -447,8 +446,6 @@ defmodule MyXQL.Connection do
       true -> :ok
     end
   end
-
-  defp queries_get(_state, %Query{name: ""}), do: nil
 
   defp queries_get(state, %{cache: :reference} = query) do
     try do
@@ -475,15 +472,15 @@ defmodule MyXQL.Connection do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         query = %{query | num_params: num_params, statement_id: statement_id}
         queries_put(state, query)
-        {:ok, query, state}
+        {:ok, query, %{state | last_query: query}}
 
       result ->
         result(result, query, state)
     end
   end
 
-  defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state) do
-    {:ok, query, state}
+  defp maybe_reprepare(%{ref: ref}, %{last_query: %{ref: ref}} = state) do
+    {:ok, state.last_query, state}
   end
 
   defp maybe_reprepare(query, state) do
@@ -500,17 +497,18 @@ defmodule MyXQL.Connection do
     end
   end
 
-  # Close unnamed queries after executing them
-  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
-  defp maybe_close(_query, state), do: state
+  defp maybe_close(%{ref: ref}, %{last_query: %{ref: ref}} = state), do: state
 
-  defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
-    close(query, %{state | last_ref: nil})
+  defp maybe_close(_query, %{prepare: :unnamed, last_query: last_query} = state)
+       when last_query != nil do
+    close(last_query, state)
   end
+
+  defp maybe_close(_query, state), do: state
 
   defp close(query, state) do
     :ok = Client.com_stmt_close(state.client, query.statement_id)
     queries_delete(state, query)
-    state
+    %{state | last_query: nil}
   end
 end
