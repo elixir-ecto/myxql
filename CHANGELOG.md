@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.1 (2019-11-28)
+
+Bug fixes:
+
+* Revert: Re-use repeated prepared statements in `:unnamed` mode
+
 ## v0.3.0 (2019-11-25)
 
 ### Enhancements
