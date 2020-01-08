@@ -109,6 +109,20 @@ defmodule MyXQL.Protocol.ValueTest do
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
       end
 
+      if @protocol == :binary do
+        test "MYSQL_TYPE_TIME - negative time", c do
+          assert_raise ArgumentError, ~r"cannot decode \"-01:00:00\" as time", fn ->
+            query!(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
+          end
+        end
+
+        test "MYSQL_TYPE_TIME - more than 24h", c do
+          assert_raise ArgumentError, ~r"cannot decode \"1d 01:00:00\" as time", fn ->
+            query!(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
+          end
+        end
+      end
+
       @tag timestamp_precision: true
       test "MYSQL_TYPE_TIME precision", c do
         assert_roundtrip(c, "my_time6", ~T[09:10:20.123456])

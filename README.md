@@ -93,27 +93,29 @@ int                  42
 float                42.0
 decimal              #Decimal<42.0> *
 date                 ~D[2013-10-12] **
-time                 ~T[00:37:14]
-datetime             ~N[2013-10-12 00:37:14] **, ***
-timestamp            ~U[2013-10-12 00:37:14Z] ***
-json                 %{"foo" => "bar"} ****
+time                 ~T[00:37:14] ***
+datetime             ~N[2013-10-12 00:37:14] ***, ****
+timestamp            ~U[2013-10-12 00:37:14Z] ****
+json                 %{"foo" => "bar"} *****
 char                 "é"
 text                 "myxql"
 binary               <<1, 2, 3>>
 bit                  <<1::size(1), 0::size(1)>>
-point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... *****
+point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... ******
 ```
 
 \* See [Decimal](https://github.com/ericmj/decimal)
 
 \*\* When using SQL mode that allows them, MySQL "zero" dates and datetimes are represented as `:zero_date` and `:zero_datetime` respectively.
 
-\*\*\* Datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+\*\*\* Negative or >= 24:00:00 values are not supported
 
-\*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
+\*\*\*\* Datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+
+\*\*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
 remember to use TEXT column for your JSON field.
 
-\*\*\*\*\* See "Geometry support" section below
+\*\*\*\*\*\* See "Geometry support" section below
 
 ## JSON support
 

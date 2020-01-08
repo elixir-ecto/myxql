@@ -457,29 +457,44 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_time(
-         <<8, 0, 0::uint4, hour::uint1, minute::uint1, second::uint1, r::bits>>,
+         <<8, is_negative, days::uint4, hours::uint1, minutes::uint1, seconds::uint1, r::bits>>,
          null_bitmap,
          t,
          acc
        ) do
-    v = %Time{hour: hour, minute: minute, second: second}
+    v = time(is_negative, days, hours, minutes, seconds, {0, 0})
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
   defp decode_time(
-         <<12, 0, 0::uint4, hour::uint1, minute::uint1, second::uint1, microsecond::uint4,
-           r::bits>>,
+         <<12, is_negative, days::uint4, hours::uint1, minutes::uint1, seconds::uint1,
+           microseconds::uint4, r::bits>>,
          null_bitmap,
          t,
          acc
        ) do
-    v = %Time{hour: hour, minute: minute, second: second, microsecond: {microsecond, 6}}
+    v = time(is_negative, days, hours, minutes, seconds, {microseconds, 6})
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
 
   defp decode_time(<<0, r::bits>>, null_bitmap, t, acc) do
     v = ~T[00:00:00]
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+  end
+
+  defp time(0, 0, hours, minutes, seconds, microsecond) do
+    %Time{hour: hours, minute: minutes, second: seconds, microsecond: microsecond}
+  end
+
+  defp time(is_negative, days, hours, minutes, seconds, microseconds) do
+    sign = if is_negative == 0, do: "", else: "-"
+    days = if days == 0, do: "", else: "#{days}d "
+    time = time(0, 0, hours, minutes, seconds, microseconds)
+    string = sign <> days <> to_string(time)
+
+    raise ArgumentError,
+          "cannot decode \"#{string}\" as time" <>
+            ", negative or >= 24:00:00 values are not supported"
   end
 
   defp decode_datetime(
