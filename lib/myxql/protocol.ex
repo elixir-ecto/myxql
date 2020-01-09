@@ -160,7 +160,6 @@ defmodule MyXQL.Protocol do
         :client_protocol_41,
         :client_plugin_auth,
         :client_secure_connection,
-        :client_found_rows,
         :client_multi_results,
         # set by servers since 4.0
         :client_transactions
