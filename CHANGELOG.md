@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.2 (2020-02-29)
+
+* Improve error messages and docs on unsupported time values
+
 ## v0.3.1 (2019-11-28)
 
 Bug fixes:
