@@ -282,6 +282,10 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_json", [1, [2, 3]])
         assert_roundtrip(c, "my_json", %{})
         assert_roundtrip(c, "my_json", %{"a" => ["foo", 42]})
+
+        assert_raise MyXQL.Error, ~r/ER_INVALID_JSON_PATH/, fn ->
+          query!(c, "SELECT JSON_EXTRACT('{\"a\": [1, 2]}', 'bad')")
+        end
       end
 
       test "CHAR", c do

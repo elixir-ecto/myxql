@@ -531,6 +531,10 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  defp decode_resultset(<<0xFF, rest::bits>>, _, _, _) do
+    {:halt, decode_err_packet_body(rest)}
+  end
+
   defp decode_resultset(payload, _next_data, {:rows, column_defs, num_rows, acc}, row_decoder) do
     row = row_decoder.(payload, column_defs)
     {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
