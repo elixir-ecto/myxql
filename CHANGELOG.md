@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.3.2 (2020-02-29)
+## v0.3.3 (2020-02-10)
+
+* Fix bug when decoding invalid json path error
+
+## v0.3.2 (2020-01-29)
 
 * Improve error messages and docs on unsupported time values
 
