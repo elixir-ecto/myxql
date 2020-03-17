@@ -12,6 +12,15 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
   end
 
+  test "do not leak statements with insert and failed insert" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    assert prepared_stmt_count() == 0
+    {:ok, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
+    assert prepared_stmt_count() == 0
+    {:error, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
+    assert prepared_stmt_count() == 0
+  end
+
   test "do not leak statements with streams" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
