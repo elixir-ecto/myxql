@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.4 (2020-03-19)
+
+* Close statements after query errors
+
 ## v0.3.3 (2020-02-10)
 
 * Fix bug when decoding invalid json path error
