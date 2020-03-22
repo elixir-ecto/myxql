@@ -28,7 +28,7 @@ defmodule MyXQL.Protocol do
 
   defp encode_packet(payload, payload_size, sequence_id, max_packet_size) do
     if payload_size > max_packet_size do
-      <<new_payload::size(max_packet_size)-binary, rest::binary>> = payload
+      <<new_payload::size(max_packet_size)-binary, rest::binary>> = IO.iodata_to_binary(payload)
       rest_size = payload_size - max_packet_size
       next_sequence_id = if sequence_id < 255, do: sequence_id + 1, else: 0
 

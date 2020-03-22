@@ -241,6 +241,16 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_longblob", blob)
       end
 
+      test "MYSQL_TYPE_LONG_BLOB in payload equal to max packet size", c do
+        blob = String.duplicate("a", 16_777_209)
+        assert_roundtrip(c, "my_longblob", blob)
+      end
+
+      test "MYSQL_TYPE_LONG_BLOB in payload above max packet size", c do
+        blob = String.duplicate("a", 16_777_209 + 100_000)
+        assert_roundtrip(c, "my_longblob", blob)
+      end
+
       test "MYSQL_TYPE_VAR_STRING - SQL VARBINARY", c do
         assert_roundtrip(c, "my_varbinary3", <<1, 2, 3>>)
       end

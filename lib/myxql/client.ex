@@ -184,14 +184,18 @@ defmodule MyXQL.Client do
 
   ## Internals
 
+  defp recv_packets(data, decode, decoder_state, timeout, client, partial \\ <<>>)
+
   defp recv_packets(
          <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          timeout,
-         client
-       ) do
-    case decoder.(payload, rest, decoder_state) do
+         client,
+         partial
+       )
+       when size < @default_max_packet_size do
+    case decoder.(<<partial::binary, payload::binary>>, rest, decoder_state) do
       {:cont, decoder_state} ->
         recv_packets(rest, decoder, decoder_state, timeout, client)
 
@@ -203,11 +207,39 @@ defmodule MyXQL.Client do
     end
   end
 
+  # If the packet size equals max packet size, save the payload, receive
+  # more data and try again
+  defp recv_packets(
+         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
+         decoder,
+         decoder_state,
+         timeout,
+         client,
+         partial
+       )
+       when size >= @default_max_packet_size do
+    recv_packets(
+      rest,
+      decoder,
+      decoder_state,
+      timeout,
+      client,
+      <<partial::binary, payload::binary>>
+    )
+  end
+
   # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, timeout, client) do
+  defp recv_packets(rest, decoder, decoder_state, timeout, client, partial) do
     case recv_data(client, timeout) do
       {:ok, data} ->
-        recv_packets(<<rest::binary, data::binary>>, decoder, decoder_state, timeout, client)
+        recv_packets(
+          <<rest::binary, data::binary>>,
+          decoder,
+          decoder_state,
+          timeout,
+          client,
+          partial
+        )
 
       {:error, _} = error ->
         error
