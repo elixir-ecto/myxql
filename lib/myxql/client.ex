@@ -194,7 +194,7 @@ defmodule MyXQL.Client do
          client,
          partial
        )
-       when size != @default_max_packet_size do
+       when size < @default_max_packet_size do
     case decoder.(<<partial::binary, payload::binary>>, rest, decoder_state) do
       {:cont, decoder_state} ->
         recv_packets(rest, decoder, decoder_state, timeout, client)
