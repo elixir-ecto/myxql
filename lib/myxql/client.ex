@@ -217,7 +217,7 @@ defmodule MyXQL.Client do
          client,
          partial
        )
-       when size == @default_max_packet_size do
+       when size >= @default_max_packet_size do
     recv_packets(
       rest,
       decoder,
