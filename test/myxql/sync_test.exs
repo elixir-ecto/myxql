@@ -21,6 +21,13 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
   end
 
+  test "do not leak statements on multiple executions of the same name in prepare_execute" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    {:ok, _, _} = MyXQL.prepare_execute(conn, "foo", "SELECT 42")
+    {:ok, _, _} = MyXQL.prepare_execute(conn, "foo", "SELECT 42")
+    assert prepared_stmt_count() == 1
+  end
+
   test "do not leak statements with streams" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
