@@ -191,7 +191,7 @@ defmodule MyXQLTest do
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
       assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref == query3.ref
+      assert query2.ref != query3.ref
       assert query2.statement_id != query3.statement_id
     end
 
@@ -220,13 +220,36 @@ defmodule MyXQLTest do
       assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
     end
 
+    test "prepare and then execute with name", c do
+      {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? * ?")
+
+      assert query.num_params == 2
+      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+
+      # If we prepare it again, it won't make a difference if the name is the same
+      {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? + ?")
+
+      assert query.num_params == 2
+      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+    end
+
     test "query is re-prepared if executed after being closed", c do
       {:ok, query1} = MyXQL.prepare(c.conn, "", "SELECT 42")
       assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
       :ok = MyXQL.close(c.conn, query1)
 
       assert {:ok, query2, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
-      assert query1.ref == query2.ref
+      assert query1.ref != query2.ref
+      assert query1.statement_id != query2.statement_id
+    end
+
+    test "query is re-prepared if executed after being closed with name", c do
+      {:ok, query1} = MyXQL.prepare(c.conn, "foo", "SELECT 42")
+      assert {:ok, _, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
+      :ok = MyXQL.close(c.conn, query1)
+
+      assert {:ok, query2, %MyXQL.Result{rows: [[42]]}} = MyXQL.execute(c.conn, query1, [])
+      assert query1.ref != query2.ref
       assert query1.statement_id != query2.statement_id
     end
 
@@ -236,7 +259,17 @@ defmodule MyXQLTest do
 
       {:ok, conn2} = MyXQL.start_link(@opts)
       {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1, [])
-      assert query1.ref == query2.ref
+      assert query1.ref != query2.ref
+      assert query1.statement_id != query2.statement_id
+    end
+
+    test "query is re-prepared if executed from different connection with name", c do
+      conn1 = c.conn
+      {:ok, query1} = MyXQL.prepare(conn1, "foo", "SELECT 42")
+
+      {:ok, conn2} = MyXQL.start_link(@opts)
+      {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1, [])
+      assert query1.ref != query2.ref
       assert query1.statement_id != query2.statement_id
     end
 
@@ -250,7 +283,7 @@ defmodule MyXQLTest do
 
       {:ok, query2, result} = MyXQL.execute(c.conn, query, [])
       assert result.rows == [[1, 2]]
-      assert query.ref == query2.ref
+      assert query.ref != query2.ref
     after
       MyXQL.query!(c.conn, "DROP TABLE IF EXISTS test_prepared_schema_change")
     end

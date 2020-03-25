@@ -216,7 +216,7 @@ defmodule MyXQL do
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
     if name = Keyword.get(options, :cache_statement) do
       statement = IO.iodata_to_binary(statement)
-      query = %MyXQL.Query{name: name, statement: statement, cache: :statement, ref: make_ref()}
+      query = %MyXQL.Query{name: name, statement: statement, cache: :statement}
 
       DBConnection.prepare_execute(conn, query, params, options)
       |> query_result()
@@ -261,6 +261,9 @@ defmodule MyXQL do
   Prepares a query to be later executed.
 
   To execute the query, call `execute/4`. To close the query, call `close/3`.
+  If a name is given, the name must be unique per query, as the name is cached
+  but the statement isn't. If a new statement is given to an old name, the old
+  statement will be the one effectively used.
 
   ## Options
 
@@ -278,7 +281,7 @@ defmodule MyXQL do
   @spec prepare(conn(), iodata(), iodata(), [option()]) ::
           {:ok, MyXQL.Query.t()} | {:error, Exception.t()}
   def prepare(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
-    query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
+    query = %MyXQL.Query{name: name, statement: statement}
     DBConnection.prepare(conn, query, opts)
   end
 
@@ -291,7 +294,7 @@ defmodule MyXQL do
   """
   @spec prepare!(conn(), iodata(), iodata(), [option()]) :: MyXQL.Query.t()
   def prepare!(conn, name, statement, opts \\ []) when is_iodata(name) and is_iodata(statement) do
-    query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
+    query = %MyXQL.Query{name: name, statement: statement}
     DBConnection.prepare!(conn, query, opts)
   end
 
@@ -319,7 +322,7 @@ defmodule MyXQL do
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, Exception.t()}
   def prepare_execute(conn, name, statement, params \\ [], opts \\ [])
       when is_iodata(name) and is_iodata(statement) do
-    query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
+    query = %MyXQL.Query{name: name, statement: statement}
     DBConnection.prepare_execute(conn, query, params, opts)
   end
 
@@ -335,7 +338,7 @@ defmodule MyXQL do
           {MyXQL.Query.t(), MyXQL.Result.t()}
   def prepare_execute!(conn, name, statement, params \\ [], opts \\ [])
       when is_iodata(name) and is_iodata(statement) do
-    query = %MyXQL.Query{name: name, statement: statement, ref: make_ref()}
+    query = %MyXQL.Query{name: name, statement: statement}
     DBConnection.prepare_execute!(conn, query, params, opts)
   end
 
@@ -500,13 +503,7 @@ defmodule MyXQL do
   def stream(conn, query, params \\ [], opts \\ [])
 
   def stream(%DBConnection{} = conn, statement, params, opts) when is_iodata(statement) do
-    query = %MyXQL.Query{
-      name: "",
-      ref: make_ref(),
-      statement: statement,
-      num_params: length(params)
-    }
-
+    query = %MyXQL.Query{name: "", statement: statement, num_params: length(params)}
     opts = Keyword.put_new(opts, :max_rows, 500)
     DBConnection.prepare_stream(conn, query, params, opts)
   end

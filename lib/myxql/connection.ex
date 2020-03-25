@@ -78,8 +78,8 @@ defmodule MyXQL.Connection do
       {:ok, cached_query, %{state | last_ref: cached_query.ref}}
     else
       case prepare(query, state) do
-        {:ok, query, state} ->
-          {:ok, query, %{state | last_ref: query.ref}}
+        {:ok, _, _} = ok ->
+          ok
 
         {:error, %MyXQL.Error{mysql: %{name: :ER_UNSUPPORTED_PS}}, state} = error ->
           if Keyword.get(opts, :query_type) == :binary_then_text do
@@ -407,17 +407,69 @@ defmodule MyXQL.Connection do
     %{state | transaction_status: transaction_status(status_flags)}
   end
 
-  defp rename_query(%{prepare: :force_named}, query), do: %{query | name: "force_named"}
-  defp rename_query(%{prepare: :named}, query), do: query
-  defp rename_query(%{prepare: :unnamed}, query), do: %{query | name: ""}
+  defp rename_query(%{prepare: :force_named}, query),
+    do: %{query | name: "force_#{System.unique_integer([:positive])}"}
+
+  defp rename_query(%{prepare: :named}, query),
+    do: query
+
+  defp rename_query(%{prepare: :unnamed}, query),
+    do: %{query | name: ""}
+
+  defp prepare(%Query{statement: statement} = query, state) do
+    case Client.com_stmt_prepare(state.client, statement) do
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
+        ref = make_ref()
+        query = %{query | num_params: num_params, statement_id: statement_id, ref: ref}
+        queries_put(state, query)
+        {:ok, query, %{state | last_ref: ref}}
+
+      result ->
+        result(result, query, state)
+    end
+  end
+
+  defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state), do: {:ok, query, state}
+
+  defp maybe_reprepare(query, state) do
+    if cached_query = queries_get(state, query) do
+      {:ok, cached_query, state}
+    else
+      prepare(query, state)
+    end
+  end
+
+  # Close unnamed queries after executing them
+  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
+  defp maybe_close(_query, state), do: state
+
+  defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
+    close(query, %{state | last_ref: nil})
+  end
+
+  defp close(query, state) do
+    :ok = Client.com_stmt_close(state.client, query.statement_id)
+    queries_delete(state, query)
+    state
+  end
+
+  ## Cache query handling
+
+  defp cache_key(%MyXQL.Query{cache: :reference, name: name}), do: name
+  defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
 
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
+  defp queries_put(%{queries: nil}, _), do: :ok
   defp queries_put(_state, %Query{name: ""}), do: :ok
 
-  defp queries_put(state, %Query{cache: :reference} = query) do
+  defp queries_put(
+         state,
+         %Query{cache: :reference, num_params: num_params, statement_id: statement_id, ref: ref} =
+           query
+       ) do
     try do
-      :ets.insert(state.queries, {cache_key(query), query.statement_id})
+      :ets.insert(state.queries, {cache_key(query), {num_params, statement_id, ref}})
     rescue
       ArgumentError ->
         :ok
@@ -437,6 +489,7 @@ defmodule MyXQL.Connection do
     end
   end
 
+  defp queries_delete(%{queries: nil}, _), do: :ok
   defp queries_delete(_state, %Query{name: ""}), do: :ok
 
   defp queries_delete(state, %Query{} = query) do
@@ -449,69 +502,25 @@ defmodule MyXQL.Connection do
     end
   end
 
+  defp queries_get(%{queries: nil}, _), do: nil
   defp queries_get(_state, %Query{name: ""}), do: nil
 
-  defp queries_get(state, %{cache: :reference} = query) do
+  defp queries_get(state, %Query{cache: :reference} = query) do
     try do
-      statement_id = :ets.lookup_element(state.queries, cache_key(query), 2)
-      %{query | statement_id: statement_id}
+      :ets.lookup_element(state.queries, cache_key(query), 2)
     rescue
       ArgumentError -> nil
+    else
+      {num_params, statement_id, ref} ->
+        %{query | num_params: num_params, statement_id: statement_id, ref: ref}
     end
   end
 
-  defp queries_get(state, %{cache: :statement} = query) do
+  defp queries_get(state, %Query{cache: :statement} = query) do
     try do
       :ets.lookup_element(state.queries, cache_key(query), 2)
     rescue
       ArgumentError -> nil
     end
-  end
-
-  defp cache_key(%MyXQL.Query{cache: :reference, ref: ref}), do: ref
-  defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
-
-  defp prepare(%Query{ref: ref, statement: statement} = query, state) when is_reference(ref) do
-    case Client.com_stmt_prepare(state.client, statement) do
-      {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
-        query = %{query | num_params: num_params, statement_id: statement_id}
-        queries_put(state, query)
-        {:ok, query, state}
-
-      result ->
-        result(result, query, state)
-    end
-  end
-
-  defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state) do
-    {:ok, query, state}
-  end
-
-  defp maybe_reprepare(query, state) do
-    if cached_query = queries_get(state, query) do
-      {:ok, cached_query, state}
-    else
-      reprepare(query, state)
-    end
-  end
-
-  defp reprepare(query, state) do
-    with {:ok, query, state} <- prepare(query, state) do
-      {:ok, query, state}
-    end
-  end
-
-  # Close unnamed queries after executing them
-  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
-  defp maybe_close(_query, state), do: state
-
-  defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
-    close(query, %{state | last_ref: nil})
-  end
-
-  defp close(query, state) do
-    :ok = Client.com_stmt_close(state.client, query.statement_id)
-    queries_delete(state, query)
-    state
   end
 end

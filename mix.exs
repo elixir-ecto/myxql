@@ -15,7 +15,8 @@ defmodule MyXQL.MixProject do
       source_url: @source_url,
       package: package(),
       docs: docs(),
-      deps: deps()
+      deps: deps(),
+      xref: [exclude: [:ssl, :public_key]]
     ]
   end
 
