@@ -15,22 +15,18 @@ defmodule MyXQL.MixProject do
       source_url: @source_url,
       package: package(),
       docs: docs(),
-      deps: deps(),
-      xref: [exclude: [:ssl, :public_key]]
+      deps: deps()
     ]
   end
 
   def application() do
     [
-      extra_applications: extra_applications(Mix.env()),
+      extra_applications: [:ssl, :public_key],
       env: [
         json_library: Jason
       ]
     ]
   end
-
-  defp extra_applications(env) when env in [:dev, :test], do: [:ssl | extra_applications(:prod)]
-  defp extra_applications(_), do: [:logger, :crypto]
 
   defp package() do
     [
