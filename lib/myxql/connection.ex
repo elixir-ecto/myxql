@@ -455,21 +455,21 @@ defmodule MyXQL.Connection do
 
   ## Cache query handling
 
-  defp cache_key(%MyXQL.Query{cache: :reference, name: name}), do: name
-  defp cache_key(%MyXQL.Query{cache: :statement, statement: statement}), do: statement
-
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
   defp queries_put(%{queries: nil}, _), do: :ok
   defp queries_put(_state, %Query{name: ""}), do: :ok
 
-  defp queries_put(
-         state,
-         %Query{cache: :reference, num_params: num_params, statement_id: statement_id, ref: ref} =
-           query
-       ) do
+  defp queries_put(state, %Query{cache: :reference} = query) do
+    %{
+      num_params: num_params,
+      statement_id: statement_id,
+      ref: ref,
+      name: name
+    } = query
+
     try do
-      :ets.insert(state.queries, {cache_key(query), {num_params, statement_id, ref}})
+      :ets.insert(state.queries, {name, {num_params, statement_id, ref}})
     rescue
       ArgumentError ->
         :ok
@@ -479,8 +479,16 @@ defmodule MyXQL.Connection do
   end
 
   defp queries_put(state, %Query{cache: :statement} = query) do
+    %{
+      num_params: num_params,
+      statement_id: statement_id,
+      ref: ref,
+      name: name,
+      statement: statement
+    } = query
+
     try do
-      :ets.insert(state.queries, {cache_key(query), query})
+      :ets.insert(state.queries, {name, {statement, num_params, statement_id, ref}})
     rescue
       ArgumentError ->
         :ok
@@ -492,9 +500,9 @@ defmodule MyXQL.Connection do
   defp queries_delete(%{queries: nil}, _), do: :ok
   defp queries_delete(_state, %Query{name: ""}), do: :ok
 
-  defp queries_delete(state, %Query{} = query) do
+  defp queries_delete(state, %Query{name: name}) do
     try do
-      :ets.delete(state.queries, cache_key(query))
+      :ets.delete(state.queries, name)
     rescue
       ArgumentError -> :ok
     else
@@ -505,9 +513,9 @@ defmodule MyXQL.Connection do
   defp queries_get(%{queries: nil}, _), do: nil
   defp queries_get(_state, %Query{name: ""}), do: nil
 
-  defp queries_get(state, %Query{cache: :reference} = query) do
+  defp queries_get(state, %Query{cache: :reference, name: name} = query) do
     try do
-      :ets.lookup_element(state.queries, cache_key(query), 2)
+      :ets.lookup_element(state.queries, name, 2)
     rescue
       ArgumentError -> nil
     else
@@ -516,11 +524,19 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_get(state, %Query{cache: :statement} = query) do
+  defp queries_get(state, %Query{cache: :statement, name: name, statement: statement} = query) do
     try do
-      :ets.lookup_element(state.queries, cache_key(query), 2)
+      :ets.lookup_element(state.queries, name, 2)
     rescue
       ArgumentError -> nil
+    else
+      {^statement, num_params, statement_id, ref} ->
+        %{query | num_params: num_params, statement_id: statement_id, ref: ref}
+
+      {_statement, _num_params, statement_id, _ref} ->
+        :ok = Client.com_stmt_close(state.client, statement_id)
+        :ets.delete(state.queries, name)
+        nil
     end
   end
 end

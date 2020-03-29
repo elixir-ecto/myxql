@@ -12,6 +12,17 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
   end
 
+  test "do not leak statements with rebound :cache_statement" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    assert prepared_stmt_count() == 0
+
+    MyXQL.query!(conn, "SELECT 42", [], cache_statement: "select number")
+    assert prepared_stmt_count() == 1
+
+    MyXQL.query!(conn, "SELECT 34", [], cache_statement: "select number")
+    assert prepared_stmt_count() == 1
+  end
+
   test "do not leak statements with insert and failed insert" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
