@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.4.0 (2020-03-30)
+
+Enhancements:
+
+* Support receiving packets larger than 16MB
+
+Bug fixes:
+
+* Require `:ssl` & `:public_key` applications
+
+* Enforce prepare names to be unique
+
+* Do not leak statements on multiple executions of the same name in `prepare_execute`
+
+* Do not leak statements with rebound `:cache_statement`
+
 ## v0.3.4 (2020-03-19)
 
 * Close statements after query errors
