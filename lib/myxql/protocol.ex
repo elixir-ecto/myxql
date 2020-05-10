@@ -162,6 +162,7 @@ defmodule MyXQL.Protocol do
         :client_secure_connection,
         :client_found_rows,
         :client_multi_results,
+        :client_local_files,
         # set by servers since 4.0
         :client_transactions
       ])
@@ -316,6 +317,13 @@ defmodule MyXQL.Protocol do
 
   def decode_com_query_response(<<0xFF, rest::binary>>, "", :initial) do
     {:halt, decode_err_packet_body(rest)}
+  end
+
+  def decode_com_query_response(<<0xFB, rest::binary>>, "", :initial) do
+    {:error, {:no_infile, rest}}
+  end
+  def decode_com_query_response(<<0xFB, _rest::binary>>, "", {:initial, local_infile}) do
+    {:send_infile, local_infile}
   end
 
   def decode_com_query_response(payload, next_data, state) do

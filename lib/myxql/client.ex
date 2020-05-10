@@ -102,9 +102,13 @@ defmodule MyXQL.Client do
     end
   end
 
-  def com_query(client, statement) do
+  def com_query(client, statement, local_infile \\ nil) do
     with :ok <- send_com(client, {:com_query, statement}) do
-      recv_packets(client, &decode_com_query_response/3, :initial)
+      case local_infile do
+        nil ->
+          recv_packets(client, &decode_com_query_response/3, :initial)
+        _ -> recv_packets(client, &decode_com_query_response/3, {:initial, local_infile})
+      end
     end
   end
 
@@ -187,7 +191,7 @@ defmodule MyXQL.Client do
   defp recv_packets(data, decode, decoder_state, timeout, client, partial \\ <<>>)
 
   defp recv_packets(
-         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
+         <<size::uint3, seq::uint1, payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          timeout,
@@ -201,6 +205,10 @@ defmodule MyXQL.Client do
 
       {:halt, result} ->
         {:ok, result}
+
+      {:send_infile, local_infile} ->
+        send_infile(client, seq, local_infile)
+        recv_packets(rest, decoder, :initial, timeout, client)
 
       {:error, _} = error ->
         error
@@ -244,6 +252,27 @@ defmodule MyXQL.Client do
       {:error, _} = error ->
         error
     end
+  end
+
+  defp send_infile(client, seq, local_infile) when is_binary(local_infile) do
+    File.stream!(local_infile, [:read], @default_max_packet_size)
+    |> Enum.reduce({client,seq}, &send_next_infile_chunk/2)
+    |> send_empty_infile_packet
+  end
+  defp send_infile(client, seq, local_infile) do
+    local_infile
+    |> Enum.reduce({client,seq}, &send_next_infile_chunk/2)
+    |> send_empty_infile_packet
+  end
+
+  defp send_empty_infile_packet({client,seq}) do
+    next_seq=if seq<255,do: seq+1, else: 0
+    send_packet(client, "", next_seq)
+  end
+  defp send_next_infile_chunk(data, {client, seq }) do
+    next_seq=if seq<255,do: seq+1, else: 0
+    send_packet(client, data, next_seq)
+    {client, next_seq}
   end
 
   @doc false

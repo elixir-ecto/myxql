@@ -94,6 +94,8 @@ defmodule TestHelper do
 
     CREATE TABLE uniques (a int UNIQUE);
 
+    CREATE TABLE test_infile (a int , t VARCHAR(30) CHARACTER SET utf8mb4 );
+
     CREATE TABLE test_types (
       id SERIAL PRIMARY KEY,
       my_tinyint TINYINT,

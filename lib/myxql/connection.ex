@@ -111,8 +111,9 @@ defmodule MyXQL.Connection do
     end
   end
 
-  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
-    Client.com_query(state.client, statement)
+  def handle_execute(%TextQuery{statement: statement} = query, [], opts, state) do
+    local_infile = Keyword.get(opts, :local_infile, nil)
+    Client.com_query(state.client, statement, local_infile)
     |> result(query, state)
   end
 
@@ -321,6 +322,10 @@ defmodule MyXQL.Connection do
 
   defp result({:error, :multiple_results}, _query, _state) do
     raise RuntimeError, "returning multiple results is not yet supported"
+  end
+
+  defp result({:error, {:no_infile, name}}, _query, _state) do
+    raise RuntimeError, "no source supplied for infile `#{name}'"
   end
 
   defp result({:error, reason}, _query, state) do
