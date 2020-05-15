@@ -133,8 +133,7 @@ defmodule MyXQL.Client do
   end
 
   def com_stmt_close(client, statement_id) do
-    # No response is sent back to the client.
-    :ok = send_com(client, {:com_stmt_close, statement_id})
+    send_com(client, {:com_stmt_close, statement_id})
   end
 
   def disconnect(%{sock: {sock_mod, sock}}) do
