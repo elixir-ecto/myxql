@@ -106,8 +106,9 @@ defmodule MyXQL.Connection do
           :cursor_type_no_cursor
         )
 
-      state = maybe_close(query, state)
-      result(result, query, state)
+      with {:ok, state} <- maybe_close(query, state) do
+        result(result, query, state)
+      end
     end
   end
 
@@ -118,7 +119,9 @@ defmodule MyXQL.Connection do
 
   @impl true
   def handle_close(%Query{} = query, _opts, state) do
-    {:ok, nil, close(query, state)}
+    with {:ok, state} <- close(query, state) do
+      {:ok, nil, state}
+    end
   end
 
   @impl true
@@ -253,7 +256,9 @@ defmodule MyXQL.Connection do
 
   @impl true
   def handle_deallocate(%{name: ""} = query, _cursor, _opts, state) do
-    {:ok, nil, close(query, state)}
+    with {:ok, state} <- close(query, state) do
+      {:ok, nil, state}
+    end
   end
 
   def handle_deallocate(query, _cursor, _opts, state) do
@@ -441,16 +446,21 @@ defmodule MyXQL.Connection do
 
   # Close unnamed queries after executing them
   defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
-  defp maybe_close(_query, state), do: state
+  defp maybe_close(_query, state), do: {:ok, state}
 
   defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
     close(query, %{state | last_ref: nil})
   end
 
   defp close(query, state) do
-    :ok = Client.com_stmt_close(state.client, query.statement_id)
-    queries_delete(state, query)
-    state
+    case Client.com_stmt_close(state.client, query.statement_id) do
+      :ok ->
+        queries_delete(state, query)
+        {:ok, state}
+
+      {:error, reason} ->
+        {:disconnect, error(reason), state}
+    end
   end
 
   ## Cache query handling
@@ -534,7 +544,7 @@ defmodule MyXQL.Connection do
         %{query | num_params: num_params, statement_id: statement_id, ref: ref}
 
       {_statement, _num_params, statement_id, _ref} ->
-        :ok = Client.com_stmt_close(state.client, statement_id)
+        Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
     end
