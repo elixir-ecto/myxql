@@ -255,13 +255,17 @@ defmodule MyXQL.Connection do
   end
 
   @impl true
-  def handle_deallocate(%{name: ""} = query, _cursor, _opts, state) do
+  def handle_deallocate(%{name: ""} = query, cursor, _opts, state) do
+    state = delete_cursor(cursor, state)
+
     with {:ok, state} <- close(query, state) do
       {:ok, nil, state}
     end
   end
 
-  def handle_deallocate(query, _cursor, _opts, state) do
+  def handle_deallocate(query, cursor, _opts, state) do
+    state = delete_cursor(cursor, state)
+
     case Client.com_stmt_reset(state.client, query.statement_id) do
       {:ok, ok_packet(status_flags: status_flags)} ->
         {:ok, nil, put_status(state, status_flags)}
@@ -442,6 +446,10 @@ defmodule MyXQL.Connection do
     else
       prepare(query, state)
     end
+  end
+
+  defp delete_cursor(cursor, state) do
+    %{state | cursors: Map.delete(state.cursors, cursor.ref)}
   end
 
   # Close unnamed queries after executing them
