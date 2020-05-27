@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.1 (2020-05-27)
+
+Bug fixes:
+
+* Handle socket errors when closing statements
+* Delete cursor ref on deallocate
+
 ## v0.4.0 (2020-03-30)
 
 Enhancements:
