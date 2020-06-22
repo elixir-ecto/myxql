@@ -1,16 +1,25 @@
 name: Elixir CI
 
-on: push
+on:
+  pull_request:
+  push:
+      branches:
+      - master
 
 jobs:
-  build:
+  mix_test:
+    name: mix test (OTP ${{matrix.otp}} | Elixir ${{matrix.elixir}})
+    strategy:
+      matrix:
+        otp: [21.x, 22.x]
+        elixir: [1.8.x, 1.9.x, 1.10.x]
     runs-on: ubuntu-latest
-
-    container:
-      image: elixir:1.9.1-slim
-
     steps:
     - uses: actions/checkout@v1
+    - uses: actions/setup-elixir@v1.3.0
+      with:
+        otp-version: ${{matrix.otp}}
+        elixir-version: ${{matrix.elixir}}
     - name: Install Dependencies
       run: |
         mix local.rebar --force
