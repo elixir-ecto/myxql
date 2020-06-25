@@ -27,6 +27,8 @@ defmodule MyXQL do
 
   @type option() :: DBConnection.option()
 
+  @type stream_option() :: option() | {:max_rows, pos_integer()}
+
   @doc """
   Starts the connection process and connects to a MySQL server.
 
@@ -500,7 +502,7 @@ defmodule MyXQL do
 
   And that would be the last result in the stream.
   """
-  @spec stream(DBConnection.t(), iodata | MyXQL.Query.t(), list, [option()]) ::
+  @spec stream(DBConnection.t(), iodata | MyXQL.Query.t(), list, [stream_option()]) ::
           DBConnection.PrepareStream.t()
   def stream(conn, query, params \\ [], opts \\ [])
 
