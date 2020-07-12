@@ -9,11 +9,27 @@ on:
 jobs:
   mix_test:
     name: mix test (OTP ${{matrix.otp}} | Elixir ${{matrix.elixir}})
-    strategy:
-      matrix:
-        otp: [21.x, 22.x]
-        elixir: [1.8.x, 1.9.x, 1.10.x]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - otp: 18.3.4.11
+            elixir: 1.4.5
+          - otp: 18.3.4.11
+            elixir: 1.5.3
+          - otp: 19.3.6.13
+            elixir: 1.6.6
+          - otp: 19.3.6.13
+            elixir: 1.7.4
+          - otp: 20.3.8.26
+            elixir: 1.8.2
+          - otp: 20.3.8.26
+            elixir: 1.9.4
+          - otp: 21.3.8.16
+            elixir: 1.10.4
+          - otp: 23.0.2
+            elixir: 1.10.4
     steps:
     - uses: actions/checkout@v1
     - uses: actions/setup-elixir@v1.3.0
