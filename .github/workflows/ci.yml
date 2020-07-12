@@ -43,5 +43,44 @@ jobs:
         mix local.rebar --force
         mix local.hex --force
         mix deps.get
-    - name: Run formatter
-      run: mix format --check-formatted
+
+  check_formatting:
+    runs-on: ubuntu-latest
+    matrix:
+      include:
+        - otp: 23.0.2
+          elixir: 1.10.4
+    steps:
+      - uses: actions/checkout@v2.3.1
+      - uses: actions/setup-elixir@v1.3.0
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+      - name: Check formatted for Elixir ${{matrix.elixir}}
+        run: mix format --check-formatted
+
+  compile_without_warnings:
+    runs-on: ubuntu-latest
+    matrix:
+      include:
+        - otp: 23.0.2
+          elixir: 1.10.4
+    steps:
+      - uses: actions/checkout@v2.3.1
+      - uses: actions/setup-elixir@v1.3.0
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile
+      - name: Compile without warnings on Elixir ${{matrix.elixir}}
+        run: mix compile --warnings-as-errors
