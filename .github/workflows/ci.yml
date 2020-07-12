@@ -43,6 +43,12 @@ jobs:
         mix local.rebar --force
         mix local.hex --force
         mix deps.get
+    - name: Shutdown Ubuntu MySQL (SUDO)
+      run: sudo service mysql stop # Shutdown the Default MySQL, "sudo" is necessary, please not remove it
+    - uses: mirromutth/mysql-action@v1.1
+      with:
+        mysql version: '5.7' # Optional, default value is "latest". The version of the MySQL
+    - run: mix test
 
   check_formatting:
     runs-on: ubuntu-latest
