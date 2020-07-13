@@ -38,7 +38,7 @@ jobs:
       # Label used to access the service container
       mysql:
         # Docker Hub image
-        image: mysql-5.7
+        image: mysql:5.7
         ports:
           # Opens tcp port 6379 on the host and service container
           - 3306:3306
