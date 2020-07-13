@@ -39,6 +39,8 @@ jobs:
       mysql:
         # Docker Hub image
         image: mysql:5.7
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 1
         ports:
           # Opens tcp port 6379 on the host and service container
           - 3306:3306
