@@ -32,6 +32,17 @@ jobs:
             elixir: 1.10.4
           - otp: 23.0.2
             elixir: 1.10.4
+
+    # Service containers to run with `container-job`
+    services:
+      # Label used to access the service container
+      mysql:
+        # Docker Hub image
+        image: mysql-5.7
+        ports:
+          # Opens tcp port 6379 on the host and service container
+          - 3306:3306
+
     steps:
     - uses: actions/checkout@v2.3.1
     - uses: actions/setup-elixir@v1.3.0
@@ -45,12 +56,6 @@ jobs:
         mix deps.get
     - name: Shutdown Ubuntu MySQL (SUDO)
       run: sudo service mysql stop # Shutdown the Default MySQL, "sudo" is necessary, please not remove it
-    - uses: mirromutth/mysql-action@v1.1
-      with:
-        mysql version: '5.7' # Optional, default value is "latest". The version of the MySQL
-        mysql root password: ''
-        mysql user: 'developer'
-        mysql password: 'developer'
     - run: mix test
 
   check_formatting:
