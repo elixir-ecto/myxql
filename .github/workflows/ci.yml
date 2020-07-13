@@ -49,6 +49,8 @@ jobs:
       with:
         mysql version: '5.7' # Optional, default value is "latest". The version of the MySQL
         mysql root password: ''
+        mysql user: 'developer'
+        mysql password: 'developer'
     - run: mix test
 
   check_formatting:
