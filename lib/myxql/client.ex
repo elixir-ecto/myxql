@@ -256,6 +256,12 @@ defmodule MyXQL.Client do
 
     buffer? = Keyword.has_key?(socket_options, :buffer)
     client = %__MODULE__{connection_id: nil, sock: nil}
+    port = case port do
+      p when is_binary(p) ->
+        String.to_integer(p)
+      p when is_integer(p) ->
+        p
+    end
 
     case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->

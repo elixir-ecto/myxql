@@ -48,7 +48,7 @@ defmodule MyXQL do
 
     * `:hostname` - Server hostname (default: `MYSQL_HOST` env variable, then `"localhost"`)
 
-    * `:port` - Server port (default: `MYSQL_TCP_PORT` env variable, then `3306`)
+    * `:port` - Server port (default: `MYSQL_TCP_PORT` env variable, then `3306`. Accepts either a string or an integer value.)
 
     * `:database` - Database (default: `nil`)
 
