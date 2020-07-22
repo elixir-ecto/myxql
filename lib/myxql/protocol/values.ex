@@ -198,11 +198,19 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_date, <<4, year::uint2, month::uint1, day::uint1>>}
   end
 
+  def encode_binary_value(:zero_date) do
+    {:mysql_type_date, <<4, 0::uint2, 0::uint1, 0::uint1>>}
+  end
+
   def encode_binary_value(%Time{} = time), do: encode_binary_time(time)
 
   def encode_binary_value(%NaiveDateTime{} = datetime), do: encode_binary_datetime(datetime)
 
   def encode_binary_value(%DateTime{} = datetime), do: encode_binary_datetime(datetime)
+
+  def encode_binary_value(:zero_datetime) do
+    encode_binary_datetime(%NaiveDateTime{ year: 0, month: 0, day: 0, hour: 0, minute: 0, second: 0, microsecond: {0, 0} })
+  end
 
   def encode_binary_value(binary) when is_binary(binary) do
     {:mysql_type_var_string, encode_string_lenenc(binary)}
