@@ -209,7 +209,15 @@ defmodule MyXQL.Protocol.Values do
   def encode_binary_value(%DateTime{} = datetime), do: encode_binary_datetime(datetime)
 
   def encode_binary_value(:zero_datetime) do
-    encode_binary_datetime(%NaiveDateTime{ year: 0, month: 0, day: 0, hour: 0, minute: 0, second: 0, microsecond: {0, 0} })
+    encode_binary_datetime(%NaiveDateTime{
+      year: 0,
+      month: 0,
+      day: 0,
+      hour: 0,
+      minute: 0,
+      second: 0,
+      microsecond: {0, 0}
+    })
   end
 
   def encode_binary_value(binary) when is_binary(binary) do
