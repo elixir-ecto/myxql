@@ -139,18 +139,16 @@ defmodule MyXQL.Protocol.ValueTest do
       test "MYSQL_TYPE_TIMESTAMP - Zero timestamp", c do
         [[value]] = query!(c, "SELECT TIMESTAMP '0000-00-00 00:00:00'").rows
         assert value in [:zero_datetime, "0000-00-00 00:00:00"]
-      end
 
-      @tag sql_mode: "ALLOW_INVALID_DATES"
-      test "MYSQL_TYPE_ZERODATES", c do
-        id = insert(c, "my_date", :zero_date)
-        assert get(c, "my_date", id) == :zero_date
+        assert_roundtrip(c, "my_datetime", :zero_datetime)
       end
 
       @tag sql_mode: "ALLOW_INVALID_DATES"
       test "MYSQL_TYPE_DATE - Zero date", c do
         [[value]] = query!(c, "SELECT DATE '0000-00-00'").rows
         assert value in [:zero_date, "0000-00-00"]
+
+        assert_roundtrip(c, "my_date", :zero_date)
       end
 
       @tag timestamp_precision: true
@@ -190,12 +188,6 @@ defmodule MyXQL.Protocol.ValueTest do
         id = insert(c, "my_timestamp", ~U[1999-12-31 09:10:20Z])
         query!(c, "SET time_zone = '+08:00'")
         assert get(c, "my_timestamp", id) == ~U[1999-12-31 17:10:20Z]
-      end
-
-      @tag sql_mode: "ALLOW_INVALID_DATES"
-      test "MYSQL_TYPE_ZERODATETIMES", c do
-        id = insert(c, "my_datetime", :zero_datetime)
-        assert get(c, "my_datetime", id) == :zero_datetime
       end
 
       test "MYSQL_TYPE_YEAR", c do
