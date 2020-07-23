@@ -61,7 +61,7 @@ defmodule MyXQL.ClientTest do
     @tag mysql_native_password: true
     test "mysql_native_password (bad password)" do
       opts = [username: "mysql_native", password: "bad"] ++ @opts
-      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag mysql_native_password: true, ssl: true
@@ -87,13 +87,13 @@ defmodule MyXQL.ClientTest do
     @tag sha256_password: true, public_key_exchange: true
     test "sha256_password (bad password)" do
       opts = [username: "sha256_password", password: "bad"] ++ @opts
-      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag sha256_password: true, ssl: true
     test "sha256_password (bad password) (ssl)" do
       opts = [username: "sha256_password", password: "bad", ssl: true] ++ @opts
-      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag sha256_password: true, ssl: true
@@ -119,13 +119,13 @@ defmodule MyXQL.ClientTest do
     @tag caching_sha2_password: true
     test "caching_sha2_password (bad password)" do
       opts = [username: "caching_sha2_password", password: "bad"] ++ @opts
-      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (bad password) (ssl)" do
       opts = [username: "caching_sha2_password", password: "bad", ssl: true] ++ @opts
-      assert {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     # other
@@ -145,7 +145,7 @@ defmodule MyXQL.ClientTest do
       assert charset == "utf8mb4"
       assert collation =~ "utf8mb4_"
 
-      assert {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query(client, "SELECT 'hello 😃'")
+      {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query(client, "SELECT 'hello 😃'")
     end
 
     test "set charset" do
@@ -194,7 +194,7 @@ defmodule MyXQL.ClientTest do
                :server_status_no_index_used
              ]
 
-      assert [column_def(name: "x")] = column_defs
+      [column_def(name: "x")] = column_defs
       assert rows == []
     end
 
@@ -206,7 +206,7 @@ defmodule MyXQL.ClientTest do
        resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor)
 
-      assert [column_def(name: "a"), column_def(name: "b")] = column_defs
+      [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
@@ -219,7 +219,7 @@ defmodule MyXQL.ClientTest do
        resultset(num_rows: 1, status_flags: status_flags, rows: rows, column_defs: column_defs)} =
         Client.com_stmt_execute(client, statement_id, [1024, 2048], :cursor_type_no_cursor)
 
-      assert [column_def(name: "a"), column_def(name: "b")] = column_defs
+      [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
     end
@@ -352,8 +352,8 @@ defmodule MyXQL.ClientTest do
 
       {:ok, client} = Client.do_connect(Client.Config.new(port: port))
 
-      assert {:ok, err_packet(message: "Lost connection to backend server.")} =
-               Client.com_ping(client, 100)
+      {:ok, err_packet(message: "Lost connection to backend server.")} =
+        Client.com_ping(client, 100)
     end
   end
 
