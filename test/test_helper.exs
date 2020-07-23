@@ -14,7 +14,7 @@ defmodule TestHelper do
   end
 
   defp ssl_opts() do
-    [versions: [:"tlsv1.1"]]
+    [versions: [:"tlsv1.2"]]
   end
 
   def setup_server() do
