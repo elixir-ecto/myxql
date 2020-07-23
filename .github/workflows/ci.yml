@@ -1,20 +1,55 @@
-name: Elixir CI
+name: CI
 
-on: push
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
-
-    container:
-      image: elixir:1.9.1-slim
-
     steps:
-    - uses: actions/checkout@v1
-    - name: Install Dependencies
-      run: |
-        mix local.rebar --force
-        mix local.hex --force
-        mix deps.get
-    - name: Run formatter
-      run: mix format --check-formatted
+      - uses: actions/checkout@v2
+      - name: Install OTP and Elixir
+        uses: actions/setup-elixir@v1.3
+        with:
+          otp-version: "23.0"
+          elixir-version: "1.10.3"
+      - run: mix deps.get
+      - run: mix deps.unlock --check-unused
+      - run: MIX_ENV=test mix deps.compile
+      - run: MIX_ENV=test mix compile --warnings-as-errors
+      - run: mix format --check-formatted
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pair:
+          - erlang: "23.0"
+            elixir: "1.10"
+        db:
+          - mysql:5.6
+          - mysql:5.7
+          - mysql:8.0
+          - mariadb:10.3
+        include:
+          - pair:
+              erlang: "19.3.6"
+              elixir: "1.6.6"
+            db: mysql:8.0
+    env:
+      MYSQL_SOCKET_DIR: /var/run/mysqld
+      MYSQL_UNIX_PORT: /var/run/mysqld/mysqld.sock
+      DB: ${{matrix.db}}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-elixir@v1.3
+        with:
+          otp-version: ${{matrix.pair.erlang}}
+          elixir-version: ${{matrix.pair.elixir}}
+      - run: mix deps.get
+      - run: MIX_ENV=test mix deps.compile
+      - run: MIX_ENV=test mix compile
+      - run: bash scripts/ci_prepare.sh
+      - run: mix test
