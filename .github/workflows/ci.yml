@@ -2,8 +2,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
   pull_request:
 
 jobs:
@@ -25,24 +23,27 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pair:
-          - erlang: "23.0"
-            elixir: "1.10"
         db:
           - mysql:5.6
           - mysql:5.7
           - mysql:8.0
           - mariadb:10.3
+        pair:
+          - elixir: "1.10"
+            erlang: "23.0"
         include:
-          - pair:
-              erlang: "19.3.6"
+          - db: mysql:8.0
+            pair:
               elixir: "1.6.6"
-            db: mysql:8.0
+              erlang: "19.3.6.13"
     env:
-      MYSQL_SOCKET_DIR: /var/run/mysqld
-      MYSQL_UNIX_PORT: /var/run/mysqld/mysqld.sock
       DB: ${{matrix.db}}
+      MYSQL_UNIX_PORT: /var/run/mysqld/mysqld.sock
     steps:
+      - run: sudo mkdir -p /var/run/mysqld
+      - run: sudo chmod 777 /var/run/mysqld
+      - run: docker run -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 --detach ${{matrix.db}} --innodb_log_file_size=1G
+      - run: until mysql --port 3306 --protocol=tcp -u root -e "SELECT @@version;"; do sleep 3; done
       - uses: actions/checkout@v2
       - uses: actions/setup-elixir@v1.3
         with:
@@ -51,5 +52,4 @@ jobs:
       - run: mix deps.get
       - run: MIX_ENV=test mix deps.compile
       - run: MIX_ENV=test mix compile
-      - run: bash scripts/ci_prepare.sh
       - run: mix test
