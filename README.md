@@ -89,31 +89,33 @@ NULL                 nil
 bool                 1 | 0
 int                  42
 float                42.0
-decimal              #Decimal<42.0> *
-date                 ~D[2013-10-12] **
-time                 ~T[00:37:14] ***
-datetime             ~N[2013-10-12 00:37:14] ***, ****
-timestamp            ~U[2013-10-12 00:37:14Z] ****
-json                 %{"foo" => "bar"} *****
+decimal              #Decimal<42.0> # (1)
+date                 ~D[2013-10-12] # (2)
+time                 ~T[00:37:14]   # (3)
+datetime             ~N[2013-10-12 00:37:14]  # (2), (4)
+timestamp            ~U[2013-10-12 00:37:14Z] # (2), (4)
+json                 %{"foo" => "bar"} # (5)
 char                 "é"
 text                 "myxql"
 binary               <<1, 2, 3>>
 bit                  <<1::size(1), 0::size(1)>>
-point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... ******
+point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... # (6)
 ```
 
-\* See [Decimal](https://github.com/ericmj/decimal)
+Notes:
 
-\*\* When using SQL mode that allows them, MySQL "zero" dates and datetimes are represented as `:zero_date` and `:zero_datetime` respectively.
+1. See [Decimal](https://github.com/ericmj/decimal)
 
-\*\*\* Negative or >= 24:00:00 values are not supported
+2. When using SQL mode that allows them, MySQL "zero" dates and datetimes are represented as `:zero_date` and `:zero_datetime` respectively.
 
-\*\*\*\* Datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+3. Values that are negative or greater than `24:00:00` cannot be decoded
 
-\*\*\*\*\* MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
+4. Datetime fields are represented as `NaiveDateTime`, however a UTC `DateTime` can be used for encoding as well
+
+5. MySQL added a native JSON type in version 5.7.8, if you're using earlier versions,
 remember to use TEXT column for your JSON field.
 
-\*\*\*\*\*\* See "Geometry support" section below
+6. See "Geometry support" section below
 
 ## JSON support
 
