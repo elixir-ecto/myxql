@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.2 (2020-09-11)
+
+Enhancements:
+
+* Encode `:zero_datetime` and `:zero_date`
+* Consistently use `:supervisor.child_spec/0`
+* Support Decimal v2.0
+
+Bug fixes:
+
+* Fix typespec for `MyXQL.stream/4`
+
 ## v0.4.1 (2020-05-27)
 
 Bug fixes:
