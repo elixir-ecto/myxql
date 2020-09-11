@@ -271,7 +271,7 @@ defmodule MyXQL do
 
   ## Options
 
-  Options are passed to `DBConnection.prepare/4`, see it's documentation for
+  Options are passed to `DBConnection.prepare/3`, see it's documentation for
   all available options.
 
   ## Examples
