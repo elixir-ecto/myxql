@@ -57,6 +57,7 @@ defmodule MyXQL.Connection do
 
   @impl true
   def disconnect(_reason, state) do
+    :ets.delete(state.queries)
     Client.disconnect(state.client)
   end
 
