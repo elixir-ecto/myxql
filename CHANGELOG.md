@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.3 (2020-09-22)
+
+Bug fixes:
+
+* Delete tables on disconnect
+
 ## v0.4.2 (2020-09-11)
 
 Enhancements:
