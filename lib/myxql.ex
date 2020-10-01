@@ -27,6 +27,11 @@ defmodule MyXQL do
 
   @type option() :: DBConnection.option()
 
+  @type query_option() ::
+          option()
+          | {:query_type, :binary | :binary_then_text | :text}
+          | {:cache_statement, iodata()}
+
   @type stream_option() :: option() | {:max_rows, pos_integer()}
 
   @doc """
@@ -215,7 +220,7 @@ defmodule MyXQL do
       {:ok, %MyXQL.Result{last_insert_id: 2, num_rows: 1}}
 
   """
-  @spec query(conn, iodata, list, [option()]) ::
+  @spec query(conn, iodata, list, [query_option()]) ::
           {:ok, MyXQL.Result.t()} | {:error, Exception.t()}
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
     if name = Keyword.get(options, :cache_statement) do
@@ -253,7 +258,7 @@ defmodule MyXQL do
 
   See `query/4`.
   """
-  @spec query!(conn, iodata, list, [option()]) :: MyXQL.Result.t()
+  @spec query!(conn, iodata, list, [query_option()]) :: MyXQL.Result.t()
   def query!(conn, statement, params \\ [], opts \\ []) do
     case query(conn, statement, params, opts) do
       {:ok, result} -> result
