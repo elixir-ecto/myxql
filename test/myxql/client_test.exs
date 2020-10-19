@@ -146,7 +146,9 @@ defmodule MyXQL.ClientTest do
 
     @tag caching_sha2_password_long: true, public_key_exchange: true
     test "caching_sha2_password (long password) (public key exchange)" do
-      opts = [username: "caching_sha2_password_long", password: "secretsecretsecretsecret"] ++ @opts
+      opts =
+        [username: "caching_sha2_password_long", password: "secretsecretsecretsecret"] ++ @opts
+
       assert {:ok, _} = Client.connect(opts)
     end
 

@@ -16,9 +16,12 @@ defmodule MyXQL.Protocol.Auth do
 
   def encrypt_sha_password(password, public_key, auth_plugin_data) do
     password = password <> <<0>>
-    xor = auth_plugin_data
-    |> pad_auth_plugin_data(byte_size(password))
-    |> :crypto.exor(password)
+
+    xor =
+      auth_plugin_data
+      |> pad_auth_plugin_data(byte_size(password))
+      |> :crypto.exor(password)
+
     [entry] = :public_key.pem_decode(public_key)
     public_key = :public_key.pem_entry_decode(entry)
     :public_key.encrypt_public(xor, public_key, rsa_pad: :rsa_pkcs1_oaep_padding)
@@ -61,9 +64,15 @@ defmodule MyXQL.Protocol.Auth do
   # Repeat str as needed and truncate final string to target_len
   # E.g. "foobar", 12 -> "foobarfoobar"
   # E.g. "foobar", 15 -> "foobarfoobarfoo"
-  defp pad_auth_plugin_data(str, target_len), do: do_pad_auth_plugin_data(str, byte_size(str), target_len)
+  defp pad_auth_plugin_data(str, target_len),
+    do: do_pad_auth_plugin_data(str, byte_size(str), target_len)
+
   defp do_pad_auth_plugin_data(_str, _str_len, 0), do: ""
   defp do_pad_auth_plugin_data(str, str_len, target_len) when str_len == target_len, do: str
-  defp do_pad_auth_plugin_data(str, str_len, target_len) when str_len > target_len, do: :binary.part(str, 0, target_len)
-  defp do_pad_auth_plugin_data(str, str_len, target_len), do: str <> do_pad_auth_plugin_data(str, str_len, target_len - str_len)
+
+  defp do_pad_auth_plugin_data(str, str_len, target_len) when str_len > target_len,
+    do: :binary.part(str, 0, target_len)
+
+  defp do_pad_auth_plugin_data(str, str_len, target_len),
+    do: str <> do_pad_auth_plugin_data(str, str_len, target_len - str_len)
 end
