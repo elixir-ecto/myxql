@@ -66,6 +66,8 @@ defmodule MyXQL.Connection do
     if cached_query = queries_get(state, query) do
       {:ok, cached_query, %{state | last_query: cached_query}}
     else
+      {:ok, state} = maybe_close(query, state)
+
       case prepare(query, state) do
         {:ok, _, _} = ok ->
           ok
@@ -96,6 +98,8 @@ defmodule MyXQL.Connection do
   end
 
   def handle_execute(query, params, _opts, state) do
+    {:ok, state} = maybe_close(query, state)
+
     with {:ok, query, state} <- maybe_reprepare(query, state) do
       result =
         Client.com_stmt_execute(
@@ -106,9 +110,17 @@ defmodule MyXQL.Connection do
           result_state(query)
         )
 
-      with {:ok, state} <- maybe_close(query, state) do
-        result(result, query, state)
-      end
+      state =
+        case result do
+          {:ok, err_packet()} ->
+            {:ok, state} = close(query, state)
+            state
+
+          _ ->
+            state
+        end
+
+      result(result, query, state)
     end
   end
 
@@ -490,8 +502,13 @@ defmodule MyXQL.Connection do
     %{state | cursors: Map.delete(state.cursors, cursor.ref)}
   end
 
-  # Close unnamed queries after executing them
-  defp maybe_close(%{name: ""} = query, state), do: close(query, state)
+  # Close a previous unnamed query if the current query is different
+  defp maybe_close(_query, %{prepare: :unnamed, last_query: last_query} = state)
+       when last_query != nil do
+    close(last_query, state)
+  end
+
+  defp maybe_close(%{ref: ref}, %{last_query: %{ref: ref}} = state), do: {:ok, state}
   defp maybe_close(_query, state), do: {:ok, state}
 
   defp close(query, %{last_query: query} = state) do

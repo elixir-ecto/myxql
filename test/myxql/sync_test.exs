@@ -9,10 +9,16 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
 
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
-    assert prepared_stmt_count() == 0
+    assert prepared_stmt_count() == 1
+
+    MyXQL.query!(conn, "SELECT 1337", [], cache_statement: "69")
+    assert prepared_stmt_count() == 1
+
+    MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
+    assert prepared_stmt_count() == 1
   end
 
-  test "produce the expected amount of prepared statements in named mode" do
+  test "produce the expected amount of prepared statements with prepare: :named" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
 
@@ -43,13 +49,24 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 1
   end
 
-  test "do not leak statements with insert and failed insert" do
+  test "do not leak statements with insert and failed insert with prepare: :named" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
     {:ok, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
-    assert prepared_stmt_count() == 0
+    assert prepared_stmt_count() == 1
     {:error, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
+    assert prepared_stmt_count() == 1
+  end
+
+  test "do not leak statements with insert and failed insert with prepare: :unnamed" do
+    {:ok, conn} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
     assert prepared_stmt_count() == 0
+    {:ok, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (2)")
+    assert prepared_stmt_count() == 1
+    {:error, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (2)")
+    assert prepared_stmt_count() == 0
+    MyXQL.query!(conn, "SELECT 123", [], cache_statement: "123")
+    assert prepared_stmt_count() == 1
   end
 
   test "do not leak statements on multiple executions of the same name in prepare_execute" do
