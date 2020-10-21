@@ -13,7 +13,7 @@ defmodule MyXQL.Connection do
     prepare: :named,
     queries: nil,
     transaction_status: :idle,
-    last_ref: nil
+    last_query: nil
   ]
 
   @impl true
@@ -64,7 +64,7 @@ defmodule MyXQL.Connection do
     query = rename_query(state, query)
 
     if cached_query = queries_get(state, query) do
-      {:ok, cached_query, %{state | last_ref: cached_query.ref}}
+      {:ok, cached_query, %{state | last_query: cached_query}}
     else
       case prepare(query, state) do
         {:ok, _, _} = ok ->
@@ -469,14 +469,14 @@ defmodule MyXQL.Connection do
         ref = make_ref()
         query = %{query | num_params: num_params, statement_id: statement_id, ref: ref}
         queries_put(state, query)
-        {:ok, query, %{state | last_ref: ref}}
+        {:ok, query, %{state | last_query: query}}
 
       result ->
         result(result, query, state)
     end
   end
 
-  defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state), do: {:ok, query, state}
+  defp maybe_reprepare(query, %{last_query: query} = state), do: {:ok, query, state}
 
   defp maybe_reprepare(query, state) do
     if query_member?(state, query) do
@@ -494,8 +494,8 @@ defmodule MyXQL.Connection do
   defp maybe_close(%{name: ""} = query, state), do: close(query, state)
   defp maybe_close(_query, state), do: {:ok, state}
 
-  defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
-    close(query, %{state | last_ref: nil})
+  defp close(query, %{last_query: query} = state) do
+    close(query, %{state | last_query: nil})
   end
 
   defp close(query, state) do
