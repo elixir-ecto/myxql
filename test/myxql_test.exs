@@ -190,7 +190,8 @@ defmodule MyXQLTest do
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
-      assert query == query2
+      assert query.ref != query2.ref
+      assert query.statement_id != query2.statement_id
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
       assert query2.ref != query3.ref
       assert query2.statement_id != query3.statement_id
