@@ -43,8 +43,10 @@ defmodule TestHelper do
     create_user("nopassword", nil, nil)
     create_user("mysql_native", "mysql_native_password", "secret")
     create_user("sha256_password", "sha256_password", "secret")
+    create_user("sha256_password_long", "sha256_password", "secretsecretsecretsecret")
     create_user("sha256_empty", "sha256_password", nil)
     create_user("caching_sha2_password", "caching_sha2_password", "secret")
+    create_user("caching_sha2_password_long", "caching_sha2_password", "secretsecretsecretsecret")
   end
 
   def create_user(username, auth_plugin_name, password) do

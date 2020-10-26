@@ -102,6 +102,20 @@ defmodule MyXQL.ClientTest do
       assert {:ok, _} = Client.connect(opts)
     end
 
+    # Try long passwords that force us to apply the scramble multiple times when XORing
+
+    @tag sha256_password: true, public_key_exchange: true
+    test "sha256_password (long password)" do
+      opts = [username: "sha256_password_long", password: "secretsecretsecretsecret"] ++ @opts
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag sha256_password: true, public_key_exchange: true
+    test "sha256_password (long password) (bad password)" do
+      opts = [username: "sha256_password_long", password: "badbadbadbadbadbadbad"] ++ @opts
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
     # caching_sha2_password
 
     @tag caching_sha2_password: true, public_key_exchange: true
@@ -125,6 +139,22 @@ defmodule MyXQL.ClientTest do
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (bad password) (ssl)" do
       opts = [username: "caching_sha2_password", password: "bad", ssl: true] ++ @opts
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
+    # Try long passwords that force us to apply the scramble multiple times when XORing
+
+    @tag caching_sha2_password: true, public_key_exchange: true
+    test "caching_sha2_password (long password) (public key exchange)" do
+      opts =
+        [username: "caching_sha2_password_long", password: "secretsecretsecretsecret"] ++ @opts
+
+      assert {:ok, _} = Client.connect(opts)
+    end
+
+    @tag caching_sha2_password: true
+    test "caching_sha2_password (long password) (bad password)" do
+      opts = [username: "caching_sha2_password_long", password: "badbadbadbadbadbadbad"] ++ @opts
       {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
