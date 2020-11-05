@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install OTP and Elixir
-        uses: actions/setup-elixir@v1.3
+        uses: actions/setup-elixir@v1.4.2
         with:
           otp-version: "23.0"
           elixir-version: "1.10.3"
