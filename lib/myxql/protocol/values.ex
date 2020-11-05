@@ -48,7 +48,14 @@ defmodule MyXQL.Protocol.Values do
     mysql_type_blob: 0xFC,
     mysql_type_var_string: 0xFD,
     mysql_type_string: 0xFE,
-    mysql_type_geometry: 0xFF
+    mysql_type_geometry: 0xFF,
+
+    # Internal types below, we should never get them but if we do, at least we'll get a nicer error message.
+    # https://dev.mysql.com/doc/internals/en/com-query-response.html#fnref_internal
+    mysql_type_newdate: 0x0E,
+    mysql_type_timestamp2: 0x11,
+    mysql_type_datetime2: 0x12,
+    mysql_type_date2: 0x13
   ]
 
   for {atom, code} <- types do
