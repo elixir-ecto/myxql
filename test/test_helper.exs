@@ -275,5 +275,5 @@ defmodule TestHelper do
   end
 end
 
-TestHelper.setup_server()
+# TestHelper.setup_server()
 ExUnit.start(exclude: TestHelper.excludes())

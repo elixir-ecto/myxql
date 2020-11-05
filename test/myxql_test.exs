@@ -99,7 +99,8 @@ defmodule MyXQLTest do
     end
 
     test "binary: query with params", c do
-      assert {:ok, %MyXQL.Result{rows: [[6]]}} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
+      assert {:ok, result} = MyXQL.query(c.conn, "SELECT ? * ?", [2, 3])
+      assert result.rows == [[6]]
     end
 
     test "binary: iodata", c do
@@ -209,28 +210,32 @@ defmodule MyXQLTest do
     setup [:connect, :truncate]
 
     test "prepare_execute", c do
-      assert {:ok, %MyXQL.Query{}, %MyXQL.Result{rows: [[6]]}} =
-               MyXQL.prepare_execute(c.conn, "", "SELECT ? * ?", [2, 3])
+      assert {:ok, query, result} = MyXQL.prepare_execute(c.conn, "", "SELECT ? * ?", [2, 3])
+      assert %MyXQL.Query{} = query
+      assert result.rows == [[6]]
     end
 
     test "prepare and then execute", c do
       {:ok, query} = MyXQL.prepare(c.conn, "", "SELECT ? * ?")
 
       assert query.num_params == 2
-      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+      assert {:ok, _, result} = MyXQL.execute(c.conn, query, [2, 3])
+      assert result.rows == [[6]]
     end
 
     test "prepare and then execute with name", c do
       {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? * ?")
 
       assert query.num_params == 2
-      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+      assert {:ok, _, result} = MyXQL.execute(c.conn, query, [2, 3])
+      assert result.rows == [[6]]
 
       # If we prepare it again, it won't make a difference if the name is the same
       {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? + ?")
 
       assert query.num_params == 2
-      assert {:ok, _, %MyXQL.Result{rows: [[6]]}} = MyXQL.execute(c.conn, query, [2, 3])
+      assert {:ok, _, result} = MyXQL.execute(c.conn, query, [2, 3])
+      assert result.rows == [[6]]
     end
 
     test "query is re-prepared if executed after being closed", c do
