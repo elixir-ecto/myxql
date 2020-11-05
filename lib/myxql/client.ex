@@ -136,7 +136,14 @@ defmodule MyXQL.Client do
     send_com(client, {:com_stmt_close, statement_id})
   end
 
-  def disconnect(%{sock: {sock_mod, sock}}) do
+  def com_quit(client) do
+    with :ok <- send_com(client, :com_quit) do
+      recv_packet(client, &decode_generic_response/1)
+    end
+  end
+
+  def disconnect(client) do
+    {sock_mod, sock} = client.sock
     sock_mod.close(sock)
     :ok
   end

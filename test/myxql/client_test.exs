@@ -9,13 +9,15 @@ defmodule MyXQL.ClientTest do
     @tag public_key_exchange: true
     test "default auth plugin (public key exchange)" do
       opts = [username: "default_auth", password: "secret"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.disconnect(client)
     end
 
     @tag ssl: true
     test "default auth plugin (ssl)" do
       opts = [username: "default_auth", password: "secret", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag public_key_exchange: false, ssl: false
@@ -24,8 +26,8 @@ defmodule MyXQL.ClientTest do
 
       case Client.connect(opts) do
         # e.g. mysql_native_password doesn't require secure connection
-        {:ok, _} ->
-          :ok
+        {:ok, client} ->
+          Client.com_quit(client)
 
         # e.g. sha256_password does
         {:error, err_packet(message: "Access denied" <> _)} ->
@@ -35,19 +37,23 @@ defmodule MyXQL.ClientTest do
 
     test "no password" do
       opts = [username: "nopassword"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
 
       opts = [username: "nopassword", password: ""] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag ssl: true
     test "no password (ssl)" do
       opts = [username: "nopassword", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
 
       opts = [username: "nopassword", password: ""] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     # mysql_native_password
@@ -55,7 +61,8 @@ defmodule MyXQL.ClientTest do
     @tag mysql_native_password: true
     test "mysql_native_password" do
       opts = [username: "mysql_native", password: "secret"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag mysql_native_password: true
@@ -67,7 +74,8 @@ defmodule MyXQL.ClientTest do
     @tag mysql_native_password: true, ssl: true
     test "mysql_native_password (ssl)" do
       opts = [username: "mysql_native", password: "secret", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     # sha256_password
@@ -75,13 +83,15 @@ defmodule MyXQL.ClientTest do
     @tag sha256_password: true, public_key_exchange: true
     test "sha256_password" do
       opts = [username: "sha256_password", password: "secret"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag sha256_password: true, ssl: true
     test "sha256_password (ssl)" do
       opts = [username: "sha256_password", password: "secret", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag sha256_password: true, public_key_exchange: true
@@ -99,7 +109,8 @@ defmodule MyXQL.ClientTest do
     @tag sha256_password: true, ssl: true
     test "sha256_password (empty password) (ssl)" do
       opts = [username: "sha256_empty", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     # Try long passwords that force us to apply the scramble multiple times when XORing
@@ -107,7 +118,8 @@ defmodule MyXQL.ClientTest do
     @tag sha256_password: true, public_key_exchange: true
     test "sha256_password (long password)" do
       opts = [username: "sha256_password_long", password: "secretsecretsecretsecret"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag sha256_password: true, public_key_exchange: true
@@ -121,13 +133,15 @@ defmodule MyXQL.ClientTest do
     @tag caching_sha2_password: true, public_key_exchange: true
     test "caching_sha2_password (public key exchange)" do
       opts = [username: "caching_sha2_password", password: "secret"] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (ssl)" do
       opts = [username: "caching_sha2_password", password: "secret", ssl: true] ++ @opts
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag caching_sha2_password: true
@@ -149,7 +163,8 @@ defmodule MyXQL.ClientTest do
       opts =
         [username: "caching_sha2_password_long", password: "secretsecretsecretsecret"] ++ @opts
 
-      assert {:ok, _} = Client.connect(opts)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
     end
 
     @tag caching_sha2_password: true
@@ -176,6 +191,7 @@ defmodule MyXQL.ClientTest do
       assert collation =~ "utf8mb4_"
 
       {:ok, resultset(rows: [["hello 😃"]])} = Client.com_query(client, "SELECT 'hello 😃'")
+      Client.com_quit(client)
     end
 
     test "set charset" do
@@ -186,6 +202,7 @@ defmodule MyXQL.ClientTest do
 
       assert charset == "latin1"
       assert collation == "latin1_swedish_ci"
+      Client.com_quit(client)
     end
 
     test "set charset and collation" do
@@ -196,6 +213,7 @@ defmodule MyXQL.ClientTest do
 
       assert charset == "latin1"
       assert collation == "latin1_general_ci"
+      Client.com_quit(client)
     end
   end
 
@@ -205,6 +223,7 @@ defmodule MyXQL.ClientTest do
     test "simple query", %{client: client} do
       {:ok, resultset(rows: rows)} = Client.com_query(client, "SELECT 1024 as a, 2048 as b")
       assert rows == [[1024, 2048]]
+      Client.com_quit(client)
     end
   end
 
@@ -226,6 +245,7 @@ defmodule MyXQL.ClientTest do
 
       [column_def(name: "x")] = column_defs
       assert rows == []
+      Client.com_quit(client)
     end
 
     test "no params", %{client: client} do
@@ -239,6 +259,7 @@ defmodule MyXQL.ClientTest do
       [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
+      Client.com_quit(client)
     end
 
     test "params", %{client: client} do
@@ -252,6 +273,7 @@ defmodule MyXQL.ClientTest do
       [column_def(name: "a"), column_def(name: "b")] = column_defs
       assert [[1024, 2048]] = rows
       assert list_status_flags(status_flags) == [:server_status_autocommit]
+      Client.com_quit(client)
     end
 
     test "encode large packets", %{client: client} do
@@ -264,6 +286,7 @@ defmodule MyXQL.ClientTest do
         Client.com_stmt_execute(client, statement_id, [x], :cursor_type_no_cursor)
 
       assert rows == [[20_000_000]]
+      Client.com_quit(client)
     end
   end
 
@@ -285,6 +308,7 @@ defmodule MyXQL.ClientTest do
 
       refute :server_status_cursor_exists in list_status_flags(status_flags)
       assert :server_status_last_row_sent in list_status_flags(status_flags)
+      Client.com_quit(client)
     end
 
     test "with simple query", %{client: client} do
@@ -319,6 +343,7 @@ defmodule MyXQL.ClientTest do
       {:ok, err_packet(code: code)} = Client.com_stmt_fetch(client, statement_id, column_defs, 2)
 
       assert Protocol.error_code_to_name(code) == :ER_STMT_HAS_NO_OPEN_CURSOR
+      Client.com_quit(client)
     end
 
     test "with stored procedure of single result", %{client: client} do
@@ -329,6 +354,7 @@ defmodule MyXQL.ClientTest do
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert list_status_flags(status_flags) == [:server_status_autocommit]
+      Client.com_quit(client)
     end
 
     test "with stored procedure of multiple results", %{client: client} do
@@ -337,6 +363,8 @@ defmodule MyXQL.ClientTest do
 
       assert {:error, :multiple_results} =
                Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
+
+      Client.com_quit(client)
     end
   end
 

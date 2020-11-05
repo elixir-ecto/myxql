@@ -253,6 +253,11 @@ defmodule MyXQL.Protocol do
   # https://dev.mysql.com/doc/internals/en/prepared-statements.html
   #################################################################
 
+  # https://dev.mysql.com/doc/internals/en/com-quit.html
+  def encode_com(:com_quit) do
+    <<0x01>>
+  end
+
   # https://dev.mysql.com/doc/internals/en/com-ping.html
   def encode_com(:com_ping) do
     <<0x0E>>
