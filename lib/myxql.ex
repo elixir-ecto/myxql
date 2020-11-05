@@ -106,7 +106,7 @@ defmodule MyXQL do
     * `:after_connect` - A function to run after the connection has been established, either a
       1-arity fun, a `{module, function, args}` tuple, or `nil` (default: `nil`)
 
-    * `:pool` - The pool module to use (default: `DBConnection.ConnectionPool`)
+    * `:pool` - The pool module to use, defaults to built-in pool provided by DBconnection
 
     * `:pool_size` - The size of the pool
 
