@@ -1,10 +1,16 @@
 # Changelog
 
+## v0.4.4 (2020-11-05)
+
+Bug fixes:
+
+* Fix encoding empty params for prepared statements
+
 ## v0.4.3 (2020-09-22)
 
 Bug fixes:
 
-* Delete tables on disconnect
+* Delete ets tables on disconnect
 
 ## v0.4.2 (2020-09-11)
 
