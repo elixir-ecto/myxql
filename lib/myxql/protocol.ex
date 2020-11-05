@@ -390,7 +390,11 @@ defmodule MyXQL.Protocol do
     end
   end
 
-  def encode_params(params) do
+  def encode_params([]) do
+    <<>>
+  end
+
+  def encode_params(params) when is_list(params) do
     null_type = 0x06
 
     {count, null_bitmap, types, values} =
