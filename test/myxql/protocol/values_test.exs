@@ -194,7 +194,6 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_year", 1999)
       end
 
-      @tag bit: true
       test "MYSQL_TYPE_BIT", c do
         assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 1::1>>)
         assert_roundtrip(c, "my_bit3", <<1::1, 0::1, 0::1>>)
@@ -326,7 +325,7 @@ defmodule MyXQL.Protocol.ValueTest do
       @tag geometry: true
       test "MULTIPOINT", c do
         assert_roundtrip(c, "my_multipoint", %Geo.MultiPoint{
-          coordinates: [{1.0, 1.0}, {2.0, 2.0}]
+          coordinates: List.duplicate({1.0, 1.0}, 1024)
         })
       end
 

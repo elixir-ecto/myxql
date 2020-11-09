@@ -249,14 +249,6 @@ defmodule TestHelper do
   def excludes() do
     supported_auth_plugins = [:mysql_native_password, :sha256_password, :caching_sha2_password]
     available_auth_plugins = available_auth_plugins()
-    [%{"@@version" => version}] = mysql!("select @@version")
-    mariadb? = version =~ ~r"mariadb"i
-
-    mariadb_exclude = [
-      # for both bit and geometry, inserting with wire protocol does not work for some reason
-      bit: true,
-      geometry: true
-    ]
 
     exclude =
       for plugin <- supported_auth_plugins,
@@ -270,7 +262,6 @@ defmodule TestHelper do
     exclude = [{:json, not supports_json?()} | exclude]
     exclude = [{:geometry, not supports_geometry?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
-    exclude = if mariadb?, do: Keyword.merge(exclude, mariadb_exclude), else: exclude
     exclude
   end
 end

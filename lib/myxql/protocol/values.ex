@@ -235,7 +235,7 @@ defmodule MyXQL.Protocol.Values do
     size = bit_size(bitstring)
     pad = 8 - rem(size, 8)
     bitstring = <<0::size(pad), bitstring::bitstring>>
-    {:mysql_type_bit, encode_string_lenenc(bitstring)}
+    {:mysql_type_var_string, encode_string_lenenc(bitstring)}
   end
 
   def encode_binary_value(true) do
@@ -269,7 +269,7 @@ defmodule MyXQL.Protocol.Values do
     defp encode_geometry(geo) do
       srid = geo.srid || 0
       binary = %{geo | srid: nil} |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
-      {:mysql_type_geometry, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
+      {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
     end
   end
 
