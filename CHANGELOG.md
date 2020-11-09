@@ -1,5 +1,12 @@
 # Changelog
 
+## HEAD (unreleased)
+
+Bug fixes:
+
+* Send `MYSQL_TYPE_BIT` and `MYSQL_TYPE_GEOMETRY` as strings.
+  This fixes encoding these types on MariaDB and MySQL 8.0.22.
+
 ## v0.4.4 (2020-11-05)
 
 Bug fixes:
