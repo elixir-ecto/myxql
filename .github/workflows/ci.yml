@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install OTP and Elixir
-        uses: actions/setup-elixir@v1.4.2
+        uses: actions/setup-elixir@v1
         with:
           otp-version: "23.0"
           elixir-version: "1.10.3"
@@ -47,7 +47,7 @@ jobs:
       - run: docker run -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 --detach ${{matrix.db}} --innodb_log_file_size=1G
       - run: until mysql --port 3306 --protocol=tcp -u root -e "SELECT @@version;"; do sleep 3; done
       - uses: actions/checkout@v2
-      - uses: actions/setup-elixir@v1.3
+      - uses: actions/setup-elixir@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
           elixir-version: ${{matrix.pair.elixir}}
