@@ -1,6 +1,6 @@
 # Changelog
 
-## HEAD (unreleased)
+## v0.4.5 (2020-11-29)
 
 Bug fixes:
 
