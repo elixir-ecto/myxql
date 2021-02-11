@@ -45,7 +45,7 @@ defmodule MyXQL.MixProject do
 
   defp deps() do
     [
-      {:db_connection, "~> 2.0", db_connection_opts()},
+      {:db_connection, "~> 2.3", db_connection_opts()},
       {:decimal, "~> 1.6 or ~> 2.0"},
       {:jason, "~> 1.0", optional: true},
       {:geo, "~> 3.3", optional: true},
