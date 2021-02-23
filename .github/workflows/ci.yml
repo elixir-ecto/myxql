@@ -18,7 +18,7 @@ jobs:
           - mariadb:10.3
         pair:
           - elixir: 1.11.3
-            erlang: 23.2.5"
+            erlang: 23.2.5
         include:
           - db: mysql:8.0
             pair:
@@ -34,6 +34,7 @@ jobs:
       - run: sudo chmod 777 /var/run/mysqld
       - run: docker run -p 3306:3306 --volume /var/run/mysqld:/var/run/mysqld -e MYSQL_ALLOW_EMPTY_PASSWORD=1 --detach ${{matrix.db}} --innodb_log_file_size=1G
       - run: until mysql --port 3306 --protocol=tcp -u root -e "SELECT @@version;"; do sleep 3; done
+
       - uses: actions/checkout@v2
 
       - uses: erlef/setup-elixir@v1
