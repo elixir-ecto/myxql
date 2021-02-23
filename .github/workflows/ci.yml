@@ -19,6 +19,8 @@ jobs:
         pair:
           - elixir: 1.11.3
             erlang: 23.2.5
+        lint:
+          - false
         include:
           - db: mysql:8.0
             pair:
