@@ -18,17 +18,17 @@ jobs:
           - mariadb:10.3
         pair:
           - elixir: 1.11.3
-            erlang: 23.2.5
+            otp: 23.2.5
         include:
           - db: mysql:8.0
             pair:
               elixir: 1.11.3
-              erlang: 23.2.5
-            lint: true
+              otp: 23.2.5
+            lint: lint
           - db: mysql:8.0
             pair:
               elixir: 1.6.6
-              erlang: 19.3.6.13
+              otp: 19.3.6.13
     env:
       MIX_ENV: test
       DB: ${{matrix.db}}
@@ -43,7 +43,7 @@ jobs:
 
       - uses: erlef/setup-elixir@v1
         with:
-          otp-version: ${{matrix.pair.erlang}}
+          otp-version: ${{matrix.pair.otp}}
           elixir-version: ${{matrix.pair.elixir}}
 
       - name: Install Dependencies
