@@ -19,14 +19,16 @@ jobs:
         pair:
           - elixir: 1.11.3
             erlang: 23.2.5
-        lint:
-          - false
         include:
+          - db: mysql:8.0
+            pair:
+              elixir: 1.11.3
+              erlang: 23.2.5
+            lint: true
           - db: mysql:8.0
             pair:
               elixir: 1.6.6
               erlang: 19.3.6.13
-          - lint: true
     env:
       MIX_ENV: test
       DB: ${{matrix.db}}
