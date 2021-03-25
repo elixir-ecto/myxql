@@ -175,7 +175,6 @@ defmodule MyXQL do
   """
   @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
   def start_link(options) do
-    ensure_deps_started!(options)
     options = ensure_valid_error_codes!(options)
     DBConnection.start_link(MyXQL.Connection, options)
   end
@@ -564,21 +563,6 @@ defmodule MyXQL do
   end
 
   ## Helpers
-
-  defp ensure_deps_started!(opts) do
-    if Keyword.get(opts, :ssl, false) and
-         not List.keymember?(:application.which_applications(), :ssl, 0) do
-      raise """
-      SSL connection cannot be established because `:ssl` application is not started,
-      you can add it to `:extra_applications` in your `mix.exs`:
-
-          def application() do
-            [extra_applications: [:ssl]]
-          end
-
-      """
-    end
-  end
 
   defp ensure_valid_error_codes!(opts) do
     default_error_codes = [
