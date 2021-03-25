@@ -1,6 +1,9 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
 
+  # TODO: remove when we require Elixir v1.10+
+  require Bitwise
+
   # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html
   @spec mysql_native_password(binary(), binary()) :: binary()
   def mysql_native_password(password, auth_plugin_data) do
