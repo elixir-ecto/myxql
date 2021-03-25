@@ -96,7 +96,7 @@ defmodule MyXQL do
       the prepare statement count of your databases (such as using a dashboard or
       setting alarm handlers)
 
-    * `:disconnect_on_error_codes` - List of error code atoms that when encountered
+    * `:disconnect_on_error_codes` - List of error code integers or atoms that when encountered
       will disconnect the connection. See "Disconnecting on Errors" section below for more
       information.
 
@@ -129,11 +129,11 @@ defmodule MyXQL do
       iex> {:ok, pid} = MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
       {:ok, #PID<0.69.0>}
 
-  ## Disconnecting on Errors
+  ## Disconnecting on errors
 
-  Sometimes the connection becomes unusable. For example, some services, such as AWS Aurora,
-  support failover. This means the database you are currently connected to may suddenly become
-  read-only, and an attempt to do any write operation, such as INSERT/UPDATE/DELETE will lead to
+  Sometimes the connection becomes unusable. For example, services such as AWS Aurora support
+  failover which means the database you are currently connected to may suddenly become
+  read-only. An attempt to do any write operation, such as INSERT/UPDATE/DELETE will lead to
   errors such as:
 
       ** (MyXQL.Error) (1792) (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION) Cannot execute statement in a READ ONLY transaction.
@@ -147,10 +147,23 @@ defmodule MyXQL do
   MyXQL automatically disconnects the connection on the following error codes and they don't have
   to be configured:
 
-    * `ER_MAX_PREPARED_STMT_COUNT_REACHED`
+    * `:ER_MAX_PREPARED_STMT_COUNT_REACHED`
 
-  To convert error code number to error code name you can use `perror` command-line utility that
-  ships with MySQL client installation, e.g.:
+  You can pass error codes as integers too:
+
+      disconnect_on_error_codes: [1792]
+
+  ## Error codes
+
+  MyXQL maintains a mapping of atoms/integers for commonly used errors. You can add additional
+  ones by adding the following compile-time configuration:
+
+      config :myxql, :extra_error_codes, [
+        {1048, :ER_BAD_NULL_ERROR}
+      ]
+
+  To convert error code integers to names you can use `perror` command-line utility that ships
+  with MySQL client installation, e.g.:
 
       bash$ perror 1792
       MySQL error code 1792 (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION): Cannot execute statement in a READ ONLY transaction.
@@ -159,6 +172,7 @@ defmodule MyXQL do
   @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
   def start_link(options) do
     ensure_deps_started!(options)
+    options = ensure_valid_error_codes!(options)
     DBConnection.start_link(MyXQL.Connection, options)
   end
 
@@ -560,5 +574,30 @@ defmodule MyXQL do
 
       """
     end
+  end
+
+  defp ensure_valid_error_codes!(opts) do
+    default_error_codes = [
+      :ER_MAX_PREPARED_STMT_COUNT_REACHED
+    ]
+
+    codes = default_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
+
+    codes =
+      for code <- codes do
+        if is_integer(code) do
+          code
+        else
+          integer = MyXQL.Protocol.ServerErrorCodes.name_to_code(code)
+
+          unless integer do
+            raise "#{inspect(code)} is not a recognized error code"
+          end
+
+          code
+        end
+      end
+
+    Keyword.put(opts, :disconnect_on_error_codes, codes)
   end
 end

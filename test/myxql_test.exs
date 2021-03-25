@@ -132,7 +132,7 @@ defmodule MyXQLTest do
 
       assert_receive %DBConnection.LogEntry{query: %MyXQL.TextQuery{}}
 
-      assert {:error, %MyXQL.Error{mysql: %{code: 1295, name: :ER_UNSUPPORTED_PS}}} =
+      assert {:error, %MyXQL.Error{mysql: %{code: 1295}}} =
                MyXQL.query(c.conn, "BEGIN", [], query_type: :binary, log: log)
 
       assert_receive %DBConnection.LogEntry{query: %MyXQL.Query{}}
@@ -147,7 +147,7 @@ defmodule MyXQLTest do
       @protocol protocol
 
       test "#{@protocol}: invalid query", c do
-        assert {:error, %MyXQL.Error{mysql: %{name: :ER_BAD_FIELD_ERROR}}} =
+        assert {:error, %MyXQL.Error{mysql: %{code: 1054}}} =
                  MyXQL.query(c.conn, "SELECT bad", [], query_type: @protocol)
       end
 
@@ -355,7 +355,7 @@ defmodule MyXQLTest do
                  MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
                  assert_receive {:EXIT, ^pid, :killed}, 500
                end)
-             end) =~ "disconnected: ** (MyXQL.Error) (1062) (ER_DUP_ENTRY)"
+             end) =~ "disconnected: ** (MyXQL.Error) (1062) "
     end
   end
 
@@ -435,7 +435,7 @@ defmodule MyXQLTest do
         MyXQL.transaction(c.conn, fn conn ->
           assert DBConnection.status(conn) == :transaction
 
-          assert {:error, %MyXQL.Error{mysql: %{name: :ER_DUP_ENTRY}}} =
+          assert {:error, %MyXQL.Error{mysql: %{code: 1062}}} =
                    MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
 
           MyXQL.rollback(conn, reason)
@@ -547,7 +547,7 @@ defmodule MyXQLTest do
     end
 
     test "bad query", c do
-      assert_raise MyXQL.Error, ~r"\(1054\) \(ER_BAD_FIELD_ERROR\)", fn ->
+      assert_raise MyXQL.Error, ~r"\(1054\)", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, "SELECT bad")
           Enum.to_list(stream)

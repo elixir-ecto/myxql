@@ -252,7 +252,7 @@ defmodule TestHelper do
 
     exclude =
       for plugin <- supported_auth_plugins,
-          not (plugin in available_auth_plugins) do
+          plugin not in available_auth_plugins do
         {plugin, true}
       end
 
