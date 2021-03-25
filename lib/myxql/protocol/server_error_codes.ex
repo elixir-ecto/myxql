@@ -26,7 +26,7 @@ defmodule MyXQL.Protocol.ServerErrorCodes do
   # TODO: use Application.compile_env/3 when we require Elixir v1.10
   codes = codes ++ Application.get_env(:myxql, :extra_error_codes, [])
 
-  for {code, name} <- codes do
+  for {code, name} <- Enum.uniq(codes) do
     def name_to_code(unquote(name)), do: unquote(code)
 
     def code_to_name(unquote(code)), do: unquote(name)
