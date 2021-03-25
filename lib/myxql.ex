@@ -162,7 +162,7 @@ defmodule MyXQL do
         {1048, :ER_BAD_NULL_ERROR}
       ]
 
-After adding the configuration, MyXQL needs to be recompiled. It can be done with:
+  After adding the configuration, MyXQL needs to be recompiled. It can be done with:
 
     $ mix deps.clean myxql --build
 
