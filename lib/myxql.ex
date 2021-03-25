@@ -164,7 +164,7 @@ defmodule MyXQL do
 
   After adding the configuration, MyXQL needs to be recompiled. It can be done with:
 
-    $ mix deps.clean myxql --build
+      $ mix deps.clean myxql --build
 
   To convert error code integers to names you can use `perror` command-line utility that ships
   with MySQL client installation, e.g.:
