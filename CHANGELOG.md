@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0 (2021-03-25)
+
+Breaking changes:
+
+  * Replace the full list of error codes (which generated thousands of atoms) with just a handful
+    of common ones
+
+    Code that matched on `%MyXQL.Error{mysql: %{name: name}}` may break if the name is
+    not in the mapping as it won't match anymore.
+
+Enhancements:
+
+  * Allow users to set their own mapping via setting config `:myxql, extra_error_codes: [...]`
+
+  * Accept integers in `:disconnect_on_error_codes`
+
 ## v0.4.5 (2020-11-29)
 
 Bug fixes:

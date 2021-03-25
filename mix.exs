@@ -1,7 +1,7 @@
 defmodule MyXQL.MixProject do
   use Mix.Project
 
-  @version "0.4.5"
+  @version "0.5.0"
   @source_url "https://github.com/elixir-ecto/myxql"
 
   def project() do
