@@ -296,7 +296,7 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_json", %{})
         assert_roundtrip(c, "my_json", %{"a" => ["foo", 42]})
 
-        assert_raise MyXQL.Error, ~r/ER_INVALID_JSON_PATH/, fn ->
+        assert_raise MyXQL.Error, ~r"\(3143\)", fn ->
           query!(c, "SELECT JSON_EXTRACT('{\"a\": [1, 2]}', 'bad')")
         end
       end
@@ -417,7 +417,7 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp assert_out_of_range(c, field, value) do
     assert_raise MyXQL.Error,
-                 "(1264) (ER_WARN_DATA_OUT_OF_RANGE) Out of range value for column '#{field}' at row 1",
+                 ~r/\(1264\) Out of range value for column '#{field}' at row 1/,
                  fn ->
                    insert_and_get(c, field, value)
                  end

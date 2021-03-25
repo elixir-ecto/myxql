@@ -10,6 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-16.04
     strategy:
+      fail-fast: false
       matrix:
         db:
           - mysql:5.6

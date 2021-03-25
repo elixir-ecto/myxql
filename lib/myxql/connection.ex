@@ -5,10 +5,6 @@ defmodule MyXQL.Connection do
   import MyXQL.Protocol.{Flags, Records}
   alias MyXQL.{Client, Cursor, Query, Protocol, Result, TextQuery}
 
-  @disconnect_on_error_codes [
-    :ER_MAX_PREPARED_STMT_COUNT_REACHED
-  ]
-
   defstruct [
     :client,
     cursors: %{},
@@ -26,15 +22,12 @@ defmodule MyXQL.Connection do
     ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
     config = Client.Config.new(opts)
 
-    disconnect_on_error_codes =
-      @disconnect_on_error_codes ++ Keyword.get(opts, :disconnect_on_error_codes, [])
-
     case Client.connect(config) do
       {:ok, %Client{} = client} ->
         state = %__MODULE__{
           client: client,
           prepare: prepare,
-          disconnect_on_error_codes: disconnect_on_error_codes,
+          disconnect_on_error_codes: Keyword.fetch!(opts, :disconnect_on_error_codes),
           ping_timeout: ping_timeout,
           queries: queries_new()
         }
@@ -348,7 +341,7 @@ defmodule MyXQL.Connection do
 
   defp error(err_packet(code: code, message: message)) do
     name = Protocol.error_code_to_name(code)
-    %MyXQL.Error{message: "(#{code}) (#{name}) " <> message, mysql: %{code: code, name: name}}
+    %MyXQL.Error{mysql: %{code: code, name: name}, message: message}
   end
 
   defp error(reason) do
@@ -385,9 +378,9 @@ defmodule MyXQL.Connection do
   end
 
   defp maybe_disconnect(exception, state) do
-    %MyXQL.Error{mysql: %{name: error_name}} = exception
+    %MyXQL.Error{mysql: %{code: code}} = exception
 
-    if error_name in state.disconnect_on_error_codes do
+    if code in state.disconnect_on_error_codes do
       {:disconnect, exception, state}
     else
       {:error, exception, state}
