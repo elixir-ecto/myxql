@@ -155,7 +155,7 @@ defmodule MyXQL do
 
   ## Error codes
 
-  MyXQL maintains a mapping of atoms/integers for commonly used errors. You can add additional
+  MyXQL maintains a mapping of integers/atoms for commonly used errors. You can add additional
   ones by adding the following compile-time configuration:
 
       config :myxql, :extra_error_codes, [
@@ -595,7 +595,16 @@ defmodule MyXQL do
           integer = MyXQL.Protocol.ServerErrorCodes.name_to_code(code)
 
           unless integer do
-            raise "#{inspect(code)} is not a recognized error code"
+            raise """
+            #{inspect(code)} is not a recognized error code
+
+            To solve this, you can either:
+
+              - pass an integer error code
+
+              - make it recognizable by adding it to `config :myxql, extra_error_codes: [...]`
+                (See "Error codes" in MyXQL.start_link/1 documentation for more information).
+            """
           end
 
           integer
