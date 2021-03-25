@@ -544,9 +544,9 @@ defmodule MyXQL do
   Returns a supervisor child specification for a DBConnection pool.
   """
   @spec child_spec([start_option()]) :: :supervisor.child_spec()
-  def child_spec(opts) do
-    ensure_deps_started!(opts)
-    DBConnection.child_spec(MyXQL.Connection, opts)
+  def child_spec(options) do
+    options = ensure_valid_error_codes!(options)
+    DBConnection.child_spec(MyXQL.Connection, options)
   end
 
   @doc """
