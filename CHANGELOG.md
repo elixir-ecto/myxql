@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.1 (2021-03-25)
+
+Bug fixes:
+
+  * Fix compatibility on Elixir < 1.10
+
 ## v0.5.0 (2021-03-25)
 
 Breaking changes:
