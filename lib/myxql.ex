@@ -594,7 +594,7 @@ defmodule MyXQL do
             raise "#{inspect(code)} is not a recognized error code"
           end
 
-          code
+          integer
         end
       end
 
