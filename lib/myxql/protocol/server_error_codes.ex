@@ -17,7 +17,8 @@ defmodule MyXQL.Protocol.ServerErrorCodes do
     {1421, :ER_STMT_HAS_NO_OPEN_CURSOR},
     {1451, :ER_ROW_IS_REFERENCED_2},
     {1452, :ER_NO_REFERENCED_ROW_2},
-    {1461, :ER_MAX_PREPARED_STMT_COUNT_REACHED}
+    {1461, :ER_MAX_PREPARED_STMT_COUNT_REACHED},
+    {1792, :ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION}
   ]
 
   # TODO: use Application.compile_env/3 when we require Elixir v1.10
