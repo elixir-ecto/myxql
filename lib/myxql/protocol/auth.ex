@@ -1,8 +1,6 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
 
-  use Bitwise
-
   # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html
   @spec mysql_native_password(binary(), binary()) :: binary()
   def mysql_native_password(password, auth_plugin_data) do
@@ -58,8 +56,8 @@ defmodule MyXQL.Protocol.Auth do
     )
   end
 
-  defp bxor_binary(<<l::160>>, <<r::160>>), do: <<l ^^^ r::160>>
-  defp bxor_binary(<<l::256>>, <<r::256>>), do: <<l ^^^ r::256>>
+  defp bxor_binary(<<l::160>>, <<r::160>>), do: <<Bitwise.bxor(l, r)::160>>
+  defp bxor_binary(<<l::256>>, <<r::256>>), do: <<Bitwise.bxor(l, r)::256>>
 
   # Repeat str as needed and truncate final string to target_len
   # E.g. "foobar", 12 -> "foobarfoobar"
