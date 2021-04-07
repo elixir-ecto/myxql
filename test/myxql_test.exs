@@ -10,14 +10,16 @@ defmodule MyXQLTest do
       assert capture_log(fn ->
                opts = [ssl: true, ssl_opts: [ciphers: [:bad]]] ++ @opts
                assert_start_and_killed(opts)
-             end) =~ "** (DBConnection.ConnectionError) Invalid TLS option: {ciphers,[bad]}"
+             end) =~
+               "** (DBConnection.ConnectionError) (127.0.0.1:3306) Invalid TLS option: {ciphers,[bad]}"
     end
 
     test "connect with host down" do
       assert capture_log(fn ->
                opts = [port: 9999] ++ @opts
                assert_start_and_killed(opts)
-             end) =~ "(DBConnection.ConnectionError) connection refused"
+             end) =~
+               "(DBConnection.ConnectionError) (127.0.0.1:9999) connection refused - :econnrefused"
     end
 
     @tag requires_otp_19: true
@@ -56,7 +58,8 @@ defmodule MyXQLTest do
 
       assert capture_log(fn ->
                assert_start_and_killed(opts)
-             end) =~ "** (DBConnection.ConnectionError) no such file or directory \"/bad\""
+             end) =~
+               "** (DBConnection.ConnectionError) (/bad) no such file or directory - :enoent"
     end
 
     test "custom socket options" do

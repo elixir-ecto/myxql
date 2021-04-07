@@ -37,14 +37,14 @@ defmodule MyXQL.Connection do
       {:ok, err_packet() = err_packet} ->
         {:error, error(err_packet)}
 
-      {:error, :enoent} ->
-        exception = error(:enoent)
-        {:local, socket} = config.address
-        exception = %{exception | message: exception.message <> " #{inspect(socket)}"}
-        {:error, exception}
-
       {:error, reason} ->
-        {:error, error(reason)}
+        case config.address do
+          {:local, socket} ->
+            conn_error(socket, reason)
+
+          host ->
+            conn_error("#{host}:#{config.port}", reason)
+        end
     end
   end
 
@@ -328,6 +328,15 @@ defmodule MyXQL.Connection do
 
   defp result({:error, reason}, _query, state) do
     {:disconnect, error(reason), state}
+  end
+
+  defp conn_error(_address, err_packet() = packet) do
+    {:error, error(packet)}
+  end
+
+  defp conn_error(address, reason) do
+    message = "(#{address}) #{format_reason(reason)} - #{inspect(reason)}"
+    {:error, %DBConnection.ConnectionError{message: message}}
   end
 
   defp error(reason, %{statement: statement}, state) do
