@@ -19,6 +19,6 @@ defmodule MyXQL.Error do
   end
 
   def message(%{mysql: %{code: code, name: name}, message: message}) do
-    "(#{code}) (#{name})" <> message
+    "(#{code}) (#{name}) " <> message
   end
 end
