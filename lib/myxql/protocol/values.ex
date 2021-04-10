@@ -268,7 +268,7 @@ defmodule MyXQL.Protocol.Values do
   if Code.ensure_loaded?(Geo) do
     defp encode_geometry(geo) do
       srid = geo.srid || 0
-      binary = %{geo | srid: nil} |> Geo.WKB.encode!(:ndr) |> Base.decode16!()
+      binary = %{geo | srid: nil} |> Geo.WKB.encode_to_iodata(:ndr) |> IO.iodata_to_binary()
       {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
     end
   end
@@ -420,14 +420,14 @@ defmodule MyXQL.Protocol.Values do
     # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
     defp decode_geometry(<<srid::uint4, r::bits>>) do
       srid = if srid == 0, do: nil, else: srid
-      r |> Base.encode16() |> Geo.WKB.decode!() |> Map.put(:srid, srid)
+      r |> Geo.WKB.decode!() |> Map.put(:srid, srid)
     end
   else
     defp decode_geometry(_) do
       raise """
       encoding/decoding geometry types requires :geo package, add:
 
-          {:geo, "~> 3.3"}
+          {:geo, "~> 3.4"}
 
       to your mix.exs and run `mix deps.compile --force myxql`.
       """
