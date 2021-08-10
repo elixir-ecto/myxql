@@ -110,14 +110,10 @@ defmodule MyXQL.Connection do
           result_state(query)
         )
 
-      state =
+      {:ok, state} =
         case result do
-          {:ok, err_packet()} ->
-            {:ok, state} = close(query, state)
-            state
-
-          _ ->
-            state
+          {:ok, err_packet()} -> close(query, state)
+          _ -> {:ok, state}
         end
 
       result(result, query, state)
