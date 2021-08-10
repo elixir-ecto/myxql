@@ -25,7 +25,7 @@ defmodule MyXQL.SyncTest do
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
     assert prepared_stmt_count() == 1
 
-    MyXQL.query!(conn, "SELECT 1337", [], cache_statement: "69")
+    MyXQL.query!(conn, "SELECT 1337", [], cache_statement: "1337")
     assert prepared_stmt_count() == 2
 
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")

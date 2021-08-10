@@ -111,14 +111,10 @@ defmodule MyXQL.Connection do
           :cursor_type_no_cursor
         )
 
-      state =
+      {:ok, state} =
         case result do
-          {:ok, err_packet()} ->
-            {:ok, state} = close(query, state)
-            state
-
-          _ ->
-            state
+          {:ok, err_packet()} -> close(query, state)
+          _ -> {:ok, state}
         end
 
       result(result, query, state)
