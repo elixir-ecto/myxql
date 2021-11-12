@@ -60,11 +60,6 @@ defmodule MyXQL.Connection do
   end
 
   @impl true
-  def checkin(state) do
-    {:ok, state}
-  end
-
-  @impl true
   def handle_prepare(query, opts, state) do
     query = rename_query(state, query)
 
