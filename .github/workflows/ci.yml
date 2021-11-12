@@ -28,7 +28,7 @@ jobs:
             lint: lint
           - db: mysql:8.0
             pair:
-              elixir: 1.6.6
+              elixir: 1.7.4
               otp: 19.3.6.13
     env:
       MIX_ENV: test
