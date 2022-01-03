@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.2 (2022-01-03)
+
+* Use optimized `Geo.WKB` API
+* Update DBConnection
+* Require Elixir v1.7
+
 ## v0.5.1 (2021-03-25)
 
 Bug fixes:
