@@ -29,7 +29,7 @@ jobs:
           - db: mysql:8.0
             pair:
               elixir: 1.7.4
-              otp: 19.3.6.13
+              otp: 21.3.8.24
     env:
       MIX_ENV: test
       DB: ${{matrix.db}}
