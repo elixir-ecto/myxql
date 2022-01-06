@@ -374,6 +374,10 @@ defmodule MyXQL.ClientTest do
       {:ok, resultset(num_rows: 1, rows: [[3]])} =
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
+      # This will be called if, for instance, someone issues the procedure statement from Ecto.Adapters.SQL.query
+      {:ok, resultset(num_rows: 1, rows: [[3]])} =
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor)
+
       Client.com_quit(client)
     end
   end
