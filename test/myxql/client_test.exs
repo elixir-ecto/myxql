@@ -366,6 +366,16 @@ defmodule MyXQL.ClientTest do
 
       Client.com_quit(client)
     end
+
+    test "with stored procedure using a cursor", %{client: client} do
+      {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
+        Client.com_stmt_prepare(client, "CALL cursor_procedure()")
+
+      {:ok, resultset(num_rows: 1, rows: [[3]], status_flags: status_flags)} =
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
+
+      Client.com_quit(client)
+    end
   end
 
   describe "recv_packets/4" do

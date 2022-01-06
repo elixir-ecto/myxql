@@ -156,6 +156,31 @@ defmodule TestHelper do
       SELECT 2;
     END$$
     DELIMITER ;
+
+    DROP PROCEDURE IF EXISTS cursor_procedure;
+    DELIMITER $$
+    CREATE PROCEDURE cursor_procedure()
+    BEGIN
+      DECLARE finished BOOLEAN DEFAULT FALSE;
+      DECLARE test_var INT;
+      DECLARE test_cursor CURSOR FOR SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3;
+      DECLARE CONTINUE HANDLER FOR NOT FOUND SET finished = TRUE;
+
+      OPEN test_cursor;
+
+      test_loop: LOOP
+        FETCH test_cursor INTO test_var;
+
+        IF finished THEN
+          LEAVE test_loop;
+        END IF;
+      END LOOP;
+
+      CLOSE test_cursor;
+
+      SELECT test_var AS result;
+    END$$
+    DELIMITER ;
     """)
   end
 

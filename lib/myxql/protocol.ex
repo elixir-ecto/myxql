@@ -502,9 +502,7 @@ defmodule MyXQL.Protocol do
          {:column_defs_eof, column_defs},
          _row_decoder
        ) do
-    if has_status_flag?(status_flags, :server_status_cursor_exists) do
-      "" = next_data
-
+    if has_status_flag?(status_flags, :server_status_cursor_exists) and next_data == "" do
       {:halt,
        resultset(
          column_defs: column_defs,
