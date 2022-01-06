@@ -371,7 +371,7 @@ defmodule MyXQL.ClientTest do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
         Client.com_stmt_prepare(client, "CALL cursor_procedure()")
 
-      {:ok, resultset(num_rows: 1, rows: [[3]], status_flags: status_flags)} =
+      {:ok, resultset(num_rows: 1, rows: [[3]])} =
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       Client.com_quit(client)
