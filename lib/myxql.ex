@@ -286,9 +286,8 @@ defmodule MyXQL do
   Prepares a query to be later executed.
 
   To execute the query, call `execute/4`. To close the query, call `close/3`.
-  If a name is given, the name must be unique per query, as the name is cached
-  but the statement isn't. If a new statement is given to an old name, the old
-  statement will be closed.
+  If a name is given, the name must be unique per query, as the name is cached.
+  If a new statement uses an old name, the old statement will be closed.
 
   ## Options
 
