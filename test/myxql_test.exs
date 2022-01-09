@@ -227,18 +227,19 @@ defmodule MyXQLTest do
     end
 
     test "prepare and then execute with name", c do
-      {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? * ?")
+      {:ok, query1} = MyXQL.prepare(c.conn, "foo", "SELECT ? * ?")
 
-      assert query.num_params == 2
-      assert {:ok, _, result} = MyXQL.execute(c.conn, query, [2, 3])
+      assert query1.num_params == 2
+      assert {:ok, _, result} = MyXQL.execute(c.conn, query1, [2, 3])
       assert result.rows == [[6]]
 
-      # If we prepare it again, it won't make a difference if the name is the same
-      {:ok, query} = MyXQL.prepare(c.conn, "foo", "SELECT ? + ?")
+      # If we prepare it again with the same name it will use the new statement
+      {:ok, query2} = MyXQL.prepare(c.conn, "foo", "SELECT ? + ?")
 
-      assert query.num_params == 2
-      assert {:ok, _, result} = MyXQL.execute(c.conn, query, [2, 3])
-      assert result.rows == [[6]]
+      assert query2.num_params == 2
+      assert {:ok, _, result} = MyXQL.execute(c.conn, query2, [2, 3])
+      assert result.rows == [[5]]
+      assert query1.ref != query2.ref
     end
 
     test "query is re-prepared if executed after being closed", c do
@@ -279,6 +280,16 @@ defmodule MyXQLTest do
       {:ok, query2, %{rows: [[42]]}} = MyXQL.execute(conn2, query1, [])
       assert query1.ref != query2.ref
       assert query1.statement_id != query2.statement_id
+    end
+
+    test "prepare and then query with the same name", c do
+      {:ok, _query} = MyXQL.prepare(c.conn, "foo", "SELECT 42")
+      {:ok, %{rows: [[24]]}} = MyXQL.query(c.conn, "SELECT 24", [], cache_statement: "foo")
+    end
+
+    test "query and then prepare_execute with the same name", c do
+      {:ok, %{rows: [[24]]}} = MyXQL.query(c.conn, "SELECT 24", [], cache_statement: "foo")
+      {:ok, _query, %{rows: [[42]]}} = MyXQL.prepare_execute(c.conn, "foo", "SELECT 42")
     end
 
     # This test is just describing existing behaviour, we may want to change it in the future.
