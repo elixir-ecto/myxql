@@ -503,10 +503,7 @@ defmodule MyXQL.Connection do
     } = query
 
     try do
-      :ets.insert(
-        state.queries,
-        {name, {statement, num_params, statement_id, ref}, ref}
-      )
+      :ets.insert(state.queries, {name, {statement, num_params, statement_id, ref}, ref})
     rescue
       ArgumentError ->
         :ok
