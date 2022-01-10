@@ -556,6 +556,7 @@ defmodule MyXQL.Connection do
         :ets.delete(state.queries, name)
         nil
 
+      # :reference query already prepared
       [{_name, statement_id, _ref}] ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
