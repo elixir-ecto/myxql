@@ -478,14 +478,13 @@ defmodule MyXQL.Connection do
 
   defp queries_put(state, %Query{cache: :reference} = query) do
     %{
-      num_params: num_params,
       statement_id: statement_id,
       ref: ref,
       name: name
     } = query
 
     try do
-      :ets.insert(state.queries, {name, {num_params, statement_id, ref}})
+      :ets.insert(state.queries, {name, statement_id, ref})
     rescue
       ArgumentError ->
         :ok
@@ -504,7 +503,10 @@ defmodule MyXQL.Connection do
     } = query
 
     try do
-      :ets.insert(state.queries, {name, {statement, num_params, statement_id, ref}})
+      :ets.insert(
+        state.queries,
+        {name, {statement, num_params, statement_id, ref}, ref}
+      )
     rescue
       ArgumentError ->
         :ok
@@ -535,14 +537,14 @@ defmodule MyXQL.Connection do
     rescue
       ArgumentError -> nil
     else
-      # :reference query already prepared
-      {_num_params, statement_id, _ref} ->
+      # statement query already prepared
+      {_statement, _num_params, statement_id, _ref} ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
 
-      # statement query already prepared
-      {_statement, _num_params, statement_id, _ref} ->
+      # :reference query already prepared
+      statement_id ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
@@ -565,7 +567,7 @@ defmodule MyXQL.Connection do
         nil
 
       # :reference query already prepared
-      {_num_params, statement_id, _ref} ->
+      statement_id ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
@@ -577,12 +579,11 @@ defmodule MyXQL.Connection do
 
   defp query_member?(%{queries: queries}, %Query{name: name, ref: ref}) do
     try do
-      :ets.lookup_element(queries, name, 2)
+      :ets.lookup_element(queries, name, 3)
     rescue
       ArgumentError -> false
     else
-      {_statement, _num_params, _statement_id, ^ref} -> true
-      {_num_params, _statement_id, ^ref} -> true
+      ^ref -> true
       _ -> false
     end
   end
