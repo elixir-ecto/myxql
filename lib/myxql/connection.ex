@@ -503,7 +503,7 @@ defmodule MyXQL.Connection do
     } = query
 
     try do
-      :ets.insert(state.queries, {name, {statement, num_params, statement_id, ref}, ref})
+      :ets.insert(state.queries, {name, statement_id, ref, statement, num_params})
     rescue
       ArgumentError ->
         :ok
@@ -534,13 +534,6 @@ defmodule MyXQL.Connection do
     rescue
       ArgumentError -> nil
     else
-      # statement query already prepared
-      {_statement, _num_params, statement_id, _ref} ->
-        Client.com_stmt_close(state.client, statement_id)
-        :ets.delete(state.queries, name)
-        nil
-
-      # :reference query already prepared
       statement_id ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
@@ -550,23 +543,25 @@ defmodule MyXQL.Connection do
 
   defp queries_get(state, %Query{cache: :statement, name: name, statement: statement} = query) do
     try do
-      :ets.lookup_element(state.queries, name, 2)
+      :ets.lookup(state.queries, name)
     rescue
       ArgumentError -> nil
     else
       # :statement query already prepared
-      {^statement, num_params, statement_id, ref} ->
+      [{_name, statement_id, ref, ^statement, num_params}] ->
         %{query | num_params: num_params, statement_id: statement_id, ref: ref}
 
-      {_statement, _num_params, statement_id, _ref} ->
+      [{_name, statement_id, _ref, _statement, _num_params}] ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
 
-      # :reference query already prepared
-      statement_id ->
+      [{_name, statement_id, _ref}] ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
+        nil
+
+      [] ->
         nil
     end
   end
