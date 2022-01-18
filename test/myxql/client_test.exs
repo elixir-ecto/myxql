@@ -382,7 +382,7 @@ defmodule MyXQL.ClientTest do
     end
   end
 
-  describe "recv_packets/4" do
+  describe "recv_packets/5" do
     test "simple" do
       %{port: port} =
         start_fake_server(fn %{accept_socket: sock} ->
@@ -394,7 +394,7 @@ defmodule MyXQL.ClientTest do
       end
 
       {:ok, client} = Client.do_connect(Client.Config.new(port: port))
-      assert Client.recv_packets(client, decoder, :initial) == {:ok, "foo"}
+      assert Client.recv_packets(client, decoder, :initial, :single) == {:ok, "foo"}
     end
   end
 

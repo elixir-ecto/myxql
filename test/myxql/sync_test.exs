@@ -79,6 +79,17 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 0
   end
 
+  test "do not leak with single and multiple result queries using the same name" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    assert prepared_stmt_count() == 0
+
+    {:ok, _} = MyXQL.prepare_many(conn, "foo", "CALL multi_procedure()")
+    assert prepared_stmt_count() == 1
+
+    {:ok, _} = MyXQL.prepare(conn, "foo", "SELECT 42")
+    assert prepared_stmt_count() == 1
+  end
+
   defp prepared_stmt_count() do
     [%{"Value" => count}] = TestHelper.mysql!("show global status like 'Prepared_stmt_count'")
     String.to_integer(count)

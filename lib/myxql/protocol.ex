@@ -162,6 +162,7 @@ defmodule MyXQL.Protocol do
         :client_secure_connection,
         :client_found_rows,
         :client_multi_results,
+        :client_multi_statements,
         # set by servers since 4.0
         :client_transactions
       ])
@@ -481,6 +482,26 @@ defmodule MyXQL.Protocol do
     )
   end
 
+  def decode_more_results(payload, "", resultset, result_state) do
+    ok_packet(status_flags: status_flags) = decode_generic_response(payload)
+
+    case result_state do
+      :single ->
+        {:halt, resultset(resultset, status_flags: status_flags)}
+
+      {:many, results} ->
+        {:halt, [resultset(resultset, status_flags: status_flags) | results]}
+    end
+  end
+
+  def decode_more_results(_payload, _next_data, _resultset, :single) do
+    {:error, :multiple_results}
+  end
+
+  def decode_more_results(_payload, _next_data, resultset, {:many, results}) do
+    {:cont, :initial, {:many, [resultset | results]}}
+  end
+
   defp decode_resultset(payload, _next_data, :initial, _row_decoder) do
     {:cont, {:column_defs, decode_int_lenenc(payload), []}}
   end
@@ -535,7 +556,7 @@ defmodule MyXQL.Protocol do
       )
 
     if has_status_flag?(status_flags, :server_more_results_exists) do
-      {:cont, {:trailing_ok_packet, resultset}}
+      {:cont, {:more_results, resultset}}
     else
       {:halt, resultset}
     end
@@ -548,14 +569,5 @@ defmodule MyXQL.Protocol do
   defp decode_resultset(payload, _next_data, {:rows, column_defs, num_rows, acc}, row_decoder) do
     row = row_decoder.(payload, column_defs)
     {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
-  end
-
-  defp decode_resultset(payload, "", {:trailing_ok_packet, resultset}, _row_decoder) do
-    ok_packet(status_flags: status_flags) = decode_generic_response(payload)
-    {:halt, resultset(resultset, status_flags: status_flags)}
-  end
-
-  defp decode_resultset(_payload, _next_data, {:trailing_ok_packet, _resultset}, _row_decoder) do
-    {:error, :multiple_results}
   end
 end
