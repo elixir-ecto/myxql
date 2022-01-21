@@ -102,27 +102,27 @@ defmodule MyXQL.Client do
     end
   end
 
-  def com_query(client, statement) do
+  def com_query(client, statement, result_state \\ :single) do
     with :ok <- send_com(client, {:com_query, statement}) do
-      recv_packets(client, &decode_com_query_response/3, :initial)
+      recv_packets(client, &decode_com_query_response/3, :initial, result_state)
     end
   end
 
   def com_stmt_prepare(client, statement) do
     with :ok <- send_com(client, {:com_stmt_prepare, statement}) do
-      recv_packets(client, &decode_com_stmt_prepare_response/3, :initial)
+      recv_packets(client, &decode_com_stmt_prepare_response/3, :initial, :single)
     end
   end
 
-  def com_stmt_execute(client, statement_id, params, cursor_type) do
+  def com_stmt_execute(client, statement_id, params, cursor_type, result_state \\ :single) do
     with :ok <- send_com(client, {:com_stmt_execute, statement_id, params, cursor_type}) do
-      recv_packets(client, &decode_com_stmt_execute_response/3, :initial)
+      recv_packets(client, &decode_com_stmt_execute_response/3, :initial, result_state)
     end
   end
 
   def com_stmt_fetch(client, statement_id, column_defs, max_rows) do
     with :ok <- send_com(client, {:com_stmt_fetch, statement_id, max_rows}) do
-      recv_packets(client, &decode_com_stmt_fetch_response/3, {:initial, column_defs})
+      recv_packets(client, &decode_com_stmt_fetch_response/3, {:initial, column_defs}, :single)
     end
   end
 
@@ -171,13 +171,13 @@ defmodule MyXQL.Client do
   def recv_packet(client, decoder, timeout \\ :infinity) do
     # even if next packet follows, ignore it
     new_decoder = fn payload, _next_packet, nil -> {:halt, decoder.(payload)} end
-    recv_packets(client, new_decoder, nil, timeout)
+    recv_packets(client, new_decoder, nil, :single, timeout)
   end
 
-  def recv_packets(client, decoder, decoder_state, timeout \\ :infinity) do
+  def recv_packets(client, decoder, decoder_state, result_state, timeout \\ :infinity) do
     case recv_data(client, timeout) do
       {:ok, data} ->
-        recv_packets(data, decoder, decoder_state, timeout, client)
+        recv_packets(data, decoder, decoder_state, result_state, timeout, client)
 
       {:error, _} = error ->
         error
@@ -190,12 +190,35 @@ defmodule MyXQL.Client do
 
   ## Internals
 
-  defp recv_packets(data, decode, decoder_state, timeout, client, partial \\ <<>>)
+  defp recv_packets(data, decode, decoder_state, result_state, timeout, client, partial \\ <<>>)
+
+  defp recv_packets(
+         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>> = data,
+         decoder,
+         {:more_results, resultset},
+         result_state,
+         timeout,
+         client,
+         partial
+       )
+       when size < @default_max_packet_size do
+    case decode_more_results(<<partial::binary, payload::binary>>, rest, resultset, result_state) do
+      {:cont, decoder_state, result_state} ->
+        recv_packets(data, decoder, decoder_state, result_state, timeout, client, partial)
+
+      {:halt, result} ->
+        {:ok, result}
+
+      {:error, _} = error ->
+        error
+    end
+  end
 
   defp recv_packets(
          <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
+         result_state,
          timeout,
          client,
          partial
@@ -203,10 +226,13 @@ defmodule MyXQL.Client do
        when size < @default_max_packet_size do
     case decoder.(<<partial::binary, payload::binary>>, rest, decoder_state) do
       {:cont, decoder_state} ->
-        recv_packets(rest, decoder, decoder_state, timeout, client)
+        recv_packets(rest, decoder, decoder_state, result_state, timeout, client)
 
       {:halt, result} ->
-        {:ok, result}
+        case result_state do
+          :single -> {:ok, result}
+          {:many, results} -> {:ok, [result | results]}
+        end
 
       {:error, _} = error ->
         error
@@ -219,6 +245,7 @@ defmodule MyXQL.Client do
          <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
+         result_state,
          timeout,
          client,
          partial
@@ -228,6 +255,7 @@ defmodule MyXQL.Client do
       rest,
       decoder,
       decoder_state,
+      result_state,
       timeout,
       client,
       <<partial::binary, payload::binary>>
@@ -235,13 +263,14 @@ defmodule MyXQL.Client do
   end
 
   # If we didn't match on a full packet, receive more data and try again
-  defp recv_packets(rest, decoder, decoder_state, timeout, client, partial) do
+  defp recv_packets(rest, decoder, decoder_state, result_state, timeout, client, partial) do
     case recv_data(client, timeout) do
       {:ok, data} ->
         recv_packets(
           <<rest::binary, data::binary>>,
           decoder,
           decoder_state,
+          result_state,
           timeout,
           client,
           partial

@@ -3,7 +3,7 @@ defmodule MyXQL.Connection do
 
   use DBConnection
   import MyXQL.Protocol.{Flags, Records}
-  alias MyXQL.{Client, Cursor, Query, Protocol, Result, TextQuery}
+  alias MyXQL.{Client, Cursor, Query, Queries, Protocol, Result, TextQuery, TextQueries}
 
   defstruct [
     :client,
@@ -85,14 +85,25 @@ defmodule MyXQL.Connection do
   end
 
   @impl true
-  def handle_execute(%Query{} = query, params, _opts, state) do
+  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
+    Client.com_query(state.client, statement, result_state(query))
+    |> result(query, state)
+  end
+
+  def handle_execute(%TextQueries{statement: statement} = query, [], _opts, state) do
+    Client.com_query(state.client, statement, result_state(query))
+    |> result(query, state)
+  end
+
+  def handle_execute(query, params, _opts, state) do
     with {:ok, query, state} <- maybe_reprepare(query, state) do
       result =
         Client.com_stmt_execute(
           state.client,
           query.statement_id,
           params,
-          :cursor_type_no_cursor
+          :cursor_type_no_cursor,
+          result_state(query)
         )
 
       with {:ok, state} <- maybe_close(query, state) do
@@ -101,13 +112,8 @@ defmodule MyXQL.Connection do
     end
   end
 
-  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
-    Client.com_query(state.client, statement)
-    |> result(query, state)
-  end
-
   @impl true
-  def handle_close(%Query{} = query, _opts, state) do
+  def handle_close(query, _opts, state) do
     with {:ok, state} <- close(query, state) do
       {:ok, nil, state}
     end
@@ -312,13 +318,47 @@ defmodule MyXQL.Connection do
     {:ok, query, result, put_status(state, status_flags)}
   end
 
+  defp result({:ok, resultsets}, query, state) when is_list(resultsets) do
+    {results, status_flags} =
+      Enum.reduce(resultsets, {[], nil}, fn resultset, {results, newest_status_flags} ->
+        resultset(
+          column_defs: column_defs,
+          num_rows: num_rows,
+          rows: rows,
+          status_flags: status_flags,
+          num_warnings: num_warnings
+        ) = resultset
+
+        columns = Enum.map(column_defs, &elem(&1, 1))
+
+        result = %Result{
+          connection_id: state.client.connection_id,
+          columns: columns,
+          num_rows: num_rows,
+          rows: rows,
+          num_warnings: num_warnings
+        }
+
+        # Keep status flags from the last query. The resultsets
+        # are given to this function in reverse order, so it is the first one.
+        if newest_status_flags do
+          {[result | results], newest_status_flags}
+        else
+          {[result | results], status_flags}
+        end
+      end)
+
+    {:ok, query, results, put_status(state, status_flags)}
+  end
+
   defp result({:ok, err_packet() = err_packet}, query, state) do
     exception = error(err_packet, query, state)
     maybe_disconnect(exception, state)
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
-    raise RuntimeError, "returning multiple results is not yet supported"
+    raise RuntimeError,
+          "returning multiple results is not supported from this function. Use MyXQL.query_many/4 and similar functions."
   end
 
   defp result({:error, reason}, _query, state) do
@@ -423,8 +463,8 @@ defmodule MyXQL.Connection do
   defp rename_query(%{prepare: :unnamed}, query),
     do: %{query | name: ""}
 
-  defp prepare(%Query{statement: statement} = query, state) do
-    case Client.com_stmt_prepare(state.client, statement) do
+  defp prepare(query, state) do
+    case Client.com_stmt_prepare(state.client, query.statement) do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id, num_params: num_params)} ->
         ref = make_ref()
         query = %{query | num_params: num_params, statement_id: statement_id, ref: ref}
@@ -451,7 +491,7 @@ defmodule MyXQL.Connection do
   end
 
   # Close unnamed queries after executing them
-  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
+  defp maybe_close(%{name: ""} = query, state), do: close(query, state)
   defp maybe_close(_query, state), do: {:ok, state}
 
   defp close(%{ref: ref} = query, %{last_ref: ref} = state) do
@@ -469,14 +509,19 @@ defmodule MyXQL.Connection do
     end
   end
 
+  defp result_state(%TextQuery{}), do: :single
+  defp result_state(%TextQueries{}), do: {:many, []}
+  defp result_state(%Query{}), do: :single
+  defp result_state(%Queries{}), do: {:many, []}
+
   ## Cache query handling
 
   defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
 
   defp queries_put(%{queries: nil}, _), do: :ok
-  defp queries_put(_state, %Query{name: ""}), do: :ok
+  defp queries_put(_state, %{name: ""}), do: :ok
 
-  defp queries_put(state, %Query{cache: :reference} = query) do
+  defp queries_put(state, %{cache: :reference} = query) do
     %{
       statement_id: statement_id,
       ref: ref,
@@ -493,7 +538,7 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_put(state, %Query{cache: :statement} = query) do
+  defp queries_put(state, %{cache: :statement} = query) do
     %{
       num_params: num_params,
       statement_id: statement_id,
@@ -513,9 +558,9 @@ defmodule MyXQL.Connection do
   end
 
   defp queries_delete(%{queries: nil}, _), do: :ok
-  defp queries_delete(_state, %Query{name: ""}), do: :ok
+  defp queries_delete(_state, %{name: ""}), do: :ok
 
-  defp queries_delete(state, %Query{name: name}) do
+  defp queries_delete(state, %{name: name}) do
     try do
       :ets.delete(state.queries, name)
     rescue
@@ -526,9 +571,9 @@ defmodule MyXQL.Connection do
   end
 
   defp queries_get(%{queries: nil}, _), do: nil
-  defp queries_get(_state, %Query{name: ""}), do: nil
+  defp queries_get(_state, %{name: ""}), do: nil
 
-  defp queries_get(state, %Query{cache: :reference, name: name}) do
+  defp queries_get(state, %{cache: :reference, name: name}) do
     try do
       :ets.lookup_element(state.queries, name, 2)
     rescue
@@ -541,7 +586,7 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_get(state, %Query{cache: :statement, name: name, statement: statement} = query) do
+  defp queries_get(state, %{cache: :statement, name: name, statement: statement} = query) do
     try do
       :ets.lookup(state.queries, name)
     rescue
@@ -570,7 +615,7 @@ defmodule MyXQL.Connection do
   defp query_member?(%{queries: nil}, _), do: false
   defp query_member?(_, %{name: ""}), do: false
 
-  defp query_member?(%{queries: queries}, %Query{name: name, ref: ref}) do
+  defp query_member?(%{queries: queries}, %{name: name, ref: ref}) do
     try do
       :ets.lookup_element(queries, name, 3)
     rescue

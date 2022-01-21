@@ -186,7 +186,7 @@ defmodule MyXQL do
   end
 
   @doc """
-  Runs a query.
+  Runs a query that returns a single result.
 
   ## Text queries and prepared statements
 
@@ -239,36 +239,27 @@ defmodule MyXQL do
   @spec query(conn, iodata, list, [query_option()]) ::
           {:ok, MyXQL.Result.t()} | {:error, Exception.t()}
   def query(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
-    if name = Keyword.get(options, :cache_statement) do
-      statement = IO.iodata_to_binary(statement)
-      query = %MyXQL.Query{name: name, statement: statement, cache: :statement}
+    name = options[:cache_statement]
+    query_type = options[:query_type] || :binary
 
-      DBConnection.prepare_execute(conn, query, params, options)
-      |> query_result()
-    else
-      do_query(conn, statement, params, options)
+    cond do
+      name != nil ->
+        statement = IO.iodata_to_binary(statement)
+        query = %MyXQL.Query{name: name, statement: statement, cache: :statement}
+        do_query(conn, query, params, options)
+
+      query_type in [:binary, :binary_then_text] ->
+        query = %MyXQL.Query{name: "", statement: statement}
+        do_query(conn, query, params, options)
+
+      query_type == :text ->
+        query = %MyXQL.TextQuery{statement: statement}
+        do_query(conn, query, params, options)
     end
   end
-
-  defp do_query(conn, statement, params, options) do
-    case Keyword.get(options, :query_type, :binary) do
-      :binary ->
-        prepare_execute(conn, "", statement, params, options)
-
-      :binary_then_text ->
-        prepare_execute(conn, "", statement, params, options)
-
-      :text ->
-        DBConnection.execute(conn, %MyXQL.TextQuery{statement: statement}, params, options)
-    end
-    |> query_result()
-  end
-
-  defp query_result({:ok, _query, result}), do: {:ok, result}
-  defp query_result({:error, _} = error), do: error
 
   @doc """
-  Runs a query.
+  Runs a query that returns a single result.
 
   Returns `%MyXQL.Result{}` on success, or raises an exception if there was an error.
 
@@ -283,7 +274,90 @@ defmodule MyXQL do
   end
 
   @doc """
-  Prepares a query to be later executed.
+  Runs a query that returns multiple results.
+
+  A query may return multiple results if it is a text
+  query with statements separated by semicolons or a stored
+  procedure. Any prepared statement that is not a stored
+  procedure is not allowed to return multiple results and will
+  return an error.
+
+  For more information on text queries and prepared statements,
+  see `query/4`.
+
+  ## Options
+
+    * `:query_type` - Use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
+      executing a binary query and if that fails fallback to executing a text query, and `:text` for text protocol
+      (default: `:binary`).
+
+    * `:cache_statement` - Caches the query with the given name. If the cache statement
+      name is reused with a different statement, the previous query is automatically closed.
+
+  Options are passed to `DBConnection.execute/4` for text protocol, and
+  `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
+  options.
+
+  ## Examples
+
+      iex> MyXQL.query_many(conn, "SELECT 1; SELECT 2;", [], query_type: :text)
+      {:ok, [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}]}
+
+  """
+  @spec query_many(conn, iodata, list, [query_option()]) ::
+          {:ok, [MyXQL.Result.t()]} | {:error, Exception.t()}
+  def query_many(conn, statement, params \\ [], options \\ []) when is_iodata(statement) do
+    name = options[:cache_statement]
+    query_type = options[:query_type] || :binary
+
+    cond do
+      name != nil ->
+        statement = IO.iodata_to_binary(statement)
+        query = %MyXQL.Queries{name: name, statement: statement, cache: :statement}
+        do_query(conn, query, params, options)
+
+      query_type in [:binary, :binary_then_text] ->
+        query = %MyXQL.Queries{name: "", statement: statement}
+        do_query(conn, query, params, options)
+
+      query_type == :text ->
+        query = %MyXQL.TextQueries{statement: statement}
+        do_query(conn, query, params, options)
+    end
+  end
+
+  @doc """
+  Runs a query that returns multiple results.
+
+  Returns `[%MyXQL.Result{}]` on success, or raises an exception if there was an error.
+
+  See `query_many/4`.
+  """
+  @spec query_many!(conn, iodata, list, [query_option()]) :: [MyXQL.Result.t()]
+  def query_many!(conn, statement, params \\ [], opts \\ []) do
+    case query_many(conn, statement, params, opts) do
+      {:ok, result} -> result
+      {:error, exception} -> raise exception
+    end
+  end
+
+  defp do_query(conn, %MyXQL.Query{} = query, params, options),
+    do: DBConnection.prepare_execute(conn, query, params, options) |> query_result()
+
+  defp do_query(conn, %MyXQL.TextQuery{} = query, params, options),
+    do: DBConnection.execute(conn, query, params, options) |> query_result()
+
+  defp do_query(conn, %MyXQL.Queries{} = query, params, options),
+    do: DBConnection.prepare_execute(conn, query, params, options) |> query_result()
+
+  defp do_query(conn, %MyXQL.TextQueries{} = query, params, options),
+    do: DBConnection.execute(conn, query, params, options) |> query_result()
+
+  defp query_result({:ok, _query, result}), do: {:ok, result}
+  defp query_result({:error, _} = error), do: error
+
+  @doc """
+  Prepares a query that returns a single result to be later executed.
 
   To execute the query, call `execute/4`. To close the query, call `close/3`.
   If a name is given, the name must be unique per query, as the name is cached.
@@ -310,7 +384,7 @@ defmodule MyXQL do
   end
 
   @doc """
-  Prepares a query.
+  Prepares a query that returns a single result.
 
   Returns `%MyXQL.Query{}` on success, or raises an exception if there was an error.
 
@@ -323,12 +397,55 @@ defmodule MyXQL do
   end
 
   @doc """
-  Prepares and executes a query in a single step.
+  Prepares a query that returns multiple results to be later executed.
 
-  ## Multiple results
+  A prepared statement may return multiple results if it is a stored procedure.
+  Any other type of prepared statement is not allowed to return multiple results
+  and will return an error.
 
-  If a query returns multiple results (e.g. it's calling a procedure that returns multiple results)
-  an error is raised. If a query may return multiple results it's recommended to use `stream/4` instead.
+  To execute the query, call `execute_many/4`. To close the query, call `close/3`.
+  If a name is given, the name must be unique per query, as the name is cached.
+  If a new statement uses an old name, the old statement will be closed.
+
+  ## Options
+
+  Options are passed to `DBConnection.prepare/3`, see it's documentation for
+  all available options.
+
+  ## Examples
+
+      iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query, [2, 3])
+      iex> row1
+      [2]
+      iex> row2
+      [3]
+
+  """
+  @spec prepare_many(conn(), iodata(), iodata(), [option()]) ::
+          {:ok, MyXQL.Queries.t()} | {:error, Exception.t()}
+  def prepare_many(conn, name, statement, opts \\ [])
+      when is_iodata(name) and is_iodata(statement) do
+    query = %MyXQL.Queries{name: name, statement: statement}
+    DBConnection.prepare(conn, query, opts)
+  end
+
+  @doc """
+  Prepares a query that returns multiple results.
+
+  Returns `%MyXQL.Queries{}` on success, or raises an exception if there was an error.
+
+  See `prepare_many/4`.
+  """
+  @spec prepare_many!(conn(), iodata(), iodata(), [option()]) :: MyXQL.Queries.t()
+  def prepare_many!(conn, name, statement, opts \\ [])
+      when is_iodata(name) and is_iodata(statement) do
+    query = %MyXQL.Queries{name: name, statement: statement}
+    DBConnection.prepare!(conn, query, opts)
+  end
+
+  @doc """
+  Prepares and executes a query that returns a single result, in a single step.
 
   ## Options
 
@@ -351,7 +468,7 @@ defmodule MyXQL do
   end
 
   @doc """
-  Prepares and executes a query in a single step.
+  Prepares and executes a query that returns a single result, in a single step.
 
   Returns `{%MyXQL.Query{}, %MyXQL.Result{}}` on success, or raises an exception if there was
   an error.
@@ -367,7 +484,52 @@ defmodule MyXQL do
   end
 
   @doc """
-  Executes a prepared query.
+  Prepares and executes a query that returns multiple results, in a single step.
+
+  A prepared statement may return multiple results if it is a stored procedure.
+  Any other type of prepared statement is not allowed to return multiple results
+  and will return an error.
+
+  ## Options
+
+  Options are passed to `DBConnection.prepare_execute/4`, see it's documentation for
+  all available options.
+
+  ## Examples
+
+      iex> {:ok, _, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.prepare_execute(conn, "", "CALL multi_procedure()")
+      iex> row1
+      [2]
+      iex> row2
+      [3]
+
+  """
+  @spec prepare_execute_many(conn, iodata, iodata, list, keyword()) ::
+          {:ok, MyXQL.Queries.t(), [MyXQL.Result.t()]} | {:error, Exception.t()}
+  def prepare_execute_many(conn, name, statement, params \\ [], opts \\ [])
+      when is_iodata(name) and is_iodata(statement) do
+    query = %MyXQL.Queries{name: name, statement: statement}
+    DBConnection.prepare_execute(conn, query, params, opts)
+  end
+
+  @doc """
+  Prepares and executes a query that returns multiple results, in a single step.
+
+  Returns `{%MyXQL.Queries{}, [%MyXQL.Result{}]}` on success, or raises an exception if there was
+  an error.
+
+  See: `prepare_execute_many/5`.
+  """
+  @spec prepare_execute_many!(conn, iodata, iodata, list, [option()]) ::
+          {MyXQL.Queries.t(), [MyXQL.Result.t()]}
+  def prepare_execute_many!(conn, name, statement, params \\ [], opts \\ [])
+      when is_iodata(name) and is_iodata(statement) do
+    query = %MyXQL.Queries{name: name, statement: statement}
+    DBConnection.prepare_execute!(conn, query, params, opts)
+  end
+
+  @doc """
+  Executes a prepared query that returns a single result.
 
   ## Options
 
@@ -384,17 +546,57 @@ defmodule MyXQL do
   """
   @spec execute(conn(), MyXQL.Query.t(), list(), [option()]) ::
           {:ok, MyXQL.Query.t(), MyXQL.Result.t()} | {:error, Exception.t()}
-  defdelegate execute(conn, query, params, opts \\ []), to: DBConnection
+  def execute(conn, %MyXQL.Query{} = query, params \\ [], opts \\ []) do
+    DBConnection.execute(conn, query, params, opts)
+  end
 
   @doc """
-  Executes a prepared query.
+  Executes a prepared query that returns a single result.
 
   Returns `%MyXQL.Result{}` on success, or raises an exception if there was an error.
 
   See: `execute/4`.
   """
   @spec execute!(conn(), MyXQL.Query.t(), list(), keyword()) :: MyXQL.Result.t()
-  defdelegate execute!(conn, query, params, opts \\ []), to: DBConnection
+  def execute!(conn, %MyXQL.Query{} = query, params \\ [], opts \\ []) do
+    DBConnection.execute!(conn, query, params, opts)
+  end
+
+  @doc """
+  Executes a prepared query that returns multiple results.
+
+  ## Options
+
+  Options are passed to `DBConnection.execute/4`, see it's documentation for
+  all available options.
+
+  ## Examples
+
+      iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query)
+      iex> row1
+      [2]
+      iex> row2
+      [3]
+
+  """
+  @spec execute_many(conn(), MyXQL.Queries.t(), list(), [option()]) ::
+          {:ok, MyXQL.Queries.t(), [MyXQL.Result.t()]} | {:error, Exception.t()}
+  def execute_many(conn, %MyXQL.Queries{} = query, params \\ [], opts \\ []) do
+    DBConnection.execute(conn, query, params, opts)
+  end
+
+  @doc """
+  Executes a prepared query that returns multiple results.
+
+  Returns `[%MyXQL.Result{}]` on success, or raises an exception if there was an error.
+
+  See: `execute_many/4`.
+  """
+  @spec execute_many!(conn(), MyXQL.Queries.t(), list(), keyword()) :: [MyXQL.Result.t()]
+  def execute_many!(conn, %MyXQL.Queries{} = query, params \\ [], opts \\ []) do
+    DBConnection.execute!(conn, query, params, opts)
+  end
 
   @doc """
   Closes a prepared query.
@@ -406,8 +608,20 @@ defmodule MyXQL do
   Options are passed to `DBConnection.close/3`, see it's documentation for
   all available options.
   """
-  @spec close(conn(), MyXQL.Query.t(), [option()]) :: :ok
-  def close(conn, %MyXQL.Query{} = query, opts \\ []) do
+  @spec close(conn(), MyXQL.Query.t() | MyXQL.Queries.t(), [option()]) :: :ok
+  def close(conn, query, opts \\ [])
+
+  def close(conn, %MyXQL.Query{} = query, opts) do
+    case DBConnection.close(conn, query, opts) do
+      {:ok, _} ->
+        :ok
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  def close(conn, %MyXQL.Queries{} = query, opts) do
     case DBConnection.close(conn, query, opts) do
       {:ok, _} ->
         :ok
