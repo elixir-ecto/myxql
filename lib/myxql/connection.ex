@@ -503,7 +503,7 @@ defmodule MyXQL.Connection do
   # query is prepared or a different query is executed. This allows us
   # to re-execute the same unnamed query without preparing it again.
   defp maybe_close(_query, %{queries: nil} = state), do: {:ok, state}
-  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
+  defp maybe_close(%{name: ""} = query, state), do: close(query, state)
   defp maybe_close(_query, state), do: {:ok, state}
 
   defp close(%{ref: ref} = query, %{last_query: {ref, _statement_id}} = state) do
