@@ -676,7 +676,7 @@ defmodule MyXQLTest do
     test "stream procedure with multiple results", c do
       statement = "CALL multi_procedure()"
 
-      assert_raise RuntimeError, ~r"please use one of the `_many` functions", fn ->
+      assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, statement, [], max_rows: 2)
           Enum.to_list(stream)
