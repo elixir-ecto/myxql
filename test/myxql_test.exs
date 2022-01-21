@@ -676,7 +676,7 @@ defmodule MyXQLTest do
     test "stream procedure with multiple results", c do
       statement = "CALL multi_procedure()"
 
-      assert_raise RuntimeError, "returning multiple results is not yet supported", fn ->
+      assert_raise RuntimeError, ~r"please use one of the `_many` functions", fn ->
         MyXQL.transaction(c.conn, fn conn ->
           stream = MyXQL.stream(conn, statement, [], max_rows: 2)
           Enum.to_list(stream)
@@ -689,18 +689,18 @@ defmodule MyXQLTest do
     setup :connect
 
     test "using query/4 with a multiple result query", c do
-      assert_raise RuntimeError, "returning multiple results is not yet supported", fn ->
+      assert_raise RuntimeError, ~r"please use one of the `_many` functions", fn ->
         MyXQL.query(c.conn, "SELECT 1; SELECT 2;", [], query_type: :text)
       end
     end
 
     test "using prepare/4 with a multiple result query", c do
-      {:error, error} = MyXQL.prepare(c.conn, "foo", "SELECT1; SELECT 2;")
+      {:error, error} = MyXQL.prepare(c.conn, "foo", "SELECT 1; SELECT 2;")
       assert error.message =~ "You have an error in your SQL syntax"
     end
 
     test "using prepare_execute/4 with a multiple result query", c do
-      {:error, error} = MyXQL.prepare_execute(c.conn, "foo", "SELECT 1; SELECT2;")
+      {:error, error} = MyXQL.prepare_execute(c.conn, "foo", "SELECT 1; SELECT 2;")
       assert error.message =~ "You have an error in your SQL syntax"
     end
 
@@ -729,7 +729,7 @@ defmodule MyXQLTest do
 
     test "using prepare_execute_many/4 with a multiple result query that is not a stored procedure",
          c do
-      {:error, error} = MyXQL.prepare_execute_many(c.conn, "foo", "SELECT 1; SELECT2;")
+      {:error, error} = MyXQL.prepare_execute_many(c.conn, "foo", "SELECT 1; SELECT 2;")
       assert error.message =~ "You have an error in your SQL syntax"
     end
 
@@ -750,8 +750,8 @@ defmodule MyXQLTest do
       assert %MyXQL.Queries{} =
                multi_query = MyXQL.prepare_many!(c.conn, "test_name", "CALL multi_procedure()")
 
-      assert assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}] =
-                      MyXQL.execute_many!(c.conn, multi_query)
+      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}] =
+               MyXQL.execute_many!(c.conn, multi_query)
 
       assert %MyXQL.Query{} = single_query = MyXQL.prepare!(c.conn, "test_name", "SELECT 42;")
       assert %MyXQL.Result{rows: [[42]]} = MyXQL.execute!(c.conn, single_query)

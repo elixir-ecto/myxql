@@ -357,7 +357,8 @@ defmodule MyXQL.Connection do
   end
 
   defp result({:error, :multiple_results}, _query, _state) do
-    raise RuntimeError, "returning multiple results is not yet supported"
+    raise RuntimeError,
+          "returning multiple results is not supported from this function. please use one of the `_many` functions."
   end
 
   defp result({:error, reason}, _query, state) do
