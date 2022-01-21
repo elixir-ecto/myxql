@@ -689,7 +689,7 @@ defmodule MyXQLTest do
     setup :connect
 
     test "using query/4 with a multiple result query", c do
-      assert_raise RuntimeError, ~r"please use one of the `_many` functions", fn ->
+      assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
         MyXQL.query(c.conn, "SELECT 1; SELECT 2;", [], query_type: :text)
       end
     end
