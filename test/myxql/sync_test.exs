@@ -8,17 +8,22 @@ defmodule MyXQL.SyncTest do
     {:ok, conn} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
     assert prepared_stmt_count() == 0
 
+    # Multiple queries do not increase statement count
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
     assert prepared_stmt_count() == 1
 
-    MyXQL.query!(conn, "SELECT 1337", [], cache_statement: "69")
+    MyXQL.query!(conn, "SELECT 43", [], cache_statement: "43")
     assert prepared_stmt_count() == 1
 
-    MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
+    # Multiple preparations don't increase statement count
+    {:ok, _query} = MyXQL.prepare(conn, "1", "SELECT 1")
+    assert prepared_stmt_count() == 1
+
+    {:ok, _query} = MyXQL.prepare(conn, "2", "SELECT 2")
     assert prepared_stmt_count() == 1
   end
 
-  test "produce the expected amount of prepared statements with prepare: :named" do
+  test "do not leak statements with prepare: :named" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
 
@@ -31,11 +36,8 @@ defmodule MyXQL.SyncTest do
     MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
     assert prepared_stmt_count() == 2
 
-    MyXQL.query!(conn, "SELECT 42", [], cache_statement: "42")
+    MyXQL.query!(conn, "SELECT 43", [])
     assert prepared_stmt_count() == 2
-
-    MyXQL.query!(conn, "SELECT 43", [], cache_statement: "43")
-    assert prepared_stmt_count() == 3
   end
 
   test "do not leak statements with rebound :cache_statement" do
@@ -52,19 +54,24 @@ defmodule MyXQL.SyncTest do
   test "do not leak statements with insert and failed insert with prepare: :named" do
     {:ok, conn} = MyXQL.start_link(@opts)
     assert prepared_stmt_count() == 0
+
     {:ok, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
-    assert prepared_stmt_count() == 1
+    assert prepared_stmt_count() == 0
+
     {:error, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (1)")
-    assert prepared_stmt_count() == 1
+    assert prepared_stmt_count() == 0
   end
 
   test "do not leak statements with insert and failed insert with prepare: :unnamed" do
     {:ok, conn} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
     assert prepared_stmt_count() == 0
+
     {:ok, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (2)")
     assert prepared_stmt_count() == 1
+
     {:error, _} = MyXQL.query(conn, "INSERT INTO uniques(a) VALUES (2)")
-    assert prepared_stmt_count() == 0
+    assert prepared_stmt_count() == 1
+
     MyXQL.query!(conn, "SELECT 123", [], cache_statement: "123")
     assert prepared_stmt_count() == 1
   end

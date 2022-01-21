@@ -29,7 +29,7 @@ defmodule MyXQL.Connection do
           prepare: prepare,
           disconnect_on_error_codes: Keyword.fetch!(opts, :disconnect_on_error_codes),
           ping_timeout: ping_timeout,
-          queries: queries_new()
+          queries: queries_new(prepare)
         }
 
         {:ok, state}
@@ -64,10 +64,9 @@ defmodule MyXQL.Connection do
     query = rename_query(state, query)
 
     if cached_query = queries_get(state, query) do
-      {:ok, cached_query, %{state | last_query: cached_query}}
+      %{ref: ref, statement_id: statement_id} = cached_query
+      {:ok, cached_query, %{state | last_query: {ref, statement_id}}}
     else
-      {:ok, state} = maybe_close(query, state)
-
       case prepare(query, state) do
         {:ok, _, _} = ok ->
           ok
@@ -98,8 +97,6 @@ defmodule MyXQL.Connection do
   end
 
   def handle_execute(query, params, _opts, state) do
-    {:ok, state} = maybe_close(query, state)
-
     with {:ok, query, state} <- maybe_reprepare(query, state) do
       result =
         Client.com_stmt_execute(
@@ -110,13 +107,9 @@ defmodule MyXQL.Connection do
           result_state(query)
         )
 
-      {:ok, state} =
-        case result do
-          {:ok, err_packet()} -> close(query, state)
-          _ -> {:ok, state}
-        end
-
-      result(result, query, state)
+      with {:ok, state} <- maybe_close(query, state) do
+        result(result, query, state)
+      end
     end
   end
 
@@ -477,14 +470,21 @@ defmodule MyXQL.Connection do
         ref = make_ref()
         query = %{query | num_params: num_params, statement_id: statement_id, ref: ref}
         queries_put(state, query)
-        {:ok, query, %{state | last_query: query}}
+        {:ok, query, %{state | last_query: {ref, statement_id}}}
 
       result ->
         result(result, query, state)
     end
   end
 
-  defp maybe_reprepare(query, %{last_query: query} = state), do: {:ok, query, state}
+  defp maybe_reprepare(%{ref: ref} = query, %{last_query: {ref, _statement_id}} = state) do
+    {:ok, query, state}
+  end
+
+  defp maybe_reprepare(query, %{queries: nil, last_query: {_ref, statement_id}} = state) do
+    Client.com_stmt_close(state.client, statement_id)
+    prepare(query, state)
+  end
 
   defp maybe_reprepare(query, state) do
     if query_member?(state, query) do
@@ -498,16 +498,15 @@ defmodule MyXQL.Connection do
     %{state | cursors: Map.delete(state.cursors, cursor.ref)}
   end
 
-  # Close a previous unnamed query if the current query is different
-  defp maybe_close(_query, %{prepare: :unnamed, last_query: last_query} = state)
-       when last_query != nil do
-    close(last_query, state)
-  end
-
-  defp maybe_close(%{ref: ref}, %{last_query: %{ref: ref}} = state), do: {:ok, state}
+  # When prepare is :named, close unnamed queries after executing them.
+  # When prepare is :unnamed, queries will be closed the next time a
+  # query is prepared or a different query is executed. This allows us
+  # to re-execute the same unnamed query without preparing it again.
+  defp maybe_close(_query, %{queries: nil} = state), do: {:ok, state}
+  defp maybe_close(%Query{name: ""} = query, state), do: close(query, state)
   defp maybe_close(_query, state), do: {:ok, state}
 
-  defp close(query, %{last_query: query} = state) do
+  defp close(%{ref: ref} = query, %{last_query: {ref, _statement_id}} = state) do
     close(query, %{state | last_query: nil})
   end
 
@@ -529,7 +528,8 @@ defmodule MyXQL.Connection do
 
   ## Cache query handling
 
-  defp queries_new(), do: :ets.new(__MODULE__, [:set, :public])
+  defp queries_new(:unnamed), do: nil
+  defp queries_new(_), do: :ets.new(__MODULE__, [:set, :public])
 
   defp queries_put(%{queries: nil}, _), do: :ok
   defp queries_put(_state, %{name: ""}), do: :ok
@@ -583,7 +583,11 @@ defmodule MyXQL.Connection do
     end
   end
 
-  defp queries_get(%{queries: nil}, _), do: nil
+  defp queries_get(%{queries: nil, last_query: {_ref, statement_id}} = state, _query) do
+    Client.com_stmt_close(state.client, statement_id)
+    nil
+  end
+
   defp queries_get(_state, %{name: ""}), do: nil
 
   defp queries_get(state, %{cache: :reference, name: name}) do
