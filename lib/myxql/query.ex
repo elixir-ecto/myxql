@@ -1,7 +1,6 @@
 defmodule MyXQL.Query do
   @moduledoc """
-  Query struct returned from a successfully prepared query
-  that returns a single result.
+  A struct for a prepared statement that returns a single result.
 
   For the struct returned from a query that returns multiple
   results, see `MyXQL.Queries`.
@@ -38,9 +37,10 @@ end
 
 defmodule MyXQL.Queries do
   @moduledoc """
-  Query struct returned from a successfully prepared query
-  that returns multiple results, i.e. a stored procedure with
-  multiple `SELECT` statements.
+  A struct for a prepared statement that returns multiple results.
+
+  An example use case is a stored procedure with multiple `SELECT`
+  statements.
 
   Its public fields are:
 
