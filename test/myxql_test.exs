@@ -205,14 +205,26 @@ defmodule MyXQLTest do
       assert query == query3
     end
 
-    test ":unnamed" do
+    test ":unnamed re-executes last query without preparing" do
       {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
       {:ok, query} = MyXQL.prepare(pid, "1", "SELECT 1")
       {:ok, query2, _} = MyXQL.execute(pid, query, [])
       assert query == query2
       {:ok, query3, _} = MyXQL.execute(pid, query, [])
-      assert query2.ref != query3.ref
-      assert query2.statement_id != query3.statement_id
+      assert query2 == query3
+    end
+
+    test ":unnamed re-prepares if last query is not the same" do
+      {:ok, pid} = MyXQL.start_link(@opts ++ [prepare: :unnamed])
+
+      {:ok, query1} = MyXQL.prepare(pid, "1", "SELECT 1")
+      {:ok, query2} = MyXQL.prepare(pid, "2", "SELECT 2")
+
+      {:ok, query1b, _} = MyXQL.execute(pid, query1, [])
+      {:ok, query2b, _} = MyXQL.execute(pid, query2, [])
+
+      assert query1 != query1b
+      assert query2 != query2b
     end
 
     test ":force_named" do
