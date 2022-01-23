@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.0 (2022-01-23)
+
+* Fix handling stored procedures with cursors
+* Allow a given cache name to be reprepared
+* Support queries returning multiple results
+* Reuse prepared statements in `prepare: :unnamed`
+
 ## v0.5.2 (2022-01-03)
 
 * Use optimized `Geo.WKB` API
