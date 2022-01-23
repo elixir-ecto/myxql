@@ -21,7 +21,7 @@ Add `:myxql` to your dependencies:
 ```elixir
 def deps() do
   [
-    {:myxql, "~> 0.5.0"}
+    {:myxql, "~> 0.6.0"}
   ]
 end
 ```
