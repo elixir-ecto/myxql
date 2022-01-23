@@ -1,6 +1,6 @@
 defmodule MyXQL.Protocol.ValueTest do
   use ExUnit.Case, async: true
-  use Bitwise
+  import Bitwise
 
   @default_sql_mode "STRICT_TRANS_TABLES"
 

@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Flags do
   @moduledoc false
 
-  use Bitwise
+  import Bitwise
 
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
   @capability_flags [

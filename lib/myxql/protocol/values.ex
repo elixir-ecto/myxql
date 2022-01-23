@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Values do
   @moduledoc false
 
-  use Bitwise
+  import Bitwise
   import MyXQL.Protocol.Types
   import MyXQL.Protocol.Records, only: [column_def: 1]
 

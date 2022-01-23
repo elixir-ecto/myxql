@@ -3,7 +3,7 @@ defmodule MyXQL.Protocol do
 
   import MyXQL.Protocol.{Flags, Records, Types}
   alias MyXQL.Protocol.Values
-  use Bitwise
+  import Bitwise
 
   defdelegate error_code_to_name(code), to: MyXQL.Protocol.ServerErrorCodes, as: :code_to_name
 
