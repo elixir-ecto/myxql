@@ -1,7 +1,6 @@
 defmodule MyXQL.Protocol.TypesTest do
   use ExUnit.Case, async: true
   import MyXQL.Protocol.Types
-  import Bitwise
 
   test "int_lenenc" do
     assert decode_int_lenenc(<<100>>) == 100
