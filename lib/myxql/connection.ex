@@ -479,8 +479,8 @@ defmodule MyXQL.Connection do
   defp maybe_reprepare(%{ref: ref} = query, %{last_ref: ref} = state), do: {:ok, query, state}
 
   defp maybe_reprepare(query, state) do
-    if cached_query = queries_get(state, query) do
-      {:ok, cached_query, state}
+    if query_member?(state, query) do
+      {:ok, query, state}
     else
       prepare(query, state)
     end
@@ -523,14 +523,13 @@ defmodule MyXQL.Connection do
 
   defp queries_put(state, %{cache: :reference} = query) do
     %{
-      num_params: num_params,
       statement_id: statement_id,
       ref: ref,
       name: name
     } = query
 
     try do
-      :ets.insert(state.queries, {name, {num_params, statement_id, ref}})
+      :ets.insert(state.queries, {name, statement_id, ref})
     rescue
       ArgumentError ->
         :ok
@@ -549,7 +548,7 @@ defmodule MyXQL.Connection do
     } = query
 
     try do
-      :ets.insert(state.queries, {name, {statement, num_params, statement_id, ref}})
+      :ets.insert(state.queries, {name, statement_id, ref, statement, num_params})
     rescue
       ArgumentError ->
         :ok
@@ -574,30 +573,56 @@ defmodule MyXQL.Connection do
   defp queries_get(%{queries: nil}, _), do: nil
   defp queries_get(_state, %{name: ""}), do: nil
 
-  defp queries_get(state, %{cache: :reference, name: name} = query) do
+  defp queries_get(state, %{cache: :reference, name: name}) do
     try do
       :ets.lookup_element(state.queries, name, 2)
     rescue
       ArgumentError -> nil
     else
-      {num_params, statement_id, ref} ->
-        %{query | num_params: num_params, statement_id: statement_id, ref: ref}
+      statement_id ->
+        Client.com_stmt_close(state.client, statement_id)
+        :ets.delete(state.queries, name)
+        nil
     end
   end
 
   defp queries_get(state, %{cache: :statement, name: name, statement: statement} = query) do
     try do
-      :ets.lookup_element(state.queries, name, 2)
+      :ets.lookup(state.queries, name)
     rescue
       ArgumentError -> nil
     else
-      {^statement, num_params, statement_id, ref} ->
+      # :statement query already prepared
+      [{_name, statement_id, ref, ^statement, num_params}] ->
         %{query | num_params: num_params, statement_id: statement_id, ref: ref}
 
-      {_statement, _num_params, statement_id, _ref} ->
+      [{_name, statement_id, _ref, _statement, _num_params}] ->
         Client.com_stmt_close(state.client, statement_id)
         :ets.delete(state.queries, name)
         nil
+
+      # :reference query already prepared
+      [{_name, statement_id, _ref}] ->
+        Client.com_stmt_close(state.client, statement_id)
+        :ets.delete(state.queries, name)
+        nil
+
+      [] ->
+        nil
+    end
+  end
+
+  defp query_member?(%{queries: nil}, _), do: false
+  defp query_member?(_, %{name: ""}), do: false
+
+  defp query_member?(%{queries: queries}, %{name: name, ref: ref}) do
+    try do
+      :ets.lookup_element(queries, name, 3)
+    rescue
+      ArgumentError -> false
+    else
+      ^ref -> true
+      _ -> false
     end
   end
 end
