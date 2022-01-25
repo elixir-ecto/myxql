@@ -134,6 +134,20 @@ defmodule MyXQL.SyncTest do
     assert prepared_stmt_count() == 1
   end
 
+  test "do not leak when re-preparing a query and then executing the old query" do
+    {:ok, conn} = MyXQL.start_link(@opts)
+    assert prepared_stmt_count() == 0
+
+    {:ok, query} = MyXQL.prepare(conn, "foo", "SELECT 42")
+    assert prepared_stmt_count() == 1
+
+    {:ok, _} = MyXQL.prepare(conn, "foo", "SELECT 43")
+    assert prepared_stmt_count() == 1
+
+    {:ok, _, _} = MyXQL.execute(conn, query)
+    assert prepared_stmt_count() == 1
+  end
+
   defp prepared_stmt_count() do
     [%{"Value" => count}] = TestHelper.mysql!("show global status like 'Prepared_stmt_count'")
     String.to_integer(count)
