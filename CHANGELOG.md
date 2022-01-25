@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.1 (2022-01-25)
+
+* Revert allowing a given cache name to be reprepared as it leaks statements
+
 ## v0.6.0 (2022-01-23)
 
 * Fix handling stored procedures with cursors
