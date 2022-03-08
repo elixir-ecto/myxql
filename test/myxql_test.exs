@@ -184,6 +184,19 @@ defmodule MyXQLTest do
 
       assert {:ok, [%MyXQL.Result{rows: [[1]]}]} =
                MyXQL.query_many(c.conn, "SELECT 1;", [], query_type: :text)
+
+      assert {:ok, [%MyXQL.Result{num_rows: 0, rows: nil}]} =
+               MyXQL.query_many(c.conn, "DROP TABLE IF EXISTS not_a_table;", [], query_type: :text)
+
+      assert {:ok, [%MyXQL.Result{num_rows: 0, rows: nil}, %MyXQL.Result{rows: [[1]]}]} =
+               MyXQL.query_many(c.conn, "DROP TABLE IF EXISTS not_a_table; SELECT 1;", [],
+                 query_type: :text
+               )
+
+      assert {:ok, [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}]} =
+               MyXQL.query_many(c.conn, "SELECT 1; DROP TABLE IF EXISTS not_a_table;", [],
+                 query_type: :text
+               )
     end
 
     test "query_many!/4 with text", c do
@@ -192,6 +205,32 @@ defmodule MyXQLTest do
 
       assert [%MyXQL.Result{rows: [[1]]}] =
                MyXQL.query_many!(c.conn, "SELECT 1;", [], query_type: :text)
+
+      assert [%MyXQL.Result{num_rows: 0, rows: nil}] =
+               MyXQL.query_many!(c.conn, "DROP TABLE IF EXISTS not_a_table;", [],
+                 query_type: :text
+               )
+
+      assert [%MyXQL.Result{num_rows: 0, rows: nil}, %MyXQL.Result{rows: [[1]]}] =
+               MyXQL.query_many!(c.conn, "DROP TABLE IF EXISTS not_a_table; SELECT 1;", [],
+                 query_type: :text
+               )
+
+      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}] =
+               MyXQL.query_many!(c.conn, "SELECT 1; DROP TABLE IF EXISTS not_a_table;", [],
+                 query_type: :text
+               )
+    end
+
+    test "query_many/4 with text returning error", c do
+      assert {:error, %MyXQL.Error{mysql: %{code: 1064}}} =
+               MyXQL.query_many(c.conn, "SELECT 1; BADCOMMAND;", [], query_type: :text)
+    end
+
+    test "query_many!/4 with text returning error", c do
+      assert_raise MyXQL.Error, ~r"\(1064\)", fn ->
+        MyXQL.query_many!(c.conn, "SELECT 1; BADCOMMAND;", [], query_type: :text)
+      end
     end
   end
 
@@ -624,46 +663,54 @@ defmodule MyXQLTest do
     setup :connect
 
     test "text query", c do
-      assert %MyXQL.Result{rows: [[1]]} =
-               MyXQL.query!(c.conn, "CALL single_procedure()", [], query_type: :text)
+      assert %MyXQL.Result{num_rows: 1, rows: nil} =
+               MyXQL.query!(c.conn, "CALL single_ok_procedure()", [], query_type: :text)
 
-      assert %MyXQL.Result{rows: [[1]]} =
-               MyXQL.query!(c.conn, "CALL single_procedure()", [], query_type: :text)
+      assert %MyXQL.Result{num_rows: 1, rows: nil} =
+               MyXQL.query!(c.conn, "CALL single_ok_procedure()", [], query_type: :text)
 
-      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}] =
-               MyXQL.query_many!(c.conn, "CALL multi_procedure()")
+      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}] =
+               MyXQL.query_many!(c.conn, "CALL one_resultset_one_ok_procedure()")
+
+      assert [
+               %MyXQL.Result{rows: [[1]]},
+               %MyXQL.Result{rows: [[2]]},
+               %MyXQL.Result{num_rows: 0, rows: nil}
+             ] = MyXQL.query_many!(c.conn, "CALL multi_procedure()")
     end
 
     test "prepared query", c do
-      assert {%MyXQL.Query{}, %MyXQL.Result{rows: [[1]]}} =
-               MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
+      assert {%MyXQL.Query{}, %MyXQL.Result{num_rows: 1, rows: nil}} =
+               MyXQL.prepare_execute!(c.conn, "", "CALL single_ok_procedure()")
 
-      assert {%MyXQL.Query{}, %MyXQL.Result{rows: [[1]]}} =
-               MyXQL.prepare_execute!(c.conn, "", "CALL single_procedure()")
+      assert {%MyXQL.Queries{},
+              [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}]} =
+               MyXQL.prepare_execute_many!(c.conn, "", "CALL one_resultset_one_ok_procedure()")
 
-      assert {%MyXQL.Queries{}, [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}]} =
-               MyXQL.prepare_execute_many!(c.conn, "", "CALL multi_procedure()")
+      assert {%MyXQL.Queries{},
+              [
+                %MyXQL.Result{rows: [[1]]},
+                %MyXQL.Result{rows: [[2]]},
+                %MyXQL.Result{num_rows: 0, rows: nil}
+              ]} = MyXQL.prepare_execute_many!(c.conn, "", "CALL multi_procedure()")
+
+      assert %MyXQL.Queries{} =
+               query = MyXQL.prepare_many!(c.conn, "", "CALL  one_resultset_one_ok_procedure()")
+
+      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}] =
+               MyXQL.execute_many!(c.conn, query)
 
       assert %MyXQL.Queries{} = query = MyXQL.prepare_many!(c.conn, "", "CALL multi_procedure()")
 
-      assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{rows: [[2]]}] =
-               MyXQL.execute_many!(c.conn, query)
-    end
-
-    test "stream procedure with single result", c do
-      statement = "CALL single_procedure()"
-
-      {:ok, result} =
-        MyXQL.transaction(c.conn, fn conn ->
-          stream = MyXQL.stream(conn, statement, [], max_rows: 2)
-          Enum.to_list(stream)
-        end)
-
-      assert [%MyXQL.Result{rows: [[1]]}] = result
+      assert [
+               %MyXQL.Result{rows: [[1]]},
+               %MyXQL.Result{rows: [[2]]},
+               %MyXQL.Result{num_rows: 0, rows: nil}
+             ] = MyXQL.execute_many!(c.conn, query)
     end
 
     test "stream procedure with multiple results", c do
-      statement = "CALL multi_procedure()"
+      statement = "CALL one_resultset_one_ok_procedure()"
 
       assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
         MyXQL.transaction(c.conn, fn conn ->
@@ -694,6 +741,13 @@ defmodule MyXQLTest do
     end
 
     test "using execute/4 with a multiple result query", c do
+      %MyXQL.Queries{} =
+        query = MyXQL.prepare_many!(c.conn, "", "CALL one_resultset_one_ok_procedure()")
+
+      assert_raise FunctionClauseError, fn ->
+        MyXQL.execute(c.conn, query)
+      end
+
       %MyXQL.Queries{} = query = MyXQL.prepare_many!(c.conn, "", "CALL multi_procedure()")
 
       assert_raise FunctionClauseError, fn ->
@@ -728,7 +782,7 @@ defmodule MyXQLTest do
     end
 
     test "using execute_many/4 with a single result query", c do
-      %MyXQL.Query{} = query = MyXQL.prepare!(c.conn, "", "CALL single_procedure()")
+      %MyXQL.Query{} = query = MyXQL.prepare!(c.conn, "", "CALL single_ok_procedure()")
 
       assert_raise FunctionClauseError, fn ->
         MyXQL.execute_many(c.conn, query)

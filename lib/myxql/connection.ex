@@ -272,80 +272,32 @@ defmodule MyXQL.Connection do
 
   ## Internals
 
-  defp result(
-         {:ok,
-          ok_packet(
-            last_insert_id: last_insert_id,
-            affected_rows: affected_rows,
-            status_flags: status_flags,
-            num_warnings: num_warnings
-          )},
-         query,
-         state
-       ) do
-    result = %Result{
-      connection_id: state.client.connection_id,
-      last_insert_id: last_insert_id,
-      num_rows: affected_rows,
-      num_warnings: num_warnings
-    }
-
-    {:ok, query, result, put_status(state, status_flags)}
+  defp result({:ok, ok_packet(status_flags: status_flags) = result}, query, state) do
+    {:ok, query, format_result(result, state), put_status(state, status_flags)}
   end
 
-  defp result(
-         {:ok,
-          resultset(
-            column_defs: column_defs,
-            num_rows: num_rows,
-            rows: rows,
-            status_flags: status_flags,
-            num_warnings: num_warnings
-          )},
-         query,
-         state
-       ) do
-    columns = Enum.map(column_defs, &elem(&1, 1))
-
-    result = %Result{
-      connection_id: state.client.connection_id,
-      columns: columns,
-      num_rows: num_rows,
-      rows: rows,
-      num_warnings: num_warnings
-    }
-
-    {:ok, query, result, put_status(state, status_flags)}
+  defp result({:ok, resultset(status_flags: status_flags) = result}, query, state) do
+    {:ok, query, format_result(result, state), put_status(state, status_flags)}
   end
 
-  defp result({:ok, resultsets}, query, state) when is_list(resultsets) do
+  # If a multi-result query has an error, it will be the latest query executed.
+  # The results are returned to this function in reverse order so it's the first
+  # in the result list.
+  defp result({:ok, [err_packet() = result | _rest]}, query, state) do
+    result({:ok, result}, query, state)
+  end
+
+  defp result({:ok, results}, query, state) when is_list(results) do
     {results, status_flags} =
-      Enum.reduce(resultsets, {[], nil}, fn resultset, {results, newest_status_flags} ->
-        resultset(
-          column_defs: column_defs,
-          num_rows: num_rows,
-          rows: rows,
-          status_flags: status_flags,
-          num_warnings: num_warnings
-        ) = resultset
-
-        columns = Enum.map(column_defs, &elem(&1, 1))
-
-        result = %Result{
-          connection_id: state.client.connection_id,
-          columns: columns,
-          num_rows: num_rows,
-          rows: rows,
-          num_warnings: num_warnings
-        }
-
-        # Keep status flags from the last query. The resultsets
-        # are given to this function in reverse order, so it is the first one.
-        if newest_status_flags do
-          {[result | results], newest_status_flags}
-        else
-          {[result | results], status_flags}
-        end
+      Enum.reduce(results, {[], nil}, fn
+        result, {results, latest_status_flags} ->
+          # Keep status flags from the last query. The result sets
+          # are given to this function in reverse order, so it is the first one.
+          if latest_status_flags do
+            {[format_result(result, state) | results], latest_status_flags}
+          else
+            {[format_result(result, state) | results], status_flags(result)}
+          end
       end)
 
     {:ok, query, results, put_status(state, status_flags)}
@@ -373,6 +325,45 @@ defmodule MyXQL.Connection do
     message = "(#{address}) #{format_reason(reason)} - #{inspect(reason)}"
     {:error, %DBConnection.ConnectionError{message: message}}
   end
+
+  defp format_result(
+         ok_packet(
+           last_insert_id: last_insert_id,
+           affected_rows: affected_rows,
+           num_warnings: num_warnings
+         ),
+         state
+       ) do
+    %Result{
+      connection_id: state.client.connection_id,
+      last_insert_id: last_insert_id,
+      num_rows: affected_rows,
+      num_warnings: num_warnings
+    }
+  end
+
+  defp format_result(
+         resultset(
+           column_defs: column_defs,
+           num_rows: num_rows,
+           rows: rows,
+           num_warnings: num_warnings
+         ),
+         state
+       ) do
+    columns = Enum.map(column_defs, &elem(&1, 1))
+
+    %Result{
+      connection_id: state.client.connection_id,
+      columns: columns,
+      num_rows: num_rows,
+      rows: rows,
+      num_warnings: num_warnings
+    }
+  end
+
+  defp status_flags(ok_packet(status_flags: status_flags)), do: status_flags
+  defp status_flags(resultset(status_flags: status_flags)), do: status_flags
 
   defp error(reason, %{statement: statement}, state) do
     error(reason, statement, state)

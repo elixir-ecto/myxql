@@ -140,9 +140,25 @@ defmodule TestHelper do
       my_char CHAR
     );
 
-    DROP PROCEDURE IF EXISTS single_procedure;
+    # This will only return the trailing ok_packet
+    # because the commands inside the stored procedure
+    # do not return result sets.
+    DROP PROCEDURE IF EXISTS single_ok_procedure;
     DELIMITER $$
-    CREATE PROCEDURE single_procedure()
+    CREATE PROCEDURE single_ok_procedure()
+    BEGIN
+      CREATE TABLE IF NOT EXISTS integers (x int);
+      INSERT INTO integers VALUES (10);
+      INSERT INTO integers VALUES (11);
+    END$$
+    DELIMITER ;
+
+    # This will return a single result set
+    # and a single trailing ok packet. It must
+    # be used with the query_many variants.
+    DROP PROCEDURE IF EXISTS one_resultset_one_ok_procedure;
+    DELIMITER $$
+    CREATE PROCEDURE one_resultset_one_ok_procedure()
     BEGIN
       SELECT 1;
     END$$

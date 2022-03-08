@@ -211,6 +211,14 @@ defmodule MyXQL do
         * requires two roundtrips to the DB server: one for preparing the statement and one for executing it.
           This can be alleviated by holding on to prepared statement and executing it multiple times.
 
+  ## Stored procedures
+
+  A successfully executed stored procedure always returns the affected row count
+  of the last statement. This means any stored procedure containing statements that
+  return result sets, such as `SELECT` statements, must use `query_many/4` and
+  similar functions. These functions will return one result for each statement
+  returning a result set and one for the affected row count of the last statement.
+
   ## Options
 
     * `:query_type` - use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
@@ -365,6 +373,14 @@ defmodule MyXQL do
   but the statement isn't. If a new statement is given to an old name, the old
   statement will be the one effectively used.
 
+  ## Stored procedures
+
+  A successfully executed stored procedure always returns the affected row count
+  of the last statement. This means any stored procedure containing statements that
+  return result sets, such as `SELECT` statements, must use `prepare_many/4` and similar
+  functions. These functions will return one result for each statement returning a
+  result set and one for the affected row count of the last statement.
+
   ## Options
 
   Options are passed to `DBConnection.prepare/3`, see it's documentation for
@@ -417,7 +433,7 @@ defmodule MyXQL do
   ## Examples
 
       iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
-      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query, [2, 3])
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.execute_many(conn, query, [2, 3])
       iex> row1
       [2]
       iex> row2
@@ -448,6 +464,14 @@ defmodule MyXQL do
 
   @doc """
   Prepares and executes a query that returns a single result, in a single step.
+
+  ## Stored procedures
+
+  A successfully executed stored procedure always returns the affected row count
+  of the last statement. This means any stored procedure containing statements that
+  return result sets, such as `SELECT` statements, must use `prepare_execute_many/5`
+  and similar functions. These functions will return one result for each statement
+  returning a result set and one for the affected row count of the last statement.
 
   ## Options
 
@@ -499,7 +523,7 @@ defmodule MyXQL do
 
   ## Examples
 
-      iex> {:ok, _, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.prepare_execute(conn, "", "CALL multi_procedure()")
+      iex> {:ok, _, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.prepare_execute(conn, "", "CALL multi_procedure()")
       iex> row1
       [2]
       iex> row2
@@ -532,6 +556,14 @@ defmodule MyXQL do
 
   @doc """
   Executes a prepared query that returns a single result.
+
+  ## Stored procedures
+
+  A successfully executed stored procedure always returns the affected row count
+  of the last statement. This means any stored procedure containing statements that
+  return result sets, such as `SELECT` statements, must use execute_many/4 and
+  similar functions. These functions will return one result for each statement
+  returning a result set and one for the affected row count of the last statement.
 
   ## Options
 
@@ -575,7 +607,7 @@ defmodule MyXQL do
   ## Examples
 
       iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
-      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query)
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.execute_many(conn, query)
       iex> row1
       [2]
       iex> row2
