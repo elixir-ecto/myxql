@@ -350,7 +350,7 @@ defmodule MyXQL.ClientTest do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
         Client.com_stmt_prepare(client, "CALL single_ok_procedure()")
 
-      {:ok, ok_packet(affected_rows: 1, status_flags: status_flags)} =
+      {:ok, ok_packet(status_flags: status_flags)} =
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert list_status_flags(status_flags) == [:server_status_autocommit]

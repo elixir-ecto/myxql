@@ -663,10 +663,10 @@ defmodule MyXQLTest do
     setup :connect
 
     test "text query", c do
-      assert %MyXQL.Result{num_rows: 1, rows: nil} =
+      assert %MyXQL.Result{rows: nil} =
                MyXQL.query!(c.conn, "CALL single_ok_procedure()", [], query_type: :text)
 
-      assert %MyXQL.Result{num_rows: 1, rows: nil} =
+      assert %MyXQL.Result{rows: nil} =
                MyXQL.query!(c.conn, "CALL single_ok_procedure()", [], query_type: :text)
 
       assert [%MyXQL.Result{rows: [[1]]}, %MyXQL.Result{num_rows: 0, rows: nil}] =
@@ -680,7 +680,7 @@ defmodule MyXQLTest do
     end
 
     test "prepared query", c do
-      assert {%MyXQL.Query{}, %MyXQL.Result{num_rows: 1, rows: nil}} =
+      assert {%MyXQL.Query{}, %MyXQL.Result{rows: nil}} =
                MyXQL.prepare_execute!(c.conn, "", "CALL single_ok_procedure()")
 
       assert {%MyXQL.Queries{},
