@@ -140,9 +140,11 @@ defmodule TestHelper do
       my_char CHAR
     );
 
-    # This will only return the trailing ok_packet
+    # This will only return the trailing ok packet
     # because the commands inside the stored procedure
-    # do not return result sets.
+    # do not return result sets. Commands inside of stored
+    # procedures that return ok packets do not have their
+    # results sent through the wire.
     DROP PROCEDURE IF EXISTS single_ok_procedure;
     DELIMITER $$
     CREATE PROCEDURE single_ok_procedure()

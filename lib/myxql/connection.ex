@@ -225,7 +225,7 @@ defmodule MyXQL.Connection do
         end
 
       other ->
-        result(other, query, state)
+        stream_result(other, query, state)
     end
   end
 
@@ -245,7 +245,7 @@ defmodule MyXQL.Connection do
         end
 
       other ->
-        result(other, query, state)
+        stream_result(other, query, state)
     end
   end
 
@@ -271,6 +271,14 @@ defmodule MyXQL.Connection do
   end
 
   ## Internals
+  defp stream_result({:error, :multiple_results}, _query, _state) do
+    raise RuntimeError,
+          "streaming stored procedures is not supported. Use MyXQL.query_many/4 and similar functions."
+  end
+
+  defp stream_result(result, query, state) do
+    result(result, query, state)
+  end
 
   defp result({:ok, ok_packet(status_flags: status_flags) = result}, query, state) do
     {:ok, query, format_result(result, state), put_status(state, status_flags)}
