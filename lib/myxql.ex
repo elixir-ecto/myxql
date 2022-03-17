@@ -232,7 +232,7 @@ defmodule MyXQL do
 
   In contrast to this, a stored procedure that doesn't contain row-returning
   statements can use this function. In this scenario, only the final result
-  with the number of rows affected by the last statment will be returned.
+  with the number of rows affected by the last statement will be returned.
 
   Take, for example, the following stored procedure:
 
@@ -423,7 +423,7 @@ defmodule MyXQL do
 
   In contrast to this, a stored procedure that doesn't contain row-returning
   statements can use this function. In this scenario, only the final result
-  with the number of rows affected by the last statment will be returned.
+  with the number of rows affected by the last statement will be returned.
 
   Take, for example, the following stored procedure:
 
@@ -544,7 +544,7 @@ defmodule MyXQL do
 
   In contrast to this, a stored procedure that doesn't contain row-returning
   statements can use this function. In this scenario, only the final result
-  with the number of rows affected by the last statment will be returned.
+  with the number of rows affected by the last statement will be returned.
 
   Take, for example, the following stored procedure:
 
@@ -665,7 +665,7 @@ defmodule MyXQL do
 
   In contrast to this, a stored procedure that doesn't contain row-returning
   statements can use this function. In this scenario, only the final result
-  with the number of rows affected by the last statment will be returned.
+  with the number of rows affected by the last statement will be returned.
 
   Take, for example, the following stored procedure:
 
