@@ -213,11 +213,40 @@ defmodule MyXQL do
 
   ## Stored procedures
 
-  A successfully executed stored procedure always returns the affected row count
-  of the last statement. This means any stored procedure containing statements that
-  return result sets, such as `SELECT` statements, must use `query_many/4` and
-  similar functions. These functions will return one result for each statement
-  returning a result set and one for the affected row count of the last statement.
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `query_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statment will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 
@@ -375,11 +404,40 @@ defmodule MyXQL do
 
   ## Stored procedures
 
-  A successfully executed stored procedure always returns the affected row count
-  of the last statement. This means any stored procedure containing statements that
-  return result sets, such as `SELECT` statements, must use `prepare_many/4` and similar
-  functions. These functions will return one result for each statement returning a
-  result set and one for the affected row count of the last statement.
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `prepare_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statment will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 
@@ -467,11 +525,40 @@ defmodule MyXQL do
 
   ## Stored procedures
 
-  A successfully executed stored procedure always returns the affected row count
-  of the last statement. This means any stored procedure containing statements that
-  return result sets, such as `SELECT` statements, must use `prepare_execute_many/5`
-  and similar functions. These functions will return one result for each statement
-  returning a result set and one for the affected row count of the last statement.
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `prepare_execute_many/5` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statment will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 
@@ -559,11 +646,40 @@ defmodule MyXQL do
 
   ## Stored procedures
 
-  A successfully executed stored procedure always returns the affected row count
-  of the last statement. This means any stored procedure containing statements that
-  return result sets, such as `SELECT` statements, must use execute_many/4 and
-  similar functions. These functions will return one result for each statement
-  returning a result set and one for the affected row count of the last statement.
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `execute_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statment will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 

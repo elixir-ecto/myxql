@@ -273,8 +273,8 @@ defmodule MyXQL.Connection do
   ## Internals
 
   # This error can only be received when attempting to stream a stored procedure.
-  # Attemping to stream a text query with multiple-statements separated by a semi-colon
-  # will return a syntax error.
+  # Attemping to stream a text query with statements separated by semi-colons will
+  # return a syntax error.
   defp stream_result({:error, :multiple_results}, _query, _state) do
     raise RuntimeError,
           "streaming stored procedures is not supported. Use MyXQL.query_many/4 and similar functions."
