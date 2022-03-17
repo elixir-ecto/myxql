@@ -271,6 +271,10 @@ defmodule MyXQL.Connection do
   end
 
   ## Internals
+
+  # This error can only be received when attempting to stream a stored procedure.
+  # Attemping to stream a text query with multiple-statements separated by a semi-colon
+  # will return a syntax error.
   defp stream_result({:error, :multiple_results}, _query, _state) do
     raise RuntimeError,
           "streaming stored procedures is not supported. Use MyXQL.query_many/4 and similar functions."
@@ -288,9 +292,8 @@ defmodule MyXQL.Connection do
     {:ok, query, format_result(result, state), put_status(state, status_flags)}
   end
 
-  # If a multi-result query has an error, it will be the latest query executed.
-  # The results are returned to this function in reverse order so it's the first
-  # in the result list.
+  # Receiving an error result from a multi-statement query will halt the rest of its processing.
+  # The results are given to this function in reverse order, so it is the first one.
   defp result({:ok, [err_packet() = result | _rest]}, query, state) do
     result({:ok, result}, query, state)
   end
@@ -299,8 +302,8 @@ defmodule MyXQL.Connection do
     {results, status_flags} =
       Enum.reduce(results, {[], nil}, fn
         result, {results, latest_status_flags} ->
-          # Keep status flags from the last query. The result sets
-          # are given to this function in reverse order, so it is the first one.
+          # Keep status flags from the last query. The results are given
+          # this function in reverse order, so it is the first one.
           if latest_status_flags do
             {[format_result(result, state) | results], latest_status_flags}
           else
