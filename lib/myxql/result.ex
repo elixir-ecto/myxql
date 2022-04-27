@@ -43,7 +43,7 @@ end
 
 if Code.ensure_loaded?(Table.Reader) do
   defimpl Table.Reader, for: MyXQL.Result do
-    def init(result) when result.columns in [nil, []] do
+    def init(%{columns: columns} = result) when columns in [nil, []] do
       {:rows, %{columns: []}, []}
     end
 
