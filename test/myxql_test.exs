@@ -193,6 +193,31 @@ defmodule MyXQLTest do
       assert [%MyXQL.Result{rows: [[1]]}] =
                MyXQL.query_many!(c.conn, "SELECT 1;", [], query_type: :text)
     end
+
+    test "table reader integration", c do
+      assert {:ok, result} =
+               MyXQL.query(
+                 c.conn,
+                 """
+                 SELECT 1 AS x, 'a' AS y
+                 UNION
+                 SELECT 2 AS x, 'b' AS y
+                 UNION
+                 SELECT 3 AS x, 'c' AS y
+                 """,
+                 []
+               )
+
+      assert result |> Table.to_rows() |> Enum.to_list() == [
+               %{"x" => 1, "y" => "a"},
+               %{"x" => 2, "y" => "b"},
+               %{"x" => 3, "y" => "c"}
+             ]
+
+      columns = Table.to_columns(result)
+      assert Enum.to_list(columns["x"]) == [1, 2, 3]
+      assert Enum.to_list(columns["y"]) == ["a", "b", "c"]
+    end
   end
 
   describe ":prepare option" do

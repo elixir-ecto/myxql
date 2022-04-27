@@ -49,6 +49,7 @@ defmodule MyXQL.MixProject do
       {:decimal, "~> 1.6 or ~> 2.0"},
       {:jason, "~> 1.0", optional: true},
       {:geo, "~> 3.4", optional: true},
+      {:table, "~> 0.1.0", optional: true},
       {:binpp, ">= 0.0.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
