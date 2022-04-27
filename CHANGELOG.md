@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.2 (2021-04-27)
+
+* Implement the Table.Reader protocol for query result
+
 ## v0.6.1 (2022-01-25)
 
 * Revert allowing a given cache name to be reprepared as it leaks statements
