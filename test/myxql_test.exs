@@ -218,6 +218,13 @@ defmodule MyXQLTest do
       assert Enum.to_list(columns["x"]) == [1, 2, 3]
       assert Enum.to_list(columns["y"]) == ["a", "b", "c"]
     end
+
+    test "query statement is printed in error", c do
+      {:error, e} = MyXQL.query(c.conn, "SELECT not_a_column FROM integers", [])
+      error_log = MyXQL.Error.message(e)
+      assert error_log =~ "query: SELECT not_a_column FROM integers"
+      assert error_log =~ "(1054) Unknown column"
+    end
   end
 
   describe ":prepare option" do
