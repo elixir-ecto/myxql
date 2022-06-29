@@ -217,6 +217,8 @@ defmodule MyXQLTest do
       columns = Table.to_columns(result)
       assert Enum.to_list(columns["x"]) == [1, 2, 3]
       assert Enum.to_list(columns["y"]) == ["a", "b", "c"]
+
+      assert {_, %{count: 3}, _} = Table.Reader.init(result)
     end
 
     test "query statement is printed in error", c do
