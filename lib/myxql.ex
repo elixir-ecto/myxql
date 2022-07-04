@@ -211,6 +211,43 @@ defmodule MyXQL do
         * requires two roundtrips to the DB server: one for preparing the statement and one for executing it.
           This can be alleviated by holding on to prepared statement and executing it multiple times.
 
+  ## Stored procedures
+
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `query_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statement will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
+
   ## Options
 
     * `:query_type` - use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
@@ -365,6 +402,43 @@ defmodule MyXQL do
   but the statement isn't. If a new statement is given to an old name, the old
   statement will be the one effectively used.
 
+  ## Stored procedures
+
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `prepare_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statement will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
+
   ## Options
 
   Options are passed to `DBConnection.prepare/3`, see it's documentation for
@@ -417,7 +491,7 @@ defmodule MyXQL do
   ## Examples
 
       iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
-      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query, [2, 3])
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.execute_many(conn, query, [2, 3])
       iex> row1
       [2]
       iex> row2
@@ -448,6 +522,43 @@ defmodule MyXQL do
 
   @doc """
   Prepares and executes a query that returns a single result, in a single step.
+
+  ## Stored procedures
+
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `prepare_execute_many/5` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statement will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 
@@ -499,7 +610,7 @@ defmodule MyXQL do
 
   ## Examples
 
-      iex> {:ok, _, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.prepare_execute(conn, "", "CALL multi_procedure()")
+      iex> {:ok, _, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.prepare_execute(conn, "", "CALL multi_procedure()")
       iex> row1
       [2]
       iex> row2
@@ -532,6 +643,43 @@ defmodule MyXQL do
 
   @doc """
   Executes a prepared query that returns a single result.
+
+  ## Stored procedures
+
+  A stored procedure containing statements that return rows, such as `SELECT`
+  statements, must use `execute_many/4` and similar functions. This is because
+  stored procedures always return a final result with the number of rows affected
+  by the last statement.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        SELECT 1;
+      END$$
+      DELIMITER ;
+
+  There will be one result for the `SELECT 1` statement and another result
+  stating that 0 rows were affected by the last statement.
+
+  In contrast to this, a stored procedure that doesn't contain row-returning
+  statements can use this function. In this scenario, only the final result
+  with the number of rows affected by the last statement will be returned.
+
+  Take, for example, the following stored procedure:
+
+      DELIMITER $$
+      CREATE PROCEDURE stored_procedure()
+      BEGIN
+        CREATE TABLE IF NOT EXISTS integers (x int);
+        INSERT INTO integers VALUES (10);
+      END$$
+      DELIMITER ;
+
+  Because `CREATE` and `INSERT` statements do not return rows, there will be a
+  single result stating that 1 row was affected by the last statement. This is
+  referencing the row that was inserted.
 
   ## Options
 
@@ -575,7 +723,7 @@ defmodule MyXQL do
   ## Examples
 
       iex> {:ok, query} = MyXQL.prepare_many(conn, "", "CALL multi_procedure()")
-      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}]} = MyXQL.execute_many(conn, query)
+      iex> {:ok, [%MyXQL.Result{rows: [row1]}, %MyXQL.Result{rows: [row2]}, %MyXQL.Result{rows: nil}]} = MyXQL.execute_many(conn, query)
       iex> row1
       [2]
       iex> row2

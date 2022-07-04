@@ -316,11 +316,27 @@ defmodule MyXQL.Protocol do
   end
 
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
+  # If an ok packet (0x00) is received during the `:initial` state it can be done of two things:
+  #   1. The result of a single statement query which doesn't return a result set (i.e `CREATE`)
+  #   2. The partial result of a multi-statement query where the current statement being executed
+  #      doesn't return a result set.
+  # If the first scenario, return the ok packet as the response.
+  # If the second scenario, store the result and keep reading from the socket.
   def decode_com_query_response(<<0x00, rest::binary>>, "", :initial) do
-    {:halt, decode_ok_packet_body(rest)}
+    ok_packet(status_flags: status_flags) = ok_response = decode_ok_packet_body(rest)
+
+    if has_status_flag?(status_flags, :server_more_results_exists) do
+      {:cont, {:more_results, ok_response}}
+    else
+      {:halt, ok_response}
+    end
   end
 
-  def decode_com_query_response(<<0xFF, rest::binary>>, "", :initial) do
+  def decode_com_query_response(<<0x00, rest::binary>>, _next_data, :initial) do
+    {:cont, {:more_results, decode_ok_packet_body(rest)}}
+  end
+
+  def decode_com_query_response(<<0xFF, rest::binary>>, _next_data, :initial) do
     {:halt, decode_err_packet_body(rest)}
   end
 
@@ -480,26 +496,6 @@ defmodule MyXQL.Protocol do
       flags: flags,
       unsigned?: has_column_flag?(flags, :unsigned_flag)
     )
-  end
-
-  def decode_more_results(payload, "", resultset, result_state) do
-    ok_packet(status_flags: status_flags) = decode_generic_response(payload)
-
-    case result_state do
-      :single ->
-        {:halt, resultset(resultset, status_flags: status_flags)}
-
-      {:many, results} ->
-        {:halt, [resultset(resultset, status_flags: status_flags) | results]}
-    end
-  end
-
-  def decode_more_results(_payload, _next_data, _resultset, :single) do
-    {:error, :multiple_results}
-  end
-
-  def decode_more_results(_payload, _next_data, resultset, {:many, results}) do
-    {:cont, :initial, {:many, [resultset | results]}}
   end
 
   defp decode_resultset(payload, _next_data, :initial, _row_decoder) do

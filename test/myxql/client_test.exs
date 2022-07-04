@@ -348,9 +348,9 @@ defmodule MyXQL.ClientTest do
 
     test "with stored procedure of single result", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare(client, "CALL single_procedure()")
+        Client.com_stmt_prepare(client, "CALL single_ok_procedure()")
 
-      {:ok, resultset(num_rows: 1, status_flags: status_flags)} =
+      {:ok, ok_packet(status_flags: status_flags)} =
         Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
 
       assert list_status_flags(status_flags) == [:server_status_autocommit]
@@ -359,7 +359,7 @@ defmodule MyXQL.ClientTest do
 
     test "with stored procedure of multiple results", %{client: client} do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
-        Client.com_stmt_prepare(client, "CALL multi_procedure()")
+        Client.com_stmt_prepare(client, "CALL one_resultset_one_ok_procedure()")
 
       assert {:error, :multiple_results} =
                Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
@@ -371,12 +371,12 @@ defmodule MyXQL.ClientTest do
       {:ok, com_stmt_prepare_ok(statement_id: statement_id)} =
         Client.com_stmt_prepare(client, "CALL cursor_procedure()")
 
-      {:ok, resultset(num_rows: 1, rows: [[3]])} =
-        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only)
+      {:ok, [ok_packet(affected_rows: 0), resultset(num_rows: 1, rows: [[3]])]} =
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_read_only, {:many, []})
 
       # This will be called if, for instance, someone issues the procedure statement from Ecto.Adapters.SQL.query
-      {:ok, resultset(num_rows: 1, rows: [[3]])} =
-        Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor)
+      {:ok, [ok_packet(affected_rows: 0), resultset(num_rows: 1, rows: [[3]])]} =
+        Client.com_stmt_execute(client, statement_id, [], :cursor_type_no_cursor, {:many, []})
 
       Client.com_quit(client)
     end
