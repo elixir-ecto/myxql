@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.3 (2022-09-22)
+
+* Print query statement in error log
+* Add count to table reader metadata
+
 ## v0.6.2 (2021-04-27)
 
 * Implement the Table.Reader protocol for query result
