@@ -187,7 +187,7 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(value)
       when is_integer(value) and value >= -1 <<< 63 and value < 1 <<< 64 do
-    {:mysql_type_longlong, <<value::int8>>}
+    {:mysql_type_longlong, <<value::int8()>>}
   end
 
   def encode_binary_value(value) when is_float(value) do
@@ -202,11 +202,11 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def encode_binary_value(%Date{year: year, month: month, day: day}) do
-    {:mysql_type_date, <<4, year::uint2, month::uint1, day::uint1>>}
+    {:mysql_type_date, <<4, year::uint2(), month::uint1(), day::uint1()>>}
   end
 
   def encode_binary_value(:zero_date) do
-    {:mysql_type_date, <<4, 0::uint2, 0::uint1, 0::uint1>>}
+    {:mysql_type_date, <<4, 0::uint2(), 0::uint1(), 0::uint1()>>}
   end
 
   def encode_binary_value(%Time{} = time), do: encode_binary_time(time)
@@ -269,7 +269,7 @@ defmodule MyXQL.Protocol.Values do
     defp encode_geometry(geo) do
       srid = geo.srid || 0
       binary = %{geo | srid: nil} |> Geo.WKB.encode_to_iodata(:ndr) |> IO.iodata_to_binary()
-      {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4, binary::binary>>)}
+      {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4(), binary::binary>>)}
     end
   end
 
@@ -283,7 +283,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp encode_binary_time(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
-    {:mysql_type_time, <<8, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1>>}
+    {:mysql_type_time,
+     <<8, 0::uint1(), 0::uint4(), hour::uint1(), minute::uint1(), second::uint1()>>}
   end
 
   defp encode_binary_time(%Time{
@@ -293,7 +294,8 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {microsecond, _}
        }) do
     {:mysql_type_time,
-     <<12, 0::uint1, 0::uint4, hour::uint1, minute::uint1, second::uint1, microsecond::uint4>>}
+     <<12, 0::uint1(), 0::uint4(), hour::uint1(), minute::uint1(), second::uint1(),
+       microsecond::uint4()>>}
   end
 
   defp encode_binary_datetime(%NaiveDateTime{
@@ -306,7 +308,8 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {0, 0}
        }) do
     {:mysql_type_datetime,
-     <<7, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1>>}
+     <<7, year::uint2(), month::uint1(), day::uint1(), hour::uint1(), minute::uint1(),
+       second::uint1()>>}
   end
 
   defp encode_binary_datetime(%NaiveDateTime{
@@ -319,8 +322,8 @@ defmodule MyXQL.Protocol.Values do
          microsecond: {microsecond, _}
        }) do
     {:mysql_type_datetime,
-     <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
-       microsecond::uint4>>}
+     <<11, year::uint2(), month::uint1(), day::uint1(), hour::uint1(), minute::uint1(),
+       second::uint1(), microsecond::uint4()>>}
   end
 
   defp encode_binary_datetime(%DateTime{
@@ -334,8 +337,8 @@ defmodule MyXQL.Protocol.Values do
          time_zone: "Etc/UTC"
        }) do
     {:mysql_type_datetime,
-     <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
-       microsecond::uint4>>}
+     <<11, year::uint2(), month::uint1(), day::uint1(), hour::uint1(), minute::uint1(),
+       second::uint1(), microsecond::uint4()>>}
   end
 
   defp encode_binary_datetime(%DateTime{} = datetime) do
@@ -418,7 +421,7 @@ defmodule MyXQL.Protocol.Values do
 
   if Code.ensure_loaded?(Geo) do
     # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
-    defp decode_geometry(<<srid::uint4, r::bits>>) do
+    defp decode_geometry(<<srid::uint4(), r::bits>>) do
       srid = if srid == 0, do: nil, else: srid
       r |> Geo.WKB.decode!() |> Map.put(:srid, srid)
     end
@@ -434,28 +437,28 @@ defmodule MyXQL.Protocol.Values do
     end
   end
 
-  defp decode_int1(<<v::int1, r::bits>>, null_bitmap, t, acc),
+  defp decode_int1(<<v::int1(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_uint1(<<v::uint1, r::bits>>, null_bitmap, t, acc),
+  defp decode_uint1(<<v::uint1(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_int2(<<v::int2, r::bits>>, null_bitmap, t, acc),
+  defp decode_int2(<<v::int2(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_uint2(<<v::uint2, r::bits>>, null_bitmap, t, acc),
+  defp decode_uint2(<<v::uint2(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_int4(<<v::int4, r::bits>>, null_bitmap, t, acc),
+  defp decode_int4(<<v::int4(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_uint4(<<v::uint4, r::bits>>, null_bitmap, t, acc),
+  defp decode_uint4(<<v::uint4(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_int8(<<v::int8, r::bits>>, null_bitmap, t, acc),
+  defp decode_int8(<<v::int8(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
-  defp decode_uint8(<<v::uint8, r::bits>>, null_bitmap, t, acc),
+  defp decode_uint8(<<v::uint8(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
 
   defp decode_float(<<v::32-signed-little-float, r::bits>>, null_bitmap, t, acc),
@@ -466,10 +469,15 @@ defmodule MyXQL.Protocol.Values do
 
   # in theory it's supposed to be a `string_lenenc` field. However since MySQL decimals
   # maximum precision is 65 digits, the size of the string will always fir on one byte.
-  defp decode_decimal(<<n::uint1, string::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_decimal(<<n::uint1(), string::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [Decimal.new(string) | acc])
 
-  defp decode_date(<<4, year::uint2, month::uint1, day::uint1, r::bits>>, null_bitmap, t, acc) do
+  defp decode_date(
+         <<4, year::uint2(), month::uint1(), day::uint1(), r::bits>>,
+         null_bitmap,
+         t,
+         acc
+       ) do
     v = %Date{year: year, month: month, day: day}
     decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
   end
@@ -480,7 +488,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_time(
-         <<8, is_negative, days::uint4, hours::uint1, minutes::uint1, seconds::uint1, r::bits>>,
+         <<8, is_negative, days::uint4(), hours::uint1(), minutes::uint1(), seconds::uint1(),
+           r::bits>>,
          null_bitmap,
          t,
          acc
@@ -490,8 +499,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_time(
-         <<12, is_negative, days::uint4, hours::uint1, minutes::uint1, seconds::uint1,
-           microseconds::uint4, r::bits>>,
+         <<12, is_negative, days::uint4(), hours::uint1(), minutes::uint1(), seconds::uint1(),
+           microseconds::uint4(), r::bits>>,
          null_bitmap,
          t,
          acc
@@ -521,7 +530,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_datetime(
-         <<4, year::uint2, month::uint1, day::uint1, r::bits>>,
+         <<4, year::uint2(), month::uint1(), day::uint1(), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -532,8 +541,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_datetime(
-         <<7, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
-           r::bits>>,
+         <<7, year::uint2(), month::uint1(), day::uint1(), hour::uint1(), minute::uint1(),
+           second::uint1(), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -544,8 +553,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_datetime(
-         <<11, year::uint2, month::uint1, day::uint1, hour::uint1, minute::uint1, second::uint1,
-           microsecond::uint4, r::bits>>,
+         <<11, year::uint2(), month::uint1(), day::uint1(), hour::uint1(), minute::uint1(),
+           second::uint1(), microsecond::uint4(), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -594,12 +603,12 @@ defmodule MyXQL.Protocol.Values do
     }
   end
 
-  defp decode_string_lenenc(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc, decoder)
+  defp decode_string_lenenc(<<n::uint1(), v::string(n), r::bits>>, null_bitmap, t, acc, decoder)
        when n < 251,
        do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
   defp decode_string_lenenc(
-         <<0xFC, n::uint2, v::string(n), r::bits>>,
+         <<0xFC, n::uint2(), v::string(n), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -608,7 +617,7 @@ defmodule MyXQL.Protocol.Values do
        do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
   defp decode_string_lenenc(
-         <<0xFD, n::uint3, v::string(n), r::bits>>,
+         <<0xFD, n::uint3(), v::string(n), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -617,7 +626,7 @@ defmodule MyXQL.Protocol.Values do
        do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
   defp decode_string_lenenc(
-         <<0xFE, n::uint8, v::string(n), r::bits>>,
+         <<0xFE, n::uint8(), v::string(n), r::bits>>,
          null_bitmap,
          t,
          acc,
@@ -625,16 +634,16 @@ defmodule MyXQL.Protocol.Values do
        ),
        do: decode_binary_row(r, null_bitmap >>> 1, t, [decoder.(v) | acc])
 
-  defp decode_json(<<n::uint1, v::string(n), r::bits>>, null_bitmap, t, acc) when n < 251,
+  defp decode_json(<<n::uint1(), v::string(n), r::bits>>, null_bitmap, t, acc) when n < 251,
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
-  defp decode_json(<<0xFC, n::uint2, v::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_json(<<0xFC, n::uint2(), v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
-  defp decode_json(<<0xFD, n::uint3, v::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_json(<<0xFD, n::uint3(), v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
-  defp decode_json(<<0xFE, n::uint8, v::string(n), r::bits>>, null_bitmap, t, acc),
+  defp decode_json(<<0xFE, n::uint8(), v::string(n), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_json(v) | acc])
 
   defp decode_json(string), do: json_library().decode!(string)
@@ -643,16 +652,16 @@ defmodule MyXQL.Protocol.Values do
     Application.get_env(:myxql, :json_library, Jason)
   end
 
-  defp decode_bit(<<n::uint1, v::string(n), r::bits>>, size, null_bitmap, t, acc) when n < 251,
+  defp decode_bit(<<n::uint1(), v::string(n), r::bits>>, size, null_bitmap, t, acc) when n < 251,
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
 
-  defp decode_bit(<<0xFC, n::uint2, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+  defp decode_bit(<<0xFC, n::uint2(), v::string(n), r::bits>>, size, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
 
-  defp decode_bit(<<0xFD, n::uint3, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+  defp decode_bit(<<0xFD, n::uint3(), v::string(n), r::bits>>, size, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
 
-  defp decode_bit(<<0xFE, n::uint8, v::string(n), r::bits>>, size, null_bitmap, t, acc),
+  defp decode_bit(<<0xFE, n::uint8(), v::string(n), r::bits>>, size, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
 
   defp decode_bit(binary, size) do

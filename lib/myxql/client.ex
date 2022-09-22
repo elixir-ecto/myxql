@@ -193,7 +193,7 @@ defmodule MyXQL.Client do
   defp recv_packets(data, decode, decoder_state, result_state, timeout, client, partial \\ <<>>)
 
   defp recv_packets(
-         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>> = data,
+         <<size::uint3(), _seq::uint1(), payload::string(size), rest::binary>> = data,
          decoder,
          {:more_results, resultset},
          result_state,
@@ -215,7 +215,7 @@ defmodule MyXQL.Client do
   end
 
   defp recv_packets(
-         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
+         <<size::uint3(), _seq::uint1(), payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          result_state,
@@ -242,7 +242,7 @@ defmodule MyXQL.Client do
   # If the packet size equals max packet size, save the payload, receive
   # more data and try again
   defp recv_packets(
-         <<size::uint3, _seq::uint1, payload::string(size), rest::binary>>,
+         <<size::uint3(), _seq::uint1(), payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          result_state,

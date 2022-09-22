@@ -22,19 +22,19 @@ defmodule MyXQL.Protocol.Types do
 
   # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
   def encode_int_lenenc(int) when int < 251, do: <<int>>
-  def encode_int_lenenc(int) when int < 0xFFFF, do: <<0xFC, int::uint2>>
-  def encode_int_lenenc(int) when int < 0xFFFFFF, do: <<0xFD, int::uint3>>
-  def encode_int_lenenc(int) when int < 0xFFFFFFFFFFFFFFFF, do: <<0xFE, int::uint8>>
+  def encode_int_lenenc(int) when int < 0xFFFF, do: <<0xFC, int::uint2()>>
+  def encode_int_lenenc(int) when int < 0xFFFFFF, do: <<0xFD, int::uint3()>>
+  def encode_int_lenenc(int) when int < 0xFFFFFFFFFFFFFFFF, do: <<0xFE, int::uint8()>>
 
   def decode_int_lenenc(binary) do
     {integer, ""} = take_int_lenenc(binary)
     integer
   end
 
-  def take_int_lenenc(<<int::uint1, rest::binary>>) when int < 251, do: {int, rest}
-  def take_int_lenenc(<<0xFC, int::uint2, rest::binary>>), do: {int, rest}
-  def take_int_lenenc(<<0xFD, int::uint3, rest::binary>>), do: {int, rest}
-  def take_int_lenenc(<<0xFE, int::uint8, rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<int::uint1(), rest::binary>>) when int < 251, do: {int, rest}
+  def take_int_lenenc(<<0xFC, int::uint2(), rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<0xFD, int::uint3(), rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<0xFE, int::uint8(), rest::binary>>), do: {int, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::FixedLengthString
   defmacro string(size) do
