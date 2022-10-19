@@ -86,6 +86,7 @@ defmodule MyXQL.Protocol.Values do
   defp column_def_to_type(column_def(type: :mysql_type_tiny_blob)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_medium_blob)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_long_blob)), do: :binary
+  defp column_def_to_type(column_def(name: "EXPLAIN", type: :mysql_type_var_string)), do: :json
   defp column_def_to_type(column_def(type: :mysql_type_var_string)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_string)), do: :binary
   defp column_def_to_type(column_def(type: :mysql_type_bit, length: length)), do: {:bit, length}

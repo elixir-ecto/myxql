@@ -258,6 +258,16 @@ defmodule MyXQL.Protocol.ValueTest do
         assert_roundtrip(c, "my_varbinary3", <<1, 2, 3>>)
       end
 
+      test "MYSQL_TYPE_VAR_STRING - EXPLAIN JSON", c do
+        assert %MyXQL.Result{columns: ["EXPLAIN"], num_rows: 1, rows: [[value]]} = query!(c, "EXPLAIN FORMAT=JSON SELECT 1")
+        assert is_map(value)
+      end
+
+      test "MYSQL_TYPE_VAR_STRING - EXPLAIN TRADITIONAL", c do
+        assert %MyXQL.Result{columns: cols} = query!(c, "EXPLAIN FORMAT=TRADITIONAL SELECT 1")
+        assert Enum.count(cols) > 1
+      end
+
       test "MYSQL_TYPE_VARCHAR", c do
         assert_roundtrip(c, "my_varchar3", <<1, 2, 3>>)
       end
