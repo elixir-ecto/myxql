@@ -20,6 +20,8 @@ jobs:
         pair:
           - elixir: 1.11.3
             otp: 23.2.5
+          - elixir: 1.14.0
+            otp: 25.1.2
         include:
           - db: mysql:8.0
             pair:
