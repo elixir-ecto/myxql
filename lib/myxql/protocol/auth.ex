@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
 
-  # TODO: remove when we require Elixir v1.14+
+  # TODO: remove when we require Elixir v1.10+
   require Bitwise
 
   # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html
