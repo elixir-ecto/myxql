@@ -1,7 +1,15 @@
 defmodule MyXQL.Protocol.ServerErrorCodes do
   @moduledoc false
 
-  codes = [
+  # TODO: remove when we require Elixir v1.10+
+  codes_from_config =
+    if Version.match?(System.version(), ">= 1.10.0") do
+      Application.compile_env(:myxql, :extra_error_codes, [])
+    else
+      apply(Application, :get_env, [:myxql, :extra_error_codes, []])
+    end
+
+  default_codes = [
     {1005, :ER_CANT_CREATE_TABLE},
     {1006, :ER_CANT_CREATE_DB},
     {1007, :ER_DB_CREATE_EXISTS},
@@ -23,8 +31,7 @@ defmodule MyXQL.Protocol.ServerErrorCodes do
     {1836, :ER_READ_ONLY_MODE}
   ]
 
-  # TODO: use Application.compile_env/3 when we require Elixir v1.10
-  codes = codes ++ Application.get_env(:myxql, :extra_error_codes, [])
+  codes = default_codes ++ codes_from_config
 
   for {code, name} <- Enum.uniq(codes) do
     def name_to_code(unquote(name)), do: unquote(code)
