@@ -438,7 +438,9 @@ defmodule MyXQL.Connection do
         {:ok, result, state}
 
       other ->
-        result(other, statement, state)
+        with {:error, _exception, state} <- result(other, statement, state) do
+          {:error, state}
+        end
     end
   end
 
