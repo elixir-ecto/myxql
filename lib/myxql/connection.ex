@@ -438,6 +438,9 @@ defmodule MyXQL.Connection do
         {:ok, result, state}
 
       other ->
+        # We convert {:error, exception, state} to {:error, state}
+        # so that DBConnection will disconnect during handle_begin/handle_rollback
+        # and will attempt to rollback during handle_commit
         with {:error, _exception, state} <- result(other, statement, state) do
           {:error, state}
         end
