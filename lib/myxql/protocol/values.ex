@@ -55,7 +55,8 @@ defmodule MyXQL.Protocol.Values do
     mysql_type_newdate: 0x0E,
     mysql_type_timestamp2: 0x11,
     mysql_type_datetime2: 0x12,
-    mysql_type_date2: 0x13
+    mysql_type_date2: 0x13,
+    mysql_type_string2: 0xF3
   ]
 
   for {atom, code} <- types do
