@@ -278,10 +278,6 @@ defmodule MyXQL.Protocol.Values do
   # MySQL supports negative time and days, we don't.
   # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
 
-  defp encode_binary_time(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
-    {:mysql_type_time, <<0>>}
-  end
-
   defp encode_binary_time(%Time{hour: hour, minute: minute, second: second, microsecond: {0, 0}}) do
     {:mysql_type_time,
      <<8, 0::uint1(), 0::uint4(), hour::uint1(), minute::uint1(), second::uint1()>>}
