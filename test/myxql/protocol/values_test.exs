@@ -109,6 +109,18 @@ defmodule MyXQL.Protocol.ValueTest do
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
       end
 
+      test "MYSQL_TYPE_TIME - should pass examples from https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html#sect_protocol_binary_resultset_row_value_time",
+           c do
+        assert_roundtrip(c, "my_time6", ~T[19:27:30.000001])
+        assert insert_and_get(c, "my_time6", ~T[19:27:30.000001]) == ~T[19:27:30.000001]
+
+        assert_roundtrip(c, "my_time", ~T[19:27:30])
+        assert insert_and_get(c, "my_time", ~T[19:27:30]) == ~T[19:27:30]
+
+        assert_roundtrip(c, "my_time", ~T[00:00:00])
+        assert insert_and_get(c, "my_time", ~T[00:00:00]) == ~T[00:00:00]
+      end
+
       if @protocol == :binary do
         test "MYSQL_TYPE_TIME - negative time", c do
           assert_raise ArgumentError, ~r"cannot decode \"-01:00:00\" as time", fn ->
