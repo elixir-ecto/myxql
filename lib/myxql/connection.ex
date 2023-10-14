@@ -18,6 +18,9 @@ defmodule MyXQL.Connection do
 
   @impl true
   def connect(opts) do
+    # Trap exits so that DBConnection calls `disconnect` on unexpected shutdowns
+    Process.flag(:trap_exit, true)
+
     prepare = Keyword.get(opts, :prepare, :named)
     ping_timeout = Keyword.get(opts, :ping_timeout, 15_000)
     config = Client.Config.new(opts)
