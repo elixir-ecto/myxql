@@ -142,6 +142,18 @@ defmodule MyXQL.Protocol do
     decode_connect_err_packet_body(rest)
   end
 
+  defp filter_capabilities(allowed_flags, requested_flags) do
+    requested_capabilities = list_capability_flags(requested_flags)
+
+    Enum.reduce(requested_capabilities, requested_flags, fn name, acc ->
+      if has_capability_flag?(allowed_flags, name) do
+        acc
+      else
+        remove_capability_flag(acc, name)
+      end
+    end)
+  end
+
   defp ensure_capabilities(capability_flags, names) do
     Enum.reduce_while(names, :ok, fn name, _acc ->
       if has_capability_flag?(capability_flags, name) do
@@ -172,9 +184,8 @@ defmodule MyXQL.Protocol do
     if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
     else
-      client_capabilities = list_capability_flags(client_capability_flags)
-
-      with :ok <- ensure_capabilities(server_capability_flags, client_capabilities) do
+      with client_capability_flags <-
+             filter_capabilities(server_capability_flags, client_capability_flags) do
         {:ok, client_capability_flags}
       end
     end

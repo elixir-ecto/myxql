@@ -34,6 +34,8 @@ defmodule MyXQL.Protocol.Flags do
 
   def has_capability_flag?(flags, name), do: has_flag?(@capability_flags, flags, name)
 
+  def remove_capability_flag(flags, name), do: remove_flag(@capability_flags, flags, name)
+
   def put_capability_flags(flags \\ 0, names), do: put_flags(@capability_flags, flags, names)
 
   def list_capability_flags(flags), do: list_flags(@capability_flags, flags)
@@ -91,6 +93,11 @@ defmodule MyXQL.Protocol.Flags do
 
   defp put_flags(all_flags, flags, names) do
     Enum.reduce(names, flags, &(&2 ||| Keyword.fetch!(all_flags, &1)))
+  end
+
+  defp remove_flag(all_flags, flags, name) do
+    value = Keyword.fetch!(all_flags, name)
+    flags &&& ~~~value
   end
 
   def list_flags(all_flags, flags) do
