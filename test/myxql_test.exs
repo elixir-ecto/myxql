@@ -199,24 +199,25 @@ defmodule MyXQLTest do
                MyXQL.query(
                  c.conn,
                  """
-                 SELECT 1 AS x, 'a' AS y
+                 SELECT 1 AS x, 'a' AS y, 1 AS x
                  UNION
-                 SELECT 2 AS x, 'b' AS y
+                 SELECT 2 AS x, 'b' AS y, 1 AS x
                  UNION
-                 SELECT 3 AS x, 'c' AS y
+                 SELECT 3 AS x, 'c' AS y, 1 AS x
                  """,
                  []
                )
 
       assert result |> Table.to_rows() |> Enum.to_list() == [
-               %{"x" => 1, "y" => "a"},
-               %{"x" => 2, "y" => "b"},
-               %{"x" => 3, "y" => "c"}
+               %{"x" => 1, "y" => "a", "x_2" => 1},
+               %{"x" => 2, "y" => "b", "x_2" => 1},
+               %{"x" => 3, "y" => "c", "x_2" => 1}
              ]
 
       columns = Table.to_columns(result)
       assert Enum.to_list(columns["x"]) == [1, 2, 3]
       assert Enum.to_list(columns["y"]) == ["a", "b", "c"]
+      assert Enum.to_list(columns["x_2"]) == [1, 1, 1]
 
       assert {_, %{count: 3}, _} = Table.Reader.init(result)
     end
