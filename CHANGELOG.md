@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.4 (2023-12-04)
+
+  * Let DBConnection rollback for failed commit or disconnect failed begin/rollback
+  * Trap exits from connect callback
+  * Handle duplicate column names in Table.Reader implementation
+
 ## v0.6.3 (2022-09-22)
 
 * Print query statement in error log

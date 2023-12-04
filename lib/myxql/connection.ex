@@ -416,7 +416,7 @@ defmodule MyXQL.Connection do
 
   defp format_reason(reason) do
     case :ssl.format_error(reason) do
-      'Unexpected error' ++ _ ->
+      ~c"Unexpected error" ++ _ ->
         inspect(reason)
 
       message ->
