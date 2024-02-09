@@ -78,6 +78,23 @@ defmodule MyXQL.ClientTest do
       Client.com_quit(client)
     end
 
+    # mysql_clear_password
+
+    test "mysql_clear_password" do
+      opts = [username: "mysql_clear", password: "secret", enable_cleartext_plugin: true] ++ @opts
+      %{port: port} = start_cleartext_fake_server()
+      opts = Keyword.put(opts, :port, port)
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
+    end
+
+    test "mysql_clear_password (bad password)" do
+      opts = [username: "mysql_clear", password: "bad", enable_cleartext_plugin: true] ++ @opts
+      %{port: port} = start_cleartext_fake_server()
+      opts = Keyword.put(opts, :port, port)
+      {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
+    end
+
     # sha256_password
 
     @tag sha256_password: true, public_key_exchange: true
@@ -446,5 +463,58 @@ defmodule MyXQL.ClientTest do
       end)
 
     %{pid: pid, port: port}
+  end
+
+
+  defp start_cleartext_fake_server() do
+    start_fake_server(fn %{accept_socket: sock} ->
+      initial_handshake =
+        <<74, 0, 0, 0, 10, 56, 46, 48, 46, 51, 53, 0, 127, 24, 4, 0, 93, 42, 61, 27, 60,
+          38, 85, 12, 0, 255, 255, 255, 2, 0, 255, 223, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 39, 48, 10, 117, 54, 65, 74, 37, 125, 121, 93, 6, 0, 109, 121, 115, 113,
+          108, 95, 110, 97, 116, 105, 118, 101, 95, 112, 97, 115, 115, 119, 111, 114,
+          100, 0>>
+
+      client_auth_response =
+         <<98, 0, 0, 1, 10, 162, 11, 0, 255, 255, 255, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 109, 121, 115, 113, 108, 95, 99,
+           108, 101, 97, 114, 0, 20, 254, 122, 75, 71, 45, 200, 185, 238, 55, 229, 170,
+           5, 207, 204, 65, 246, 243, 144, 91, 183, 109, 121, 120, 113, 108, 95, 116,
+           101, 115, 116, 0, 109, 121, 115, 113, 108, 95, 110, 97, 116, 105, 118, 101,
+           95, 112, 97, 115, 115, 119, 111, 114, 100, 0>>
+
+      switch_auth_response =
+        <<22, 0, 0, 2, 254, 109, 121, 115, 113, 108, 95, 99, 108, 101, 97, 114, 95, 112,
+          97, 115, 115, 119, 111, 114, 100, 0>>
+
+      client_switch_auth_response =
+        <<7, 0, 0, 3, 115, 101, 99, 114, 101, 116, 0>>
+
+      ok_response =
+        <<7, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0>>
+
+      client_quit = <<1, 0, 0, 0, 1>>
+
+      auth_response_invalid =
+        <<83, 0, 0, 1, 255, 21, 4, 35, 50, 56, 48, 48, 48, 65, 99, 99, 101, 115, 115,
+          32, 100, 101, 110, 105, 101, 100, 32, 102, 111, 114, 32, 117, 115, 101, 114,
+          32, 39, 100, 101, 102, 97, 117, 108, 116, 95, 97, 117, 116, 104, 39, 64, 39,
+          49, 57, 50, 46, 49, 54, 56, 46, 54, 53, 46, 49, 39, 32, 40, 117, 115, 105,
+          110, 103, 32, 112, 97, 115, 115, 119, 111, 114, 100, 58, 32, 89, 69, 83, 41>>
+
+      :gen_tcp.send(sock, initial_handshake)
+
+      case :gen_tcp.recv(sock, 0) do
+        {:ok, ^client_auth_response} ->
+          :ok = :gen_tcp.send(sock, switch_auth_response)
+          {:ok, ^client_switch_auth_response} = :gen_tcp.recv(sock, 0)
+          :ok = :gen_tcp.send(sock, ok_response)
+          {:ok, ^client_quit} = :gen_tcp.recv(sock, 0)
+          :ok = :gen_tcp.send(sock, ok_response)
+
+        {:ok, _other} ->
+          :ok = :gen_tcp.send(sock, auth_response_invalid)
+      end
+    end)
   end
 end
