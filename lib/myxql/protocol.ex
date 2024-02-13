@@ -184,10 +184,10 @@ defmodule MyXQL.Protocol do
     if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
     else
-      with client_capability_flags <-
-             filter_capabilities(server_capability_flags, client_capability_flags) do
-        {:ok, client_capability_flags}
-      end
+      client_capability_flags =
+        filter_capabilities(server_capability_flags, client_capability_flags)
+
+      {:ok, client_capability_flags}
     end
   end
 
