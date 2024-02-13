@@ -469,38 +469,37 @@ defmodule MyXQL.ClientTest do
     start_fake_server(fn %{accept_socket: sock} ->
       # The initial handshake which the mysql server always sends. Usually, like in this
       # case, it contains scramble data with `mysql_native_password`.
-      initial_handshake =
-        [
-          # packet size
-          <<74, 0, 0>>,
-          # packet sequence
-          0,
-          # protocol version, always 0x10
-          10,
-          # mysql version
-          ["8.0.35", 0],
-          # thread id
-          <<127, 24, 4, 0>>,
-          # auth_plugin_data_1
-          <<93, 42, 61, 27, 60, 38, 85, 12>>,
-          # filler
-          0,
-          # capability flags 1
-          <<255, 255>>,
-          # charset
-          <<255>>,
-          # status flags
-          <<2, 0>>,
-          # capability flags 2
-          <<255, 223>>,
-          # auth_plugin_data_len
-          21,
-          # reserved
-          <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
-          <<39, 48, 10, 117, 54, 65, 74, 37, 125, 121, 93, 6, 0>>,
-          # auth_plugin_name
-          ["mysql_native_password", 0]
-        ]
+      initial_handshake = [
+        # packet size
+        <<74, 0, 0>>,
+        # packet sequence
+        0,
+        # protocol version, always 0x10
+        10,
+        # mysql version
+        ["8.0.35", 0],
+        # thread id
+        <<127, 24, 4, 0>>,
+        # auth_plugin_data_1
+        <<93, 42, 61, 27, 60, 38, 85, 12>>,
+        # filler
+        0,
+        # capability flags 1
+        <<255, 255>>,
+        # charset
+        <<255>>,
+        # status flags
+        <<2, 0>>,
+        # capability flags 2
+        <<255, 223>>,
+        # auth_plugin_data_len
+        21,
+        # reserved
+        <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
+        <<39, 48, 10, 117, 54, 65, 74, 37, 125, 121, 93, 6, 0>>,
+        # auth_plugin_name
+        ["mysql_native_password", 0]
+      ]
 
       # Client will use the scramble to attempt authentication with `mysql_native_password`
       # (or whichever default auth plugin is used). This will fail, but must be done before
