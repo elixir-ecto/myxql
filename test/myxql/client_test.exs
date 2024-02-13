@@ -468,6 +468,8 @@ defmodule MyXQL.ClientTest do
 
   defp start_cleartext_fake_server() do
     start_fake_server(fn %{accept_socket: sock} ->
+      # The initial handshake which the mysql server always sends. Usually, like in this
+      # case, it contains scramble data with `mysql_native_password`.
       initial_handshake =
         <<74, 0, 0, 0, 10, 56, 46, 48, 46, 51, 53, 0, 127, 24, 4, 0, 93, 42, 61, 27, 60,
           38, 85, 12, 0, 255, 255, 255, 2, 0, 255, 223, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -475,6 +477,9 @@ defmodule MyXQL.ClientTest do
           108, 95, 110, 97, 116, 105, 118, 101, 95, 112, 97, 115, 115, 119, 111, 114,
           100, 0>>
 
+      # Client will use the scramble to attempt authentication with `mysql_native_password`
+      # (or whichever default auth plugin is used). This will fail, but must be done before
+      # we can continue with `mysql_clear_password`.
       client_auth_response =
          <<98, 0, 0, 1, 10, 162, 11, 0, 255, 255, 255, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0,
            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 109, 121, 115, 113, 108, 95, 99,
@@ -483,10 +488,13 @@ defmodule MyXQL.ClientTest do
            101, 115, 116, 0, 109, 121, 115, 113, 108, 95, 110, 97, 116, 105, 118, 101,
            95, 112, 97, 115, 115, 119, 111, 114, 100, 0>>
 
+      # The server now requests `mysql_clear_password`. Notably there's no scramable data
+      # here.
       switch_auth_response =
         <<22, 0, 0, 2, 254, 109, 121, 115, 113, 108, 95, 99, 108, 101, 97, 114, 95, 112,
           97, 115, 115, 119, 111, 114, 100, 0>>
 
+      # Client sends the cleartext password
       client_switch_auth_response =
         <<7, 0, 0, 3, 115, 101, 99, 114, 101, 116, 0>>
 
