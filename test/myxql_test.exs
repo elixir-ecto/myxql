@@ -156,7 +156,9 @@ defmodule MyXQLTest do
 
       test "#{@protocol}: query with multiple rows", c do
         %MyXQL.Result{num_rows: 2} =
-          MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)", [], query_type: @protocol)
+          MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)", [],
+            query_type: @protocol
+          )
 
         assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
                  MyXQL.query(c.conn, "SELECT * FROM integers")
@@ -168,7 +170,9 @@ defmodule MyXQLTest do
         values = Enum.map_join(1..num, ", ", &"(#{&1})")
 
         result =
-          MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values, [], query_type: @protocol)
+          MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values, [],
+            query_type: @protocol
+          )
 
         assert result.num_rows == num
 

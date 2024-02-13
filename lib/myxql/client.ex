@@ -25,7 +25,8 @@ defmodule MyXQL.Client do
       :socket_options,
       :max_packet_size,
       :charset,
-      :collation
+      :collation,
+      :enable_cleartext_plugin
     ]
 
     def new(opts) do
@@ -45,7 +46,8 @@ defmodule MyXQL.Client do
         socket_options:
           Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
         charset: Keyword.get(opts, :charset),
-        collation: Keyword.get(opts, :collation)
+        collation: Keyword.get(opts, :collation),
+        enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false)
       }
     end
 

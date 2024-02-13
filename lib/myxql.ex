@@ -23,6 +23,7 @@ defmodule MyXQL do
           | {:ping_timeout, timeout()}
           | {:prepare, :force_named | :named | :unnamed}
           | {:disconnect_on_error_codes, [atom()]}
+          | {:enable_cleartext_plugin, boolean()}
           | DBConnection.start_option()
 
   @type option() :: DBConnection.option()
@@ -99,6 +100,8 @@ defmodule MyXQL do
     * `:disconnect_on_error_codes` - List of error code integers or atoms that when encountered
       will disconnect the connection. See "Disconnecting on Errors" section below for more
       information.
+
+    * `:enable_cleartext_plugin` - Set to `true` to send password as cleartext (default: `false`)
 
    The given options are passed down to DBConnection, some of the most commonly used ones are
    documented below:

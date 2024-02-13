@@ -33,6 +33,9 @@ defmodule MyXQL.Protocol.Auth do
       config.password == nil ->
         ""
 
+      auth_plugin_name == "mysql_clear_password" and config.enable_cleartext_plugin ->
+        config.password <> <<0>>
+
       auth_plugin_name == "mysql_native_password" ->
         mysql_native_password(config.password, initial_auth_plugin_data)
 
