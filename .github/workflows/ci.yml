@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
+    # branches:
+    #   - master
   pull_request:
 
 jobs:
@@ -25,8 +25,8 @@ jobs:
         include:
           - db: mysql:8.0
             pair:
-              elixir: 1.11.4
-              otp: 23.3.3
+              elixir: 1.16.1
+              otp: 26.2.2
             lint: lint
           - db: mysql:8.0
             pair:
