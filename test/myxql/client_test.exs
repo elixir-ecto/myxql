@@ -465,50 +465,118 @@ defmodule MyXQL.ClientTest do
     %{pid: pid, port: port}
   end
 
-
   defp start_cleartext_fake_server() do
     start_fake_server(fn %{accept_socket: sock} ->
       # The initial handshake which the mysql server always sends. Usually, like in this
       # case, it contains scramble data with `mysql_native_password`.
       initial_handshake =
-        <<74, 0, 0, 0, 10, 56, 46, 48, 46, 51, 53, 0, 127, 24, 4, 0, 93, 42, 61, 27, 60,
-          38, 85, 12, 0, 255, 255, 255, 2, 0, 255, 223, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 39, 48, 10, 117, 54, 65, 74, 37, 125, 121, 93, 6, 0, 109, 121, 115, 113,
-          108, 95, 110, 97, 116, 105, 118, 101, 95, 112, 97, 115, 115, 119, 111, 114,
-          100, 0>>
+        [
+          # packet size
+          <<74, 0, 0>>,
+          # packet sequence
+          0,
+          # protocol version, always 0x10
+          10,
+          # mysql version
+          ["8.0.35", 0],
+          # thread id
+          <<127, 24, 4, 0>>,
+          # auth_plugin_data_1
+          <<93, 42, 61, 27, 60, 38, 85, 12>>,
+          # filler
+          0,
+          # capability flags 1
+          <<255, 255>>,
+          # charset
+          <<255>>,
+          # status flags
+          <<2, 0>>,
+          # capability flags 2
+          <<255, 223>>,
+          # auth_plugin_data_len
+          21,
+          # reserved
+          <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
+          <<39, 48, 10, 117, 54, 65, 74, 37, 125, 121, 93, 6, 0>>,
+          # auth_plugin_name
+          ["mysql_native_password", 0]
+        ]
 
       # Client will use the scramble to attempt authentication with `mysql_native_password`
       # (or whichever default auth plugin is used). This will fail, but must be done before
       # we can continue with `mysql_clear_password`.
       client_auth_response =
-         <<98, 0, 0, 1, 10, 162, 11, 0, 255, 255, 255, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 109, 121, 115, 113, 108, 95, 99,
-           108, 101, 97, 114, 0, 20, 254, 122, 75, 71, 45, 200, 185, 238, 55, 229, 170,
-           5, 207, 204, 65, 246, 243, 144, 91, 183, 109, 121, 120, 113, 108, 95, 116,
-           101, 115, 116, 0, 109, 121, 115, 113, 108, 95, 110, 97, 116, 105, 118, 101,
-           95, 112, 97, 115, 115, 119, 111, 114, 100, 0>>
+        IO.iodata_to_binary([
+          # packet header
+          <<98, 0, 0>>,
+          # packet sequence
+          1,
+          # capability flags
+          <<10, 162, 11, 0>>,
+          # max packet size
+          <<255, 255, 255, 0>>,
+          # charset
+          45,
+          # filler
+          <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
+          # username
+          ["mysql_clear", 0],
+          # auth response
+          [
+            20,
+            <<254, 122, 75, 71, 45, 200, 185, 238, 55, 229, 170, 5, 207, 204, 65, 246, 243, 144,
+              91, 183>>
+          ],
+          # database
+          ["myxql_test", 0],
+          # auth plugin name
+          ["mysql_native_password", 0]
+        ])
 
-      # The server now requests `mysql_clear_password`. Notably there's no scramable data
-      # here.
-      switch_auth_response =
-        <<22, 0, 0, 2, 254, 109, 121, 115, 113, 108, 95, 99, 108, 101, 97, 114, 95, 112,
-          97, 115, 115, 119, 111, 114, 100, 0>>
+      # The server now requests `mysql_clear_password`. Notably there's no scramable data here.
+      switch_auth_response = [
+        # packet size
+        <<22, 0, 0>>,
+        # packet sequence
+        2,
+        254,
+        ["mysql_clear_password", 0]
+      ]
 
       # Client sends the cleartext password
       client_switch_auth_response =
-        <<7, 0, 0, 3, 115, 101, 99, 114, 101, 116, 0>>
+        IO.iodata_to_binary([
+          # packet size
+          <<7, 0, 0>>,
+          # packet sequence
+          3,
+          # password
+          ["secret", 0]
+        ])
 
-      ok_response =
-        <<7, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0>>
+      ok_response = [
+        # packet size
+        <<7, 0, 0>>,
+        # packet sequence
+        4,
+        # ok packet
+        <<0, 0, 0, 2, 0, 0, 0>>
+      ]
 
       client_quit = <<1, 0, 0, 0, 1>>
 
-      auth_response_invalid =
-        <<83, 0, 0, 1, 255, 21, 4, 35, 50, 56, 48, 48, 48, 65, 99, 99, 101, 115, 115,
-          32, 100, 101, 110, 105, 101, 100, 32, 102, 111, 114, 32, 117, 115, 101, 114,
-          32, 39, 100, 101, 102, 97, 117, 108, 116, 95, 97, 117, 116, 104, 39, 64, 39,
-          49, 57, 50, 46, 49, 54, 56, 46, 54, 53, 46, 49, 39, 32, 40, 117, 115, 105,
-          110, 103, 32, 112, 97, 115, 115, 119, 111, 114, 100, 58, 32, 89, 69, 83, 41>>
+      auth_response_invalid = [
+        # packet size
+        <<83, 0, 0>>,
+        # packet sequence
+        1,
+        # err packet header
+        255,
+        # error code
+        <<21, 4>>,
+        # error message
+        "#28000Access denied for user 'default_auth'@'192.168.65.1' (using password: YES)"
+      ]
 
       :gen_tcp.send(sock, initial_handshake)
 
