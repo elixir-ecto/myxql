@@ -18,7 +18,7 @@ defmodule MyXQL.Result do
   If `result.num_warnings` is non-zero it means there were warnings and they can be
   retrieved by making another query:
 
-      MyXQL.query!(conn, "SHOW WARNINGS")
+      MyXQL.query!(conn, "SHOW WARNINGS", [], query_type: :text)
 
   """
 
