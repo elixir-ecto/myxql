@@ -129,7 +129,10 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def decode_text_value(value, type) when type in [:float, :double] do
-    String.to_float(value)
+    case Float.parse(value) do
+      {value, ""} -> value
+      _ -> raise ArgumentError, ~s(cannot decode text value "#{value}" to float/double)
+    end
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
