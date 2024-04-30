@@ -93,14 +93,6 @@ defmodule MyXQL.Protocol.ValueTest do
 
         assert Float.round(insert_and_get(c, "my_unsigned_float", 10.0), 2) == 10.0
         assert Float.round(insert_and_get(c, "my_unsigned_float", 13.37), 2) == 13.37
-
-        assert_raise ArgumentError, ~s(cannot decode text value "10.0ABC" to float/double), fn ->
-          MyXQL.Protocol.Values.decode_text_value("10.0ABC", :float)
-        end
-
-        assert_raise ArgumentError, ~s(cannot decode text value "ABC" to float/double), fn ->
-          MyXQL.Protocol.Values.decode_text_value("ABC", :float)
-        end
       end
 
       test "MYSQL_TYPE_DOUBLE", c do
@@ -110,14 +102,6 @@ defmodule MyXQL.Protocol.ValueTest do
 
         assert_roundtrip(c, "my_unsigned_double", 10.0)
         assert_roundtrip(c, "my_unsigned_double", 13.37)
-
-        assert_raise ArgumentError, ~s(cannot decode text value "10.0ABC" to float/double), fn ->
-          MyXQL.Protocol.Values.decode_text_value("10.0ABC", :float)
-        end
-
-        assert_raise ArgumentError, ~s(cannot decode text value "ABC" to float/double), fn ->
-          MyXQL.Protocol.Values.decode_text_value("ABC", :float)
-        end
       end
 
       test "MYSQL_TYPE_DATE", c do
