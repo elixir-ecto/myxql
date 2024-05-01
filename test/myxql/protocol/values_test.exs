@@ -87,16 +87,20 @@ defmodule MyXQL.Protocol.ValueTest do
       end
 
       test "MYSQL_TYPE_FLOAT", c do
+        assert Float.round(insert_and_get(c, "my_float", 10.0), 2) == 10.0
         assert Float.round(insert_and_get(c, "my_float", -13.37), 2) == -13.37
         assert Float.round(insert_and_get(c, "my_float", 13.37), 2) == 13.37
 
+        assert Float.round(insert_and_get(c, "my_unsigned_float", 10.0), 2) == 10.0
         assert Float.round(insert_and_get(c, "my_unsigned_float", 13.37), 2) == 13.37
       end
 
       test "MYSQL_TYPE_DOUBLE", c do
+        assert_roundtrip(c, "my_double", 10.0)
         assert_roundtrip(c, "my_double", -13.37)
         assert_roundtrip(c, "my_double", 13.37)
 
+        assert_roundtrip(c, "my_unsigned_double", 10.0)
         assert_roundtrip(c, "my_unsigned_double", 13.37)
       end
 
