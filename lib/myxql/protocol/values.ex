@@ -129,8 +129,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def decode_text_value(value, type) when type in [:float, :double] do
-    value = if String.contains?(value, "."), do: value, else: "#{value}.0"
-    String.to_float(value)
+    if String.contains?(value, "."), do: String.to_float(value), else: String.to_integer(value) * 1.0
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
