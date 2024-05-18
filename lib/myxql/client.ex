@@ -47,7 +47,7 @@ defmodule MyXQL.Client do
         ssl_opts: Keyword.get(opts, :ssl_opts, []),
         connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
         handshake_timeout: Keyword.get(opts, :handshake_timeout, @default_timeout),
-        socket_options: @sock_opts ++ (opts[:socket_options] || []),
+        socket_options: (opts[:socket_options] || []) ++ @sock_opts,
         charset: Keyword.get(opts, :charset),
         collation: Keyword.get(opts, :collation),
         enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false)
