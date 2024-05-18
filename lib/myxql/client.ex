@@ -7,6 +7,8 @@ defmodule MyXQL.Client do
 
   defstruct [:sock, :connection_id]
 
+  @sock_opts [mode: :binary, packet: :raw, active: false]
+
   defmodule Config do
     @moduledoc false
 
@@ -29,6 +31,8 @@ defmodule MyXQL.Client do
       :enable_cleartext_plugin
     ]
 
+    @sock_opts [mode: :binary, packet: :raw, active: false]
+
     def new(opts) do
       {address, port} = address_and_port(opts)
 
@@ -43,8 +47,7 @@ defmodule MyXQL.Client do
         ssl_opts: Keyword.get(opts, :ssl_opts, []),
         connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
         handshake_timeout: Keyword.get(opts, :handshake_timeout, @default_timeout),
-        socket_options:
-          Keyword.merge([mode: :binary, packet: :raw, active: false], opts[:socket_options] || []),
+        socket_options: @sock_opts ++ (opts[:socket_options] || []),
         charset: Keyword.get(opts, :charset),
         collation: Keyword.get(opts, :collation),
         enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false)
@@ -295,7 +298,7 @@ defmodule MyXQL.Client do
     buffer? = Keyword.has_key?(socket_options, :buffer)
     client = %__MODULE__{connection_id: nil, sock: nil}
 
-    case :gen_tcp.connect(address, port, socket_options, connect_timeout) do
+    case :gen_tcp.connect(address, port, @sock_opts ++ socket_options, connect_timeout) do
       {:ok, sock} when buffer? ->
         {:ok, %{client | sock: {:gen_tcp, sock}}}
 
