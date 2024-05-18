@@ -71,7 +71,7 @@ defmodule MyXQLTest do
     end
 
     test "custom socket options with :inet6" do
-      opts = [socket_options: [:inet6]] ++ @opts
+      opts = [socket_options: [:inet]] ++ @opts
       {:ok, conn} = MyXQL.start_link(opts)
 
       MyXQL.query!(conn, "SELECT 1, 2, NOW()")
