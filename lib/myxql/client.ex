@@ -298,7 +298,7 @@ defmodule MyXQL.Client do
     buffer? = Keyword.has_key?(socket_options, :buffer)
     client = %__MODULE__{connection_id: nil, sock: nil}
 
-    case :gen_tcp.connect(address, port, @sock_opts ++ socket_options, connect_timeout) do
+    case :gen_tcp.connect(address, port, socket_options ++ @sock_opts, connect_timeout) do
       {:ok, sock} when buffer? ->
         {:ok, %{client | sock: {:gen_tcp, sock}}}
 
