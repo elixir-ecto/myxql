@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.7.0 (2024-05-20)
+
+  * Add `:enable_cleartext_plugin` option
+
+  * Filter client capabilities that can't be met by server
+
+  * Fix float/double parsing for text protocol when fractional part is missing
+
+  * Fix setting `:socket_options`, they are now merged
+
+  * `:ssl_opts` is deprecated in favor of `ssl: options`
+
+  * `ssl: true` now emits a warning, as it does not execute server certificate verification
+
 ## v0.6.4 (2023-12-04)
 
   * Let DBConnection rollback for failed commit or disconnect failed begin/rollback

@@ -19,9 +19,9 @@ Documentation: <http://hexdocs.pm/myxql>
 Add `:myxql` to your dependencies:
 
 ```elixir
-def deps() do
+def deps do
   [
-    {:myxql, "~> 0.6.0"}
+    {:myxql, "~> 0.7.0"}
   ]
 end
 ```
@@ -153,7 +153,7 @@ input, consider implementing an [custom Ecto type](https://hexdocs.pm/ecto/Ecto.
 
 Run tests:
 
-```
+```text
 git clone git@github.com:elixir-ecto/myxql.git
 cd myxql
 mix deps.get
