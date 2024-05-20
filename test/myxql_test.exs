@@ -70,6 +70,14 @@ defmodule MyXQLTest do
       MyXQL.prepare_execute!(conn, "", "SELECT 1, 2, NOW()")
     end
 
+    test "custom socket options with :inet6" do
+      opts = [socket_options: [:inet]] ++ @opts
+      {:ok, conn} = MyXQL.start_link(opts)
+
+      MyXQL.query!(conn, "SELECT 1, 2, NOW()")
+      MyXQL.prepare_execute!(conn, "", "SELECT 1, 2, NOW()")
+    end
+
     test "after_connect callback" do
       pid = self()
       opts = [after_connect: fn conn -> send(pid, {:connected, conn}) end] ++ @opts
