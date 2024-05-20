@@ -20,7 +20,6 @@ defmodule MyXQL.Client do
       :username,
       :password,
       :database,
-      :ssl?,
       :ssl_opts,
       :connect_timeout,
       :handshake_timeout,
@@ -36,6 +35,24 @@ defmodule MyXQL.Client do
     def new(opts) do
       {address, port} = address_and_port(opts)
 
+      {ssl_opts, opts} =
+        case Keyword.pop(opts, :ssl, false) do
+          {false, opts} ->
+            {nil, opts}
+
+          {true, opts} ->
+            Logger.warning(
+              "setting ssl: true on your database connection offers only limited protection, " <>
+                "as the server's certificate is not verified. Set \"ssl: [cacertfile: \"/path/to/cacert.crt\"]\" instead"
+            )
+
+            # Read ssl_opts for backwards compatibility
+            Keyword.pop(opts, :ssl_opts, [])
+
+          {ssl_opts, opts} when is_list(ssl_opts) ->
+            {Keyword.merge(default_ssl_opts(), ssl_opts), opts}
+        end
+
       %__MODULE__{
         address: address,
         port: port,
@@ -43,8 +60,7 @@ defmodule MyXQL.Client do
           Keyword.get(opts, :username, System.get_env("USER")) || raise(":username is missing"),
         password: nilify(Keyword.get(opts, :password, System.get_env("MYSQL_PWD"))),
         database: Keyword.get(opts, :database),
-        ssl?: Keyword.get(opts, :ssl, false),
-        ssl_opts: Keyword.get(opts, :ssl_opts, []),
+        ssl_opts: ssl_opts,
         connect_timeout: Keyword.get(opts, :connect_timeout, @default_timeout),
         handshake_timeout: Keyword.get(opts, :handshake_timeout, @default_timeout),
         socket_options: (opts[:socket_options] || []) ++ @sock_opts,
@@ -52,6 +68,15 @@ defmodule MyXQL.Client do
         collation: Keyword.get(opts, :collation),
         enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false)
       }
+    end
+
+    defp default_ssl_opts do
+      [
+        verify: :verify_peer,
+        customize_hostname_check: [
+          match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+        ]
+      ]
     end
 
     defp nilify(""), do: nil
@@ -379,8 +404,19 @@ defmodule MyXQL.Client do
     com_query(client, "SET NAMES '#{charset}' COLLATE '#{collation}'")
   end
 
-  defp maybe_upgrade_to_ssl(client, %{ssl?: true} = config, capability_flags, sequence_id) do
+  defp maybe_upgrade_to_ssl(client, %{ssl_opts: nil}, _capability_flags, sequence_id) do
+    {:ok, sequence_id, client}
+  end
+
+  defp maybe_upgrade_to_ssl(client, %{ssl_opts: ssl_opts} = config, capability_flags, sequence_id) do
     {_, sock} = client.sock
+
+    ssl_opts =
+      if is_list(config.address) do
+        Keyword.put_new(ssl_opts, :server_name_indication, config.address)
+      else
+        ssl_opts
+      end
 
     ssl_request =
       ssl_request(
@@ -392,13 +428,9 @@ defmodule MyXQL.Client do
     payload = encode_ssl_request(ssl_request)
 
     with :ok <- send_packet(client, payload, sequence_id),
-         {:ok, ssl_sock} <- :ssl.connect(sock, config.ssl_opts, config.connect_timeout) do
+         {:ok, ssl_sock} <- :ssl.connect(sock, ssl_opts, config.connect_timeout) do
       {:ok, sequence_id + 1, %{client | sock: {:ssl, ssl_sock}}}
     end
-  end
-
-  defp maybe_upgrade_to_ssl(client, %{ssl?: false}, _capability_flags, sequence_id) do
-    {:ok, sequence_id, client}
   end
 
   defp recv_handshake(client) do
@@ -477,7 +509,7 @@ defmodule MyXQL.Client do
 
   defp perform_full_auth(client, config, "caching_sha2_password", auth_plugin_data, sequence_id) do
     auth_response =
-      if config.ssl? do
+      if config.ssl_opts do
         [config.password, 0]
       else
         # request public key

@@ -39,11 +39,12 @@ defmodule MyXQL.Protocol.Auth do
       auth_plugin_name == "mysql_native_password" ->
         mysql_native_password(config.password, initial_auth_plugin_data)
 
-      auth_plugin_name == "sha256_password" and config.ssl? ->
-        config.password <> <<0>>
-
-      auth_plugin_name == "sha256_password" and not config.ssl? ->
-        <<1>>
+      auth_plugin_name == "sha256_password" ->
+        if config.ssl_opts do
+          config.password <> <<0>>
+        else
+          <<1>>
+        end
 
       auth_plugin_name == "caching_sha2_password" ->
         sha256_password(config.password, initial_auth_plugin_data)

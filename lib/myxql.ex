@@ -16,8 +16,7 @@ defmodule MyXQL do
           | {:password, String.t() | nil}
           | {:charset, String.t() | nil}
           | {:collation, String.t() | nil}
-          | {:ssl, boolean()}
-          | {:ssl_opts, [:ssl.tls_client_option()]}
+          | {:ssl, boolean | [:ssl.tls_client_option()]}
           | {:connect_timeout, timeout()}
           | {:handshake_timeout, timeout()}
           | {:ping_timeout, timeout()}
@@ -70,9 +69,10 @@ defmodule MyXQL do
     * `:collation` - A connection collation. Must be given with `:charset` option, and if set
       it overwrites the default collation for the given charset. (default: `nil`)
 
-    * `:ssl` - Set to `true` if SSL should be used (default: `false`)
-
-    * `:ssl_opts` - A list of SSL options, see `:ssl.connect/2` (default: `[]`)
+    * `:ssl` - Enables SSL. Setting it to `true` enables SSL without server certificate verification,
+      which emits a warning. Instead, prefer to set it to a keyword list, with either
+      `:cacerts` or `:cacertfile` set to a CA trust store, to enable server certificate
+      verification. (default: `false`)
 
     * `:connect_timeout` - Socket connect timeout in milliseconds (default:
       `15_000`)
@@ -125,6 +125,11 @@ defmodule MyXQL do
   Start connection over TCP:
 
       iex> {:ok, pid} = MyXQL.start_link(protocol: :tcp)
+      {:ok, #PID<0.69.0>}
+
+  Start connection with SSL using CA certificate file:
+
+      iex> {:ok, pid} = MyXQL.start_link(ssl: [cacertfile: System.fetch_env!("DB_CA_CERT_FILE")])
       {:ok, #PID<0.69.0>}
 
   Run a query after connection has been established:

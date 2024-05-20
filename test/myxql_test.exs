@@ -3,12 +3,13 @@ defmodule MyXQLTest do
   import ExUnit.CaptureLog
 
   @opts TestHelper.opts()
+  @opts_with_ssl TestHelper.opts_with_ssl()
 
   describe "connect" do
     @tag ssl: true
     test "connect with bad SSL opts" do
       assert capture_log(fn ->
-               opts = [ssl: true, ssl_opts: [ciphers: [:bad]]] ++ @opts
+               opts = put_in(@opts_with_ssl[:ssl][:ciphers], [:bad])
                assert_start_and_killed(opts)
              end) =~
                "** (DBConnection.ConnectionError) (127.0.0.1:3306) Invalid TLS option: {ciphers,[bad]}"
@@ -164,7 +165,9 @@ defmodule MyXQLTest do
 
       test "#{@protocol}: query with multiple rows", c do
         %MyXQL.Result{num_rows: 2} =
-          MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)", [], query_type: @protocol)
+          MyXQL.query!(c.conn, "INSERT INTO integers VALUES (10), (20)", [],
+            query_type: @protocol
+          )
 
         assert {:ok, %MyXQL.Result{columns: ["x"], rows: [[10], [20]]}} =
                  MyXQL.query(c.conn, "SELECT * FROM integers")
@@ -176,7 +179,9 @@ defmodule MyXQLTest do
         values = Enum.map_join(1..num, ", ", &"(#{&1})")
 
         result =
-          MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values, [], query_type: @protocol)
+          MyXQL.query!(c.conn, "INSERT INTO integers VALUES " <> values, [],
+            query_type: @protocol
+          )
 
         assert result.num_rows == num
 
@@ -784,8 +789,9 @@ defmodule MyXQLTest do
     end
   end
 
-  @tag :skip
   describe "idle ping" do
+    @describetag :skip
+
     test "query before and after" do
       opts = [backoff_type: :stop, idle_interval: 1] ++ @opts
       {:ok, pid} = MyXQL.start_link(opts)

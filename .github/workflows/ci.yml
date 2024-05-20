@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: "test ${{ matrix.db }} ${{ matrix.pair.elixir }}/${{ matrix.pair.otp }} ${{ matrix.lint }}"
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -20,21 +21,22 @@ jobs:
         pair:
           - elixir: 1.11.3
             otp: 23.2.5
-          - elixir: 1.14.0
-            otp: 25.1.2
+          - elixir: 1.16.2
+            otp: 26.2.5
         include:
           - db: mysql:8.0
             pair:
-              elixir: 1.11.4
-              otp: 23.3.3
+              elixir: 1.16.2
+              otp: 26.2.5
             lint: lint
+
           - db: mysql:8.0
             pair:
               elixir: 1.7.4
               otp: 21.3.8.24
     env:
       MIX_ENV: test
-      DB: ${{matrix.db}}
+      DB: ${{ matrix.db }}
       MYSQL_UNIX_PORT: /var/run/mysqld/mysqld.sock
     steps:
       - run: sudo mkdir -p /var/run/mysqld
