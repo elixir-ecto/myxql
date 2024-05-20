@@ -179,9 +179,9 @@ defmodule MyXQL.Protocol do
         :client_transactions
       ])
       |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
-      |> maybe_put_capability_flag(:client_ssl, config.ssl?)
+      |> maybe_put_capability_flag(:client_ssl, is_list(config.ssl_opts))
 
-    if config.ssl? && !has_capability_flag?(server_capability_flags, :client_ssl) do
+    if config.ssl_opts && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
     else
       client_capability_flags =

@@ -4,6 +4,7 @@ defmodule MyXQL.ClientTest do
   import MyXQL.Protocol.{Flags, Records}
 
   @opts TestHelper.opts()
+  @opts_with_ssl TestHelper.opts_with_ssl()
 
   describe "connect" do
     @tag public_key_exchange: true
@@ -15,7 +16,7 @@ defmodule MyXQL.ClientTest do
 
     @tag ssl: true
     test "default auth plugin (ssl)" do
-      opts = [username: "default_auth", password: "secret", ssl: true] ++ @opts
+      opts = [username: "default_auth", password: "secret"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
     end
@@ -47,7 +48,7 @@ defmodule MyXQL.ClientTest do
 
     @tag ssl: true
     test "no password (ssl)" do
-      opts = [username: "nopassword", ssl: true] ++ @opts
+      opts = [username: "nopassword"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
 
@@ -73,7 +74,7 @@ defmodule MyXQL.ClientTest do
 
     @tag mysql_native_password: true, ssl: true
     test "mysql_native_password (ssl)" do
-      opts = [username: "mysql_native", password: "secret", ssl: true] ++ @opts
+      opts = [username: "mysql_native", password: "secret"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
     end
@@ -106,7 +107,7 @@ defmodule MyXQL.ClientTest do
 
     @tag sha256_password: true, ssl: true
     test "sha256_password (ssl)" do
-      opts = [username: "sha256_password", password: "secret", ssl: true] ++ @opts
+      opts = [username: "sha256_password", password: "secret"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
     end
@@ -119,13 +120,13 @@ defmodule MyXQL.ClientTest do
 
     @tag sha256_password: true, ssl: true
     test "sha256_password (bad password) (ssl)" do
-      opts = [username: "sha256_password", password: "bad", ssl: true] ++ @opts
+      opts = [username: "sha256_password", password: "bad"] ++ @opts_with_ssl
       {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
     @tag sha256_password: true, ssl: true
     test "sha256_password (empty password) (ssl)" do
-      opts = [username: "sha256_empty", ssl: true] ++ @opts
+      opts = [username: "sha256_empty"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
     end
@@ -156,7 +157,7 @@ defmodule MyXQL.ClientTest do
 
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (ssl)" do
-      opts = [username: "caching_sha2_password", password: "secret", ssl: true] ++ @opts
+      opts = [username: "caching_sha2_password", password: "secret"] ++ @opts_with_ssl
       assert {:ok, client} = Client.connect(opts)
       Client.com_quit(client)
     end
@@ -169,7 +170,7 @@ defmodule MyXQL.ClientTest do
 
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (bad password) (ssl)" do
-      opts = [username: "caching_sha2_password", password: "bad", ssl: true] ++ @opts
+      opts = [username: "caching_sha2_password", password: "bad"] ++ @opts_with_ssl
       {:error, err_packet(message: "Access denied" <> _)} = Client.connect(opts)
     end
 
@@ -194,8 +195,7 @@ defmodule MyXQL.ClientTest do
 
     @tag ssl: false
     test "client requires ssl but server does not support it" do
-      opts = [ssl: true] ++ @opts
-      assert {:error, :server_does_not_support_ssl} = Client.connect(opts)
+      assert {:error, :server_does_not_support_ssl} = Client.connect(@opts_with_ssl)
     end
 
     test "default charset" do

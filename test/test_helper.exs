@@ -1,11 +1,10 @@
 defmodule TestHelper do
-  def opts() do
+  def opts do
     [
       hostname: "127.0.0.1",
       username: "root",
       database: "myxql_test",
       timeout: 5000,
-      ssl_opts: ssl_opts(),
       backoff_type: :stop,
       max_restarts: 0,
       pool_size: 1,
@@ -13,8 +12,14 @@ defmodule TestHelper do
     ]
   end
 
-  defp ssl_opts() do
-    [versions: [:"tlsv1.2"]]
+  def opts_with_ssl do
+    opts() ++
+      [
+        ssl: [
+          verify: :verify_none,
+          versions: [:"tlsv1.2"]
+        ]
+      ]
   end
 
   def setup_server() do
