@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: "test ${{ env.db }} ${{ env.pair.elixir }}/${{ env.pair.otp }} ${{ env.lint }}"
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
