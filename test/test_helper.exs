@@ -22,28 +22,28 @@ defmodule TestHelper do
       ]
   end
 
-  def setup_server() do
+  def setup_server do
     configure_server()
     create_test_database()
     create_test_users()
     create_test_tables()
   end
 
-  def configure_server() do
+  def configure_server do
     mysql!("""
     -- set packet size to 100mb
     SET GLOBAL max_allowed_packet=#{100_000_000};
     """)
   end
 
-  def create_test_database() do
+  def create_test_database do
     mysql!("""
     DROP DATABASE IF EXISTS myxql_test;
     CREATE DATABASE myxql_test;
     """)
   end
 
-  def create_test_users() do
+  def create_test_users do
     create_user("default_auth", nil, "secret")
     create_user("nopassword", nil, nil)
     create_user("mysql_native", "mysql_native_password", "secret")
@@ -76,7 +76,7 @@ defmodule TestHelper do
     end
   end
 
-  def create_test_tables() do
+  def create_test_tables do
     timestamps_with_precision = """
     my_time3 TIME(3),
     my_time6 TIME(6),
@@ -189,7 +189,7 @@ defmodule TestHelper do
     """)
   end
 
-  def available_auth_plugins() do
+  def available_auth_plugins do
     sql =
       "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'authentication'"
 
@@ -198,16 +198,16 @@ defmodule TestHelper do
     end
   end
 
-  def supports_ssl?() do
+  def supports_ssl? do
     mysql!("SELECT @@have_ssl") == [%{"@@have_ssl" => "YES"}]
   end
 
-  def supports_public_key_exchange?() do
+  def supports_public_key_exchange? do
     result = mysql!("SHOW STATUS LIKE 'Rsa_public_key'")
     match?([%{"Value" => "-----BEGIN PUBLIC KEY-----" <> _}], result)
   end
 
-  def supports_json?() do
+  def supports_json? do
     sql =
       "CREATE TEMPORARY TABLE myxql_test.test_json (json json); SHOW COLUMNS IN myxql_test.test_json"
 
@@ -221,13 +221,13 @@ defmodule TestHelper do
     end
   end
 
-  def supports_geometry?() do
+  def supports_geometry? do
     # mysql 5.5 does not have ST_GeomFromText (it has GeomFromText) so we're excluding it
     # (even though we could test against it) to keep the test suite simpler
     match?({:ok, _}, mysql("SELECT ST_GeomFromText('POINT(0 0)')"))
   end
 
-  def supports_timestamp_precision?() do
+  def supports_timestamp_precision? do
     case mysql("CREATE TEMPORARY TABLE myxql_test.timestamp_precision (time time(3));") do
       {:ok, _} -> true
       {:error, _} -> false
@@ -276,7 +276,7 @@ defmodule TestHelper do
     end
   end
 
-  def excludes() do
+  def excludes do
     supported_auth_plugins = [:mysql_native_password, :sha256_password, :caching_sha2_password]
     available_auth_plugins = available_auth_plugins()
 
@@ -293,6 +293,16 @@ defmodule TestHelper do
     exclude = [{:geometry, not supports_geometry?()} | exclude]
     exclude = [{:timestamp_precision, not supports_timestamp_precision?()} | exclude]
     exclude
+  end
+
+  def assert_killed(fun) do
+    Process.flag(:trap_exit, true)
+
+    ExUnit.CaptureLog.capture_log(fn ->
+      fun.()
+      import ExUnit.Assertions
+      assert_receive {:EXIT, _, :killed}, 500
+    end)
   end
 end
 

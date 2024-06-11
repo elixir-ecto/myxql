@@ -1,6 +1,6 @@
 defmodule MyXQLTest do
   use ExUnit.Case, async: true
-  import ExUnit.CaptureLog
+  import TestHelper, only: [assert_killed: 1]
 
   @opts TestHelper.opts()
   @opts_with_ssl TestHelper.opts_with_ssl()
@@ -8,17 +8,19 @@ defmodule MyXQLTest do
   describe "connect" do
     @tag ssl: true
     test "connect with bad SSL opts" do
-      assert capture_log(fn ->
-               opts = put_in(@opts_with_ssl[:ssl][:ciphers], [:bad])
-               assert_start_and_killed(opts)
+      opts = put_in(@opts_with_ssl[:ssl][:ciphers], [:bad])
+
+      assert assert_killed(fn ->
+               {:ok, _} = MyXQL.start_link(opts)
              end) =~
                "** (DBConnection.ConnectionError) (127.0.0.1:3306) Invalid TLS option: {ciphers,[bad]}"
     end
 
     test "connect with host down" do
-      assert capture_log(fn ->
-               opts = [port: 9999] ++ @opts
-               assert_start_and_killed(opts)
+      opts = [port: 9999] ++ @opts
+
+      assert assert_killed(fn ->
+               {:ok, _} = MyXQL.start_link(opts)
              end) =~
                "(DBConnection.ConnectionError) (127.0.0.1:9999) connection refused - :econnrefused"
     end
@@ -57,8 +59,8 @@ defmodule MyXQLTest do
         |> Keyword.delete(:port)
         |> Keyword.merge(socket: "/bad")
 
-      assert capture_log(fn ->
-               assert_start_and_killed(opts)
+      assert assert_killed(fn ->
+               {:ok, _} = MyXQL.start_link(opts)
              end) =~
                "** (DBConnection.ConnectionError) (/bad) no such file or directory - :enoent"
     end
@@ -94,8 +96,8 @@ defmodule MyXQLTest do
 
       opts = [port: port, handshake_timeout: 5] ++ @opts
 
-      assert capture_log(fn ->
-               assert_start_and_killed(opts)
+      assert assert_killed(fn ->
+               {:ok, _} = MyXQL.start_link(opts)
              end) =~ "timed out because it was handshaking for longer than 5ms"
     end
   end
@@ -414,13 +416,11 @@ defmodule MyXQLTest do
     end
 
     test "disconnect on errors" do
-      Process.flag(:trap_exit, true)
       {:ok, pid} = MyXQL.start_link([disconnect_on_error_codes: [:ER_DUP_ENTRY]] ++ @opts)
 
-      assert capture_log(fn ->
+      assert assert_killed(fn ->
                MyXQL.transaction(pid, fn conn ->
                  MyXQL.query(conn, "INSERT INTO uniques VALUES (1), (1)")
-                 assert_receive {:EXIT, ^pid, :killed}, 500
                end)
              end) =~ "disconnected: ** (MyXQL.Error) (1062) "
     end
@@ -713,12 +713,14 @@ defmodule MyXQLTest do
     test "stream procedure with multiple results", c do
       statement = "CALL multi_procedure()"
 
-      assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
-        MyXQL.transaction(c.conn, fn conn ->
-          stream = MyXQL.stream(conn, statement, [], max_rows: 2)
-          Enum.to_list(stream)
-        end)
-      end
+      assert assert_killed(fn ->
+               assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
+                 MyXQL.transaction(c.conn, fn conn ->
+                   stream = MyXQL.stream(conn, statement, [], max_rows: 2)
+                   Enum.to_list(stream)
+                 end)
+               end
+             end) =~ "stopped: ** (RuntimeError) returning multiple results is not supported"
     end
   end
 
@@ -726,9 +728,11 @@ defmodule MyXQLTest do
     setup :connect
 
     test "using query/4 with a multiple result query", c do
-      assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
-        MyXQL.query(c.conn, "SELECT 1; SELECT 2;", [], query_type: :text)
-      end
+      assert assert_killed(fn ->
+               assert_raise RuntimeError, ~r"returning multiple results is not supported", fn ->
+                 MyXQL.query(c.conn, "SELECT 1; SELECT 2;", [], query_type: :text)
+               end
+             end) =~ "stopped: ** (RuntimeError) returning multiple results is not supported"
     end
 
     test "using prepare/4 with a multiple result query", c do
@@ -804,12 +808,10 @@ defmodule MyXQLTest do
     end
 
     test "socket receive timeout" do
-      Process.flag(:trap_exit, true)
       opts = [backoff_type: :stop, idle_interval: 1, ping_timeout: 0] ++ @opts
-      {:ok, pid} = MyXQL.start_link(opts)
 
-      assert capture_log(fn ->
-               assert_receive {:EXIT, ^pid, :killed}, 500
+      assert assert_killed(fn ->
+               {:ok, _} = MyXQL.start_link(opts)
              end) =~ "disconnected: ** (DBConnection.ConnectionError) timeout"
     end
   end
@@ -821,15 +823,6 @@ defmodule MyXQLTest do
 
     {:ok, conn} = MyXQL.start_link([after_connect: after_connect] ++ @opts)
     assert %MyXQL.Result{num_warnings: 1, rows: [[nil]]} = MyXQL.query!(conn, "SELECT 1/0")
-  end
-
-  defp assert_start_and_killed(opts) do
-    Process.flag(:trap_exit, true)
-
-    case MyXQL.start_link(opts) do
-      {:ok, pid} -> assert_receive {:EXIT, ^pid, :killed}, 500
-      {:error, :killed} -> :ok
-    end
   end
 
   defp connect(c) do

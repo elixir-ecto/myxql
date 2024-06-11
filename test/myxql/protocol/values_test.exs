@@ -1,6 +1,7 @@
 defmodule MyXQL.Protocol.ValueTest do
   use ExUnit.Case, async: true
   import Bitwise
+  import TestHelper, only: [assert_killed: 1]
 
   @default_sql_mode "STRICT_TRANS_TABLES"
 
@@ -115,15 +116,19 @@ defmodule MyXQL.Protocol.ValueTest do
 
       if @protocol == :binary do
         test "MYSQL_TYPE_TIME - negative time", c do
-          assert_raise ArgumentError, ~r"cannot decode \"-01:00:00\" as time", fn ->
-            query!(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
-          end
+          assert assert_killed(fn ->
+                   assert_raise ArgumentError, ~r"cannot decode \"-01:00:00\" as time", fn ->
+                     query!(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
+                   end
+                 end) =~ "stopped: ** (ArgumentError) cannot decode \"-01:00:00\" as time"
         end
 
         test "MYSQL_TYPE_TIME - more than 24h", c do
-          assert_raise ArgumentError, ~r"cannot decode \"1d 01:00:00\" as time", fn ->
-            query!(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
-          end
+          assert assert_killed(fn ->
+                   assert_raise ArgumentError, ~r"cannot decode \"1d 01:00:00\" as time", fn ->
+                     query!(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
+                   end
+                 end) =~ "stopped: ** (ArgumentError) cannot decode \"1d 01:00:00\" as time"
         end
       end
 
