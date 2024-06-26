@@ -82,25 +82,23 @@ See [Mariaex Compatibility](https://github.com/elixir-ecto/myxql/blob/master/MAR
 
 ## Data representation
 
-```
-MySQL                Elixir
------                ------
-NULL                 nil
-bool                 1 | 0
-int                  42
-float                42.0
-decimal              #Decimal<42.0> # (1)
-date                 ~D[2013-10-12] # (2)
-time                 ~T[00:37:14]   # (3)
-datetime             ~N[2013-10-12 00:37:14]  # (2), (4)
-timestamp            ~U[2013-10-12 00:37:14Z] # (2), (4)
-json                 %{"foo" => "bar"} # (5)
-char                 "é"
-text                 "myxql"
-binary               <<1, 2, 3>>
-bit                  <<1::size(1), 0::size(1)>>
-point, polygon, ...  %Geo.Point{coordinates: {0.0, 1.0}}, ... # (6)
-```
+| MySQL                   | Elixir                                          |
+|-------------------------|-------------------------------------------------|
+| `NULL`                  | `nil`                                           |
+| `bool`                  | `0`, `1`                                        |
+| `int`                   | `42`                                            |
+| `float`                 | `42.0`                                          |
+| `decimal`               | `#Decimal<42.0>` (1)                            |
+| `date`                  | `~D[2013-10-12]` (2)                            |
+| `time`                  | `~T[00:37:14]` (3)                              |
+| `datetime`              | `~N[2013-10-12 00:37:14]` (2), (4)              |
+| `timestamp`             | `~U[2013-10-12 00:37:14Z]` (2), (4)             |
+| `json`                  | `%{"foo" => "bar"}` (5)                         |
+| `char`                  | `"é"`                                           |
+| `text`                  | `"myxql"`                                       |
+| `binary`                | `<<1, 2, 3>>`                                   |
+| `bit`                   | `<<1::size(1), 0::size(1)>>`                    |
+| `point`, `polygon`, ... | `%Geo.Point{coordinates: {0.0, 1.0}}, ...` (6)  |
 
 Notes:
 
