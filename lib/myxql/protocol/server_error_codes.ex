@@ -28,7 +28,8 @@ defmodule MyXQL.Protocol.ServerErrorCodes do
     {1452, :ER_NO_REFERENCED_ROW_2},
     {1461, :ER_MAX_PREPARED_STMT_COUNT_REACHED},
     {1792, :ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION},
-    {1836, :ER_READ_ONLY_MODE}
+    {1836, :ER_READ_ONLY_MODE},
+    {3819, :ER_CHECK_CONSTRAINT_VIOLATED}
   ]
 
   codes = default_codes ++ codes_from_config
