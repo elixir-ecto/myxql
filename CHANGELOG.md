@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.1 (2024-07-05)
+
+  * Add `:ER_CHECK_CONSTRAINT_VIOLATED` error code
+
 ## v0.7.0 (2024-05-20)
 
   * Add `:enable_cleartext_plugin` option
