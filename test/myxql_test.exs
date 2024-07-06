@@ -142,17 +142,17 @@ defmodule MyXQLTest do
       log = &send(self, &1)
 
       assert {:ok, %MyXQL.Result{}} =
-               MyXQL.query(c.conn, "BEGIN", [], query_type: :text, log: log)
+               MyXQL.query(c.conn, "PREPARE", [], query_type: :text, log: log)
 
       assert_receive %DBConnection.LogEntry{query: %MyXQL.TextQuery{}}
 
       assert {:error, %MyXQL.Error{mysql: %{code: 1295}}} =
-               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary, log: log)
+               MyXQL.query(c.conn, "PREPARE", [], query_type: :binary, log: log)
 
       assert_receive %DBConnection.LogEntry{query: %MyXQL.Query{}}
 
       assert {:ok, %MyXQL.Result{}} =
-               MyXQL.query(c.conn, "BEGIN", [], query_type: :binary_then_text, log: log)
+               MyXQL.query(c.conn, "PREPARE", [], query_type: :binary_then_text, log: log)
 
       assert_receive %DBConnection.LogEntry{query: %MyXQL.Query{}}
     end
