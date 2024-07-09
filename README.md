@@ -151,16 +151,19 @@ input, consider implementing an [custom Ecto type](https://hexdocs.pm/ecto/Ecto.
 
 ## UTC required
 
-DateTime expects all communication with MySQL take place in UTC. If MySQL is configured to a different time zone,
-UTC mode will need to be manually enabled.
+When using `DateTime` type, MyXQL assumes the server is configured with the UTC time
+zone. If that is not the case, set it manually with `MyXQL.start_link/1` and
+`:after_connect` option:
 
 ```elixir
 MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
 ```
-or when configuring at the Ecto.Repo level
+
+or when configuring `Ecto.Repo`:
 
 ```elixir
-after_connect: {MyXQL, :query!, ["SET time_zone = '+00:00'", []]}
+config :myapp, MyApp.Repo,
+  after_connect: {MyXQL, :query!, ["SET time_zone = '+00:00'", []]}
 ```
 
 ## Contributing
