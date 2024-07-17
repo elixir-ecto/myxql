@@ -92,7 +92,7 @@ See [Mariaex Compatibility](https://github.com/elixir-ecto/myxql/blob/master/MAR
 | `date`                  | `~D[2013-10-12]` (2)                            |
 | `time`                  | `~T[00:37:14]` (3)                              |
 | `datetime`              | `~N[2013-10-12 00:37:14]` (2), (4)              |
-| `timestamp`             | `~U[2013-10-12 00:37:14Z]` (2), (4)             |
+| `timestamp`             | `~U[2013-10-12 00:37:14Z]` (2), (4), (7)        |
 | `json`                  | `%{"foo" => "bar"}` (5)                         |
 | `char`                  | `"é"`                                           |
 | `text`                  | `"myxql"`                                       |
@@ -114,6 +114,8 @@ Notes:
 remember to use TEXT column for your JSON field.
 
 6. See "Geometry support" section below
+
+7. See "UTC required" section below
 
 ## JSON support
 
@@ -146,6 +148,23 @@ shouldn't be used.
 
 If you're using MyXQL geometry types with Ecto and need to for example accept a WKT format as user
 input, consider implementing an [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
+
+## UTC required
+
+When using `DateTime` type, MyXQL assumes the server is configured with the UTC time
+zone. If that is not the case, set it manually with `MyXQL.start_link/1` and
+`:after_connect` option:
+
+```elixir
+MyXQL.start_link(after_connect: &MyXQL.query!(&1, "SET time_zone = '+00:00'"))
+```
+
+or when configuring `Ecto.Repo`:
+
+```elixir
+config :myapp, MyApp.Repo,
+  after_connect: {MyXQL, :query!, ["SET time_zone = '+00:00'", []]}
+```
 
 ## Contributing
 
