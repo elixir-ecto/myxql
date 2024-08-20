@@ -20,7 +20,7 @@ else
 fi
 
 for name in $services; do
-  port=`docker inspect --format='{{(index (index .NetworkSettings.Ports "3306/tcp") 0).HostPort}}' myxql_${name}_1`
+  port=`docker inspect --format='{{(index (index .NetworkSettings.Ports "3306/tcp") 0).HostPort}}' myxql-${name}-1`
   echo $name
   MYSQL_TCP_PORT=$port $cmd
 done
