@@ -324,23 +324,36 @@ defmodule MyXQL.Connection do
   defp result({:ok, resultsets}, query, state) when is_list(resultsets) do
     {results, status_flags} =
       Enum.reduce(resultsets, {[], nil}, fn resultset, {results, newest_status_flags} ->
-        resultset(
-          column_defs: column_defs,
-          num_rows: num_rows,
-          rows: rows,
-          status_flags: status_flags,
-          num_warnings: num_warnings
-        ) = resultset
+        {result, status_flags} =
+          case resultset do
+            resultset(
+              column_defs: column_defs,
+              num_rows: num_rows,
+              rows: rows,
+              status_flags: status_flags,
+              num_warnings: num_warnings
+            ) ->
+              {%Result{
+                 connection_id: state.client.connection_id,
+                 columns: Enum.map(column_defs, &elem(&1, 1)),
+                 num_rows: num_rows,
+                 rows: rows,
+                 num_warnings: num_warnings
+               }, status_flags}
 
-        columns = Enum.map(column_defs, &elem(&1, 1))
-
-        result = %Result{
-          connection_id: state.client.connection_id,
-          columns: columns,
-          num_rows: num_rows,
-          rows: rows,
-          num_warnings: num_warnings
-        }
+            ok_packet(
+              last_insert_id: last_insert_id,
+              affected_rows: affected_rows,
+              status_flags: status_flags,
+              num_warnings: num_warnings
+            ) ->
+              {%Result{
+                 connection_id: state.client.connection_id,
+                 last_insert_id: last_insert_id,
+                 num_rows: affected_rows,
+                 num_warnings: num_warnings
+               }, status_flags}
+          end
 
         # Keep status flags from the last query. The resultsets
         # are given to this function in reverse order, so it is the first one.
