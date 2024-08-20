@@ -347,7 +347,7 @@ defmodule MyXQL.Connection do
          ),
          state
        ) do
-    columns = Enum.map(column_defs, &elem(&1, 1))
+    columns = Enum.map(column_defs, &column_def(&1, :name))
 
     %Result{
       connection_id: state.client.connection_id,
