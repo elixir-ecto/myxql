@@ -213,10 +213,14 @@ defmodule MyXQLTest do
                MyXQL.query_many(c.conn, "INSERT INTO integers VALUES (1);", [], query_type: :text)
 
       assert {:ok, [%MyXQL.Result{num_rows: 0}]} =
-               MyXQL.query_many(c.conn, "UPDATE integers SET x = x + 1 WHERE x = 0;", [], query_type: :text)
+               MyXQL.query_many(c.conn, "UPDATE integers SET x = x + 1 WHERE x = 0;", [],
+                 query_type: :text
+               )
 
       assert {:ok, [%MyXQL.Result{num_rows: 1}]} =
-               MyXQL.query_many(c.conn, "DELETE FROM integers WHERE x = 1;", [], query_type: :text)
+               MyXQL.query_many(c.conn, "DELETE FROM integers WHERE x = 1;", [],
+                 query_type: :text
+               )
     end
 
     test "query_many!/4 with text", c do
