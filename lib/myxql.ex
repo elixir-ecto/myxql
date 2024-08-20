@@ -221,13 +221,12 @@ defmodule MyXQL do
 
   ## Options
 
-    * `:query_type` - use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
+    * `:query_type` - Use `:binary` for binary protocol (prepared statements), `:binary_then_text` to attempt
       executing a binary query and if that fails fallback to executing a text query, and `:text` for text protocol
-      (default: `:binary`)
+      (default: `:binary`).
 
-    * `:cache_statement` - caches the query with the given name. Opposite to the `name` option
-      given to `prepare/4`, if the cache statement name is reused with a different, the previous
-      query is automatically closed
+    * `:cache_statement` - Caches the query with the given name. If the cache statement
+      name is reused with a different statement, the previous query is automatically closed.
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
@@ -369,9 +368,8 @@ defmodule MyXQL do
   Prepares a query that returns a single result to be later executed.
 
   To execute the query, call `execute/4`. To close the query, call `close/3`.
-  If a name is given, the name must be unique per query, as the name is cached
-  but the statement isn't. If a new statement is given to an old name, the old
-  statement will be the one effectively used.
+  If a name is given, the name must be unique per query, as the name is cached.
+  If a new statement uses an old name, the old statement will be closed.
 
   ## Options
 
