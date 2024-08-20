@@ -288,7 +288,7 @@ defmodule MyXQL.Connection do
       Enum.reduce(results, {[], nil}, fn
         result, {results, latest_status_flags} ->
           # Keep status flags from the last query. The results are given
-          # this function in reverse order, so it is the first one.
+          # to this function in reverse order, so it is the first one.
           if latest_status_flags do
             {[format_result(result, state) | results], latest_status_flags}
           else
