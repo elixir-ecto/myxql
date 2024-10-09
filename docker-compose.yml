@@ -1,61 +1,81 @@
 version: "3"
 services:
-  mysql-5.5:
-    image: "mysql:5.5"
-    ports:
-      - "5050:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-  mysql-5.6:
-    image: "mysql:5.6"
-    ports:
-      - "5060:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-    command: "--innodb_log_file_size=1G"
-  mysql-5.7:
-    image: "mysql:5.7"
-    ports:
-      - "5070:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-  mysql-5.7-sha:
-    image: "mysql:5.7"
-    ports:
-      - "5071:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-    command: "--default-authentication-plugin=sha256_password"
+  # mysql-5.5:
+  #   platform: linux/x86_64
+  #   image: "mysql:5.5"
+  #   ports:
+  #     - "5050:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  # mysql-5.6:
+  #   platform: linux/x86_64
+  #   image: "mysql:5.6"
+  #   ports:
+  #     - "5060:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  #   command: "--innodb_log_file_size=1G"
+  # mysql-5.7:
+  #   platform: linux/x86_64
+  #   image: "mysql:5.7"
+  #   ports:
+  #     - "5070:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  # mysql-5.7-sha:
+  #   platform: linux/x86_64
+  #   image: "mysql:5.7"
+  #   ports:
+  #     - "5071:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  #   command: "--default-authentication-plugin=sha256_password"
   mysql-8.0:
+    platform: linux/x86_64
     image: "mysql:8.0"
     ports:
       - "8000:3306"
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=1
-  mysql-8.0-mysql-native-password:
-    image: "mysql:8.0"
-    ports:
-      - "8001:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-    command: "--default-authentication-plugin=mysql_native_password"
-  mysql-8.0-sha:
-    image: "mysql:8.0"
-    ports:
-      - "8002:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-    command: "--default-authentication-plugin=sha256_password"
-  mariadb-10.3:
-    image: "mariadb:10.3"
-    ports:
-      - "10003:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=1
-    command: "--default-authentication-plugin=mysql_native_password"
-  mariadb-10.4:
-    image: "mariadb:10.4"
+    volumes:
+      - ./data/db/mysql8:/var/lib/mysql
+  # mysql-8.0-mysql-native-password:
+  #   platform: linux/x86_64
+  #   image: "mysql:8.0"
+  #   ports:
+  #     - "8001:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  #   command: "--default-authentication-plugin=mysql_native_password"
+  # mysql-8.0-sha:
+  #   platform: linux/x86_64
+  #   image: "mysql:8.0"
+  #   ports:
+  #     - "8002:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  #   command: "--default-authentication-plugin=sha256_password"
+  # mariadb-10.3:
+  #   platform: linux/x86_64
+  #   image: "mariadb:10.3"
+  #   ports:
+  #     - "10003:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  #   command: "--default-authentication-plugin=mysql_native_password"
+  # mariadb-10.4:
+  #   platform: linux/x86_64
+  #   image: "mariadb:10.4"
+  #   ports:
+  #     - "10004:3306"
+  #   environment:
+  #     - MYSQL_ALLOW_EMPTY_PASSWORD=1
+  mariadb-10.5:
+    platform: linux/x86_64
+    image: "mariadb:10.5"
     ports:
       - "10004:3306"
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    volumes:
+      - ./data/db/mariadb10_5:/var/lib/mysql
