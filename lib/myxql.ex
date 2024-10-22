@@ -181,7 +181,7 @@ defmodule MyXQL do
       MySQL error code 1792 (ER_CANT_EXECUTE_IN_READ_ONLY_TRANSACTION): Cannot execute statement in a READ ONLY transaction.
 
   """
-  @spec start_link([start_option()]) :: {:ok, pid()} | {:error, MyXQL.Error.t()}
+  @spec start_link([start_option()]) :: GenServer.on_start()
   def start_link(options) do
     options = ensure_valid_error_codes!(options)
     DBConnection.start_link(MyXQL.Connection, options)
