@@ -16,14 +16,24 @@ jobs:
         db:
           - mysql:5.6
           - mysql:5.7
-          - mysql:8.3
-          - mariadb:10.11
+          - mysql:8.0
+          - mariadb:10.3
         pair:
           - elixir: 1.11.3
             otp: 23.2.5
-          - elixir: 1.16.3
+          - elixir: 1.16.2
             otp: 26.2.5
+        include:
+          - db: mysql:8.0
+            pair:
+              elixir: 1.16.2
+              otp: 26.2.5
+            lint: lint
 
+          - db: mysql:8.0
+            pair:
+              elixir: 1.7.4
+              otp: 21.3.8.24
     env:
       MIX_ENV: test
       DB: ${{ matrix.db }}
