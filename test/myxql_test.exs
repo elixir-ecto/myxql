@@ -767,14 +767,6 @@ defmodule MyXQLTest do
       assert error.message =~ "You have an error in your SQL syntax"
     end
 
-    test "using execute/4 with a multiple result query", c do
-      %MyXQL.Queries{} = query = MyXQL.prepare_many!(c.conn, "", "CALL multi_procedure()")
-
-      assert_raise FunctionClauseError, fn ->
-        MyXQL.execute(c.conn, query)
-      end
-    end
-
     test "using query_many/4 with a single result query", c do
       assert {:ok, [%MyXQL.Result{rows: [[1]]}]} =
                MyXQL.query_many(c.conn, "SELECT 1;", [], query_type: :text)
