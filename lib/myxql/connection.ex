@@ -366,8 +366,8 @@ defmodule MyXQL.Connection do
   end
 
   defp error(reason, statement, state) do
-    exception = error(reason)
-    %MyXQL.Error{exception | statement: statement, connection_id: state.client.connection_id}
+    %MyXQL.Error{} = exception = error(reason)
+    %{exception | statement: statement, connection_id: state.client.connection_id}
   end
 
   defp error(err_packet(code: code, message: message)) do
