@@ -1,14 +1,14 @@
 defmodule MyXQL.MixProject do
   use Mix.Project
 
-  @version "0.7.1"
+  @version "0.8.0-dev"
   @source_url "https://github.com/elixir-ecto/myxql"
 
   def project() do
     [
       app: :myxql,
       version: @version,
-      elixir: "~> 1.7",
+      elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       name: "MyXQL",
       description: "MySQL 5.5+ driver for Elixir",
