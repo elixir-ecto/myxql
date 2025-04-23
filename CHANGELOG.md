@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.0-dev
+
+  * Require Elixir 1.13+
+
 ## v0.7.1 (2024-07-05)
 
   * Add `:ER_CHECK_CONSTRAINT_VIOLATED` error code
