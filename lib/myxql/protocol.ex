@@ -180,6 +180,7 @@ defmodule MyXQL.Protocol do
       ])
       |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
       |> maybe_put_capability_flag(:client_ssl, is_list(config.ssl_opts))
+      |> maybe_put_capability_flag(:client_local_files, config.local_infile == true)
 
     if config.ssl_opts && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
