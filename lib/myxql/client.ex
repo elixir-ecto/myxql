@@ -27,7 +27,8 @@ defmodule MyXQL.Client do
       :max_packet_size,
       :charset,
       :collation,
-      :enable_cleartext_plugin
+      :enable_cleartext_plugin,
+      :local_infile
     ]
 
     @sock_opts [mode: :binary, packet: :raw, active: false]
@@ -67,7 +68,8 @@ defmodule MyXQL.Client do
         socket_options: (opts[:socket_options] || []) ++ @sock_opts,
         charset: Keyword.get(opts, :charset),
         collation: Keyword.get(opts, :collation),
-        enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false)
+        enable_cleartext_plugin: Keyword.get(opts, :enable_cleartext_plugin, false),
+        local_infile: Keyword.get(opts, :local_infile, false)
       }
     end
 
@@ -135,7 +137,32 @@ defmodule MyXQL.Client do
 
   def com_query(client, statement, result_state \\ :single) do
     with :ok <- send_com(client, {:com_query, statement}) do
-      recv_packets(client, &decode_com_query_response/3, :initial, result_state)
+      case recv_packets(client, &decode_com_query_response/3, :initial, result_state) do
+        {:ok, {:local_infile, filename}} ->
+          case handle_local_infile(client, filename) do
+            :ok ->
+              recv_packets(client, &decode_com_query_response/3, :initial, result_state)
+
+            error ->
+              error
+          end
+
+        other ->
+          other
+      end
+    end
+  end
+
+  def handle_local_infile(client, filename) do
+    case File.read(filename) do
+      {:ok, content} ->
+        with :ok <- send_packet(client, content, 2),
+             :ok <- send_packet(client, <<>>, 3) do
+          :ok
+        end
+
+      {:error, reason} ->
+        send_packet(client, <<>>, 2)
     end
   end
 
@@ -263,6 +290,15 @@ defmodule MyXQL.Client do
         case result_state do
           :single -> {:ok, result}
           {:many, results} -> {:ok, [result | results]}
+        end
+
+      {:local_infile, filename} ->
+        case handle_local_infile(client, filename) do
+          :ok ->
+            recv_packets(rest, decoder, decoder_state, result_state, timeout, client)
+
+          {:error, reason} ->
+            {:error, reason}
         end
 
       {:error, _} = error ->

@@ -180,7 +180,7 @@ defmodule MyXQL.Protocol do
       ])
       |> maybe_put_capability_flag(:client_connect_with_db, !is_nil(config.database))
       |> maybe_put_capability_flag(:client_ssl, is_list(config.ssl_opts))
-      |> maybe_put_capability_flag(:client_local_files, Map.get(config, :local_infile, false) == true)
+      |> maybe_put_capability_flag(:client_local_files, config.local_infile)
 
     if config.ssl_opts && !has_capability_flag?(server_capability_flags, :client_ssl) do
       {:error, :server_does_not_support_ssl}
@@ -330,6 +330,12 @@ defmodule MyXQL.Protocol do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(<<0x00, rest::binary>>, "", :initial) do
     {:halt, decode_ok_packet_body(rest)}
+  end
+
+  def decode_com_query_response(<<0xFB, rest::binary>>, "", :initial) do
+    {filename, _remaining} = take_string_nul(rest)
+
+    {:local_infile, filename}
   end
 
   def decode_com_query_response(<<0xFF, rest::binary>>, "", :initial) do
@@ -512,6 +518,11 @@ defmodule MyXQL.Protocol do
 
   def decode_more_results(_payload, _next_data, resultset, {:many, results}) do
     {:cont, :initial, {:many, [resultset | results]}}
+  end
+
+  defp decode_resultset(<<0xFB, rest::binary>>, _next_data, :initial, _row_decoder) do
+    {filename, ""} = take_string_nul(rest)
+    {:local_infile, filename}
   end
 
   defp decode_resultset(payload, _next_data, :initial, _row_decoder) do
