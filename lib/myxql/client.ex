@@ -161,7 +161,7 @@ defmodule MyXQL.Client do
           :ok
         end
 
-      {:error, reason} ->
+      {:error, _reason} ->
         send_packet(client, <<>>, 2)
     end
   end

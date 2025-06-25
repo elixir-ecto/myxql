@@ -71,12 +71,7 @@ defmodule MyXQL.Protocol.Types do
   def take_string_nul(""), do: {nil, ""}
 
   def take_string_nul(binary) when is_binary(binary) do
-    case :binary.split(binary, <<0>>) do
-      [string] ->
-        {string, ""}
-
-      [string, rest] ->
-        {string, rest}
-    end
+    [string, rest] = :binary.split(binary, <<0>>)
+    {string, rest}
   end
 end
