@@ -333,7 +333,7 @@ defmodule MyXQL.Protocol do
   end
 
   def decode_com_query_response(<<0xFB, rest::binary>>, "", :initial) do
-    {filename, _remaining} = take_string_nul(rest)
+    {filename, ""} = take_string_nul(rest)
 
     {:local_infile, filename}
   end
