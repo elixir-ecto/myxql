@@ -1,8 +1,20 @@
 # Changelog
 
-## v0.8.0-dev
+## v0.8.0 (2025-07-21)
 
   * Require Elixir 1.13+
+
+  * Make non preparable statement test compatible with future mariadb versions
+
+  * Add the error number for unhandled user-defined exceptions
+
+  * Handle insert/update/delete responses in `query_many/4`
+
+  * Permit geo ~> 4.0
+
+  * Fix typespecs
+
+  * Add `ER_UNKNOWN_PREPARED_STATEMENT_HANDLER` error code
 
 ## v0.7.1 (2024-07-05)
 
