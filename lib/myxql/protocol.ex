@@ -339,6 +339,38 @@ defmodule MyXQL.Protocol do
     decode_resultset(payload, next_data, state, &Values.decode_text_row/2)
   end
 
+  # Handle 10-byte packet (DorisDB/Apache Doris - without num_warnings field)
+  # DorisDB sends: [0x00 status (1 byte) | statement_id (4 bytes) | num_columns (2 bytes) | num_params (2 bytes) | 0x00 reserved (1 byte)]
+  # Total: 10 bytes (missing the 2-byte num_warnings field that MySQL includes after the reserved byte)
+  def decode_com_stmt_prepare_response(
+        <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0x00>>,
+        next_data,
+        :initial
+      ) do
+    # DorisDB sends 10-byte packets without num_warnings field
+    # Default num_warnings to 0 for compatibility
+    result =
+      com_stmt_prepare_ok(
+        statement_id: statement_id,
+        num_columns: num_columns,
+        num_params: num_params,
+        num_warnings: 0
+      )
+
+    cond do
+      num_params > 0 ->
+        {:cont, {result, :params, num_params, num_columns}}
+
+      num_columns > 0 ->
+        {:cont, {result, :columns, num_columns}}
+
+      true ->
+        "" = next_data
+        {:halt, result}
+    end
+  end
+
+  # Handle 12-byte packet (Standard MySQL - with num_warnings field)
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
           num_warnings::uint2()>>,
