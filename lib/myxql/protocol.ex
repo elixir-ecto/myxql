@@ -405,7 +405,7 @@ defmodule MyXQL.Protocol do
         next_data,
         :initial
       ) do
-    result = com_stmt_prepare_ok(statement_id: statement_id, num_columns: num_columns, num_params: num_params, warning_count: num_warnings)
+    result = com_stmt_prepare_ok(statement_id: statement_id, num_columns: num_columns, num_params: num_params, num_warnings: num_warnings)
 
     case next_data do
       "" ->
