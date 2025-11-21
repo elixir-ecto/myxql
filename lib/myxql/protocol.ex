@@ -407,12 +407,11 @@ defmodule MyXQL.Protocol do
       ) do
     result = com_stmt_prepare_ok(statement_id: statement_id, num_columns: num_columns, num_params: num_params, num_warnings: num_warnings)
 
-    case next_data do
-      "" ->
-        {:halt, result}
-
-      _ ->
-        {:cont, {result, :params, num_params, num_columns}, next_data}
+    if num_params > 0 or num_columns > 0 do
+      {:cont, {result, :params, num_params, num_columns}}
+    else
+      "" = next_data
+      {:halt, result}
     end
   end
 
