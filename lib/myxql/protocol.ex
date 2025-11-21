@@ -398,6 +398,24 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  # Handle 13-byte packet (Newer DorisDB/Apache Doris - with num_warnings and metadata_follows)
+  def decode_com_stmt_prepare_response(
+        <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
+          num_warnings::uint2(), _metadata_follows::uint1()>>,
+        next_data,
+        :initial
+      ) do
+    result = com_stmt_prepare_ok(statement_id: statement_id, num_columns: num_columns, num_params: num_params, warning_count: num_warnings)
+
+    case next_data do
+      "" ->
+        {:halt, result}
+
+      _ ->
+        {:cont, {result, :params, num_params, num_columns}, next_data}
+    end
+  end
+
   def decode_com_stmt_prepare_response(<<rest::binary>>, "", :initial) do
     {:halt, decode_generic_response(rest)}
   end
