@@ -431,12 +431,26 @@ defmodule MyXQL.Protocol do
       column_def() = decode_column_def(payload)
       {:cont, {com_stmt_prepare_ok, :params, num_params - 1, num_columns}}
     else
-      eof_packet() = decode_eof_packet(payload)
+      # Apache Doris 3.1+ may skip EOF packet when num_params = 0 and directly send column defs
+      # Check if this is an EOF packet (0xFE) or a column definition (0x03, "def")
+      case payload do
+        <<0xFE, _::binary>> ->
+          eof_packet() = decode_eof_packet(payload)
 
-      if num_columns > 0 do
-        {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
-      else
-        {:halt, com_stmt_prepare_ok}
+          if num_columns > 0 do
+            {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
+          else
+            {:halt, com_stmt_prepare_ok}
+          end
+
+        <<3, "def", _::binary>> ->
+          # No EOF packet, directly process column definition
+          if num_columns > 0 do
+            column_def() = decode_column_def(payload)
+            {:cont, {com_stmt_prepare_ok, :columns, num_columns - 1}}
+          else
+            {:halt, com_stmt_prepare_ok}
+          end
       end
     end
   end
