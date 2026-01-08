@@ -21,6 +21,38 @@ defmodule MyXQL.Protocol.Values do
   # MySQL TIMESTAMP is equal to Postgres TIMESTAMP WITH TIME ZONE
   # MySQL DATETIME  is equal to Postgres TIMESTAMP [WITHOUT TIME ZONE]
 
+  @type storage_type ::
+          :mysql_type_tiny
+          | :mysql_type_short
+          | :mysql_type_long
+          | :mysql_type_float
+          | :mysql_type_double
+          | :mysql_type_null
+          | :mysql_type_timestamp
+          | :mysql_type_longlong
+          | :mysql_type_int24
+          | :mysql_type_date
+          | :mysql_type_time
+          | :mysql_type_datetime
+          | :mysql_type_year
+          | :mysql_type_varchar
+          | :mysql_type_bit
+          | :mysql_type_json
+          | :mysql_type_newdecimal
+          | :mysql_type_enum
+          | :mysql_type_set
+          | :mysql_type_tiny_blob
+          | :mysql_type_medium_blob
+          | :mysql_type_long_blob
+          | :mysql_type_blob
+          | :mysql_type_var_string
+          | :mysql_type_string
+          | :mysql_type_geometry
+          | :mysql_type_newdate
+          | :mysql_type_timestamp2
+          | :mysql_type_datetime2
+          | :mysql_type_date2
+
   types = [
     mysql_type_tiny: 0x01,
     mysql_type_short: 0x02,
@@ -250,14 +282,13 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
-  if Code.ensure_loaded?(Geo) do
-    def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(struct) when is_struct(struct) do
+    try do
+      MyXQL.Protocol.Encoder.encode(struct)
+    rescue
+      Protocol.UndefinedError ->
+        raise ArgumentError, "query has invalid parameter #{inspect(struct)}"
+    end
   end
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
@@ -267,14 +298,6 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(other) do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
-  end
-
-  if Code.ensure_loaded?(Geo) do
-    defp encode_geometry(geo) do
-      srid = geo.srid || 0
-      binary = %{geo | srid: nil} |> Geo.WKB.encode_to_iodata(:ndr) |> IO.iodata_to_binary()
-      {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4(), binary::binary>>)}
-    end
   end
 
   ## Time/DateTime
@@ -423,21 +446,32 @@ defmodule MyXQL.Protocol.Values do
     Enum.reverse(acc)
   end
 
-  if Code.ensure_loaded?(Geo) do
-    # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
-    defp decode_geometry(<<srid::uint4(), r::bits>>) do
+  defp decode_geometry(<<srid::uint4(), data::bits>>) do
+    # Assumptions made in this function:
+    #
+    # * :srid is a top-level field in the struct returned by the wkb decoder
+    # * the wkb decoder can decode any value that can be stored in a geometry column
+
+    try do
+      {mod, fun} = Application.get_env(:myxql, :wkb_decoder, {Geo.WKB, :decode!})
+
       srid = if srid == 0, do: nil, else: srid
-      r |> Geo.WKB.decode!() |> Map.put(:srid, srid)
-    end
-  else
-    defp decode_geometry(_) do
-      raise """
-      encoding/decoding geometry types requires :geo package, add:
+      decoded = apply(mod, fun, [data])
 
-          {:geo, "~> 3.4"}
+      if srid != 0 do
+        Map.put(decoded, :srid, srid)
+      else
+        decoded
+      end
+    rescue
+      _ ->
+        raise """
+        Encoding/decoding geometry types requires WKB decoder that returns a map.
+        Libraries such as `geo` and `geometry` provide WKB decoders, which can be
+        registered in the application configuration such as `runtime.exs`:
 
-      to your mix.exs and run `mix deps.compile --force myxql`.
-      """
+          config :myxql, wkb_decoder: {Geometry, :from_wkb!}
+        """
     end
   end
 

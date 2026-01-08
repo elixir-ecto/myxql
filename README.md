@@ -135,19 +135,22 @@ config :myxql, :json_library, SomeJSONModule
 
 ## Geometry support
 
-MyXQL comes with Geometry types support via the [Geo](https://github.com/bryanjos/geo) package.
+MyXQL supports data stored in `geometry` columns with the help of external geometry libraries such as `geo`.
 
-To use it, add `:geo` to your dependencies:
+After adding one of these libraries as a dependency in `mix.exs`, you can register that library's parser
+function in a config file (e.g. `runtime.exs`):
 
 ```elixir
-{:geo, "~> 3.3"}
+config :myxql, wkb_decoder: {Geo.WKB, :decode!}
 ```
 
-Note, some structs like `%Geo.PointZ{}` does not have equivalent on the MySQL server side and thus
-shouldn't be used.
+If using the `geo` library, this is the default and no explicit configuration is required.
+
+Note: some geometry types available in these libraries, such as `PointZ`, are not supported by MySQL and thus
+should not be used.
 
 If you're using MyXQL geometry types with Ecto and need to for example accept a WKT format as user
-input, consider implementing an [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
+input, consider implementing a [custom Ecto type](https://hexdocs.pm/ecto/Ecto.Type.html).
 
 ## UTC required
 
