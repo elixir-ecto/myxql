@@ -287,7 +287,9 @@ defmodule MyXQL.Protocol.Values do
       MyXQL.Protocol.Encoder.encode(struct)
     rescue
       Protocol.UndefinedError ->
-        raise ArgumentError, "query has invalid parameter #{inspect(struct)}"
+        # No protocol defined for this struct, so try to json encode it
+        string = json_library().encode!(struct)
+        {:mysql_type_var_string, encode_string_lenenc(string)}
     end
   end
 
