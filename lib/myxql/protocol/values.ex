@@ -421,9 +421,8 @@ defmodule MyXQL.Protocol.Values do
     case MyXQL.Protocol.GeometryCodec.do_decode(srid, data) do
       :unknown ->
         raise """
-        Encoding/decoding geometry types requires WKB decoder that returns a map.
-        Libraries such as `geo` and `geometry` provide WKB decoders, which can be
-        registered in the application configuration such as `runtime.exs`:
+        Decoding geometry types requires a geometry library with a MySQL codec. Add a library such
+        as `geo` or `geometry` as a dependency, and register its codec in the application configuration:
 
           config :myxql, wkb_decoder: {Geometry, :from_wkb!}
         """

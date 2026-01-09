@@ -141,7 +141,7 @@ If using a library other than `geo`, `myxql` can be configured to use a differen
 and decoding in the application config, e.g.:
 
 ```elixir
-config :myxql, geometry_coded: GeoSQL.MySQL.Codec
+config :myxql, geometry_codec: GeoSQL.MySQL.Codec
 ```
 
 If using the `geo` library, no explicit configuration is required.
