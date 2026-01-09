@@ -21,38 +21,6 @@ defmodule MyXQL.Protocol.Values do
   # MySQL TIMESTAMP is equal to Postgres TIMESTAMP WITH TIME ZONE
   # MySQL DATETIME  is equal to Postgres TIMESTAMP [WITHOUT TIME ZONE]
 
-  @type storage_type ::
-          :mysql_type_tiny
-          | :mysql_type_short
-          | :mysql_type_long
-          | :mysql_type_float
-          | :mysql_type_double
-          | :mysql_type_null
-          | :mysql_type_timestamp
-          | :mysql_type_longlong
-          | :mysql_type_int24
-          | :mysql_type_date
-          | :mysql_type_time
-          | :mysql_type_datetime
-          | :mysql_type_year
-          | :mysql_type_varchar
-          | :mysql_type_bit
-          | :mysql_type_json
-          | :mysql_type_newdecimal
-          | :mysql_type_enum
-          | :mysql_type_set
-          | :mysql_type_tiny_blob
-          | :mysql_type_medium_blob
-          | :mysql_type_long_blob
-          | :mysql_type_blob
-          | :mysql_type_var_string
-          | :mysql_type_string
-          | :mysql_type_geometry
-          | :mysql_type_newdate
-          | :mysql_type_timestamp2
-          | :mysql_type_datetime2
-          | :mysql_type_date2
-
   types = [
     mysql_type_tiny: 0x01,
     mysql_type_short: 0x02,
@@ -283,13 +251,14 @@ defmodule MyXQL.Protocol.Values do
   end
 
   def encode_binary_value(struct) when is_struct(struct) do
-    try do
-      MyXQL.Protocol.Encoder.encode(struct)
-    rescue
-      Protocol.UndefinedError ->
-        # No protocol defined for this struct, so try to json encode it
+    # see if it is a geometry struct
+    case MyXQL.Protocol.GeometryCodec.do_encode(struct) do
+      :unknown ->
         string = json_library().encode!(struct)
         {:mysql_type_var_string, encode_string_lenenc(string)}
+
+      encoded ->
+        encoded
     end
   end
 
@@ -449,24 +418,8 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_geometry(<<srid::uint4(), data::bits>>) do
-    # Assumptions made in this function:
-    #
-    # * :srid is a top-level field in the struct returned by the wkb decoder
-    # * the wkb decoder can decode any value that can be stored in a geometry column
-
-    try do
-      {mod, fun} = Application.get_env(:myxql, :wkb_decoder, {Geo.WKB, :decode!})
-
-      srid = if srid == 0, do: nil, else: srid
-      decoded = apply(mod, fun, [data])
-
-      if srid != 0 do
-        Map.put(decoded, :srid, srid)
-      else
-        decoded
-      end
-    rescue
-      _ ->
+    case MyXQL.Protocol.GeometryCodec.do_decode(srid, data) do
+      :unknown ->
         raise """
         Encoding/decoding geometry types requires WKB decoder that returns a map.
         Libraries such as `geo` and `geometry` provide WKB decoders, which can be
@@ -474,6 +427,9 @@ defmodule MyXQL.Protocol.Values do
 
           config :myxql, wkb_decoder: {Geometry, :from_wkb!}
         """
+
+      decoded ->
+        decoded
     end
   end
 

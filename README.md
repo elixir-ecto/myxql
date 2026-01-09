@@ -137,14 +137,14 @@ config :myxql, :json_library, SomeJSONModule
 
 MyXQL supports data stored in `geometry` columns with the help of external geometry libraries such as `geo`.
 
-After adding one of these libraries as a dependency in `mix.exs`, you can register that library's parser
-function in a config file (e.g. `runtime.exs`):
+If using a library other than `geo`, `myxql` can be configured to use a different codec for encoding
+and decoding in the application config, e.g.:
 
 ```elixir
-config :myxql, wkb_decoder: {Geo.WKB, :decode!}
+config :myxql, geometry_coded: GeoSQL.MySQL.Codec
 ```
 
-If using the `geo` library, this is the default and no explicit configuration is required.
+If using the `geo` library, no explicit configuration is required.
 
 Note: some geometry types available in these libraries, such as `PointZ`, are not supported by MySQL and thus
 should not be used.
