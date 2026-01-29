@@ -250,14 +250,16 @@ defmodule MyXQL.Protocol.Values do
     {:mysql_type_tiny, <<0>>}
   end
 
-  if Code.ensure_loaded?(Geo) do
-    def encode_binary_value(%Geo.Point{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiPoint{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.LineString{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiLineString{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.Polygon{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.MultiPolygon{} = geo), do: encode_geometry(geo)
-    def encode_binary_value(%Geo.GeometryCollection{} = geo), do: encode_geometry(geo)
+  def encode_binary_value(struct) when is_struct(struct) do
+    # see if it is a geometry struct
+    case MyXQL.Protocol.GeometryCodec.do_encode(struct) do
+      :unknown ->
+        string = json_library().encode!(struct)
+        {:mysql_type_var_string, encode_string_lenenc(string)}
+
+      encoded ->
+        encoded
+    end
   end
 
   def encode_binary_value(term) when is_list(term) or is_map(term) do
@@ -267,14 +269,6 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(other) do
     raise ArgumentError, "query has invalid parameter #{inspect(other)}"
-  end
-
-  if Code.ensure_loaded?(Geo) do
-    defp encode_geometry(geo) do
-      srid = geo.srid || 0
-      binary = %{geo | srid: nil} |> Geo.WKB.encode_to_iodata(:ndr) |> IO.iodata_to_binary()
-      {:mysql_type_var_string, encode_string_lenenc(<<srid::uint4(), binary::binary>>)}
-    end
   end
 
   ## Time/DateTime
@@ -423,21 +417,18 @@ defmodule MyXQL.Protocol.Values do
     Enum.reverse(acc)
   end
 
-  if Code.ensure_loaded?(Geo) do
-    # https://dev.mysql.com/doc/refman/8.0/en/gis-data-formats.html#gis-internal-format
-    defp decode_geometry(<<srid::uint4(), r::bits>>) do
-      srid = if srid == 0, do: nil, else: srid
-      r |> Geo.WKB.decode!() |> Map.put(:srid, srid)
-    end
-  else
-    defp decode_geometry(_) do
-      raise """
-      encoding/decoding geometry types requires :geo package, add:
+  defp decode_geometry(<<srid::uint4(), data::bits>>) do
+    case MyXQL.Protocol.GeometryCodec.do_decode(srid, data) do
+      :unknown ->
+        raise """
+        Decoding geometry types requires a geometry library with a MySQL codec. Add a library such
+        as `geo` or `geometry` as a dependency, and register its codec in the application configuration:
 
-          {:geo, "~> 3.4"}
+          config :myxql, wkb_decoder: {Geometry, :from_wkb!}
+        """
 
-      to your mix.exs and run `mix deps.compile --force myxql`.
-      """
+      decoded ->
+        decoded
     end
   end
 
