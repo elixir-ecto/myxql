@@ -27,14 +27,16 @@ defmodule MyXQL.Protocol.Types do
   def encode_int_lenenc(int) when int < 0xFFFFFFFFFFFFFFFF, do: <<0xFE, int::uint8()>>
 
   def decode_int_lenenc(binary) do
-    {integer, ""} = take_int_lenenc(binary)
+    {integer, _rest} = take_int_lenenc(binary)
     integer
   end
 
   def take_int_lenenc(<<int::uint1(), rest::binary>>) when int < 251, do: {int, rest}
+  def take_int_lenenc(<<0xFB, rest::binary>>), do: {nil, rest}
   def take_int_lenenc(<<0xFC, int::uint2(), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFD, int::uint3(), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFE, int::uint8(), rest::binary>>), do: {int, rest}
+  def take_int_lenenc(<<0xFF, rest::binary>>), do: {:error, rest}
 
   # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::FixedLengthString
   defmacro string(size) do
@@ -68,8 +70,13 @@ defmodule MyXQL.Protocol.Types do
 
   def take_string_nul(""), do: {nil, ""}
 
-  def take_string_nul(binary) do
-    [string, rest] = :binary.split(binary, <<0>>)
-    {string, rest}
+  def take_string_nul(binary) when is_binary(binary) do
+    case :binary.split(binary, <<0>>) do
+      [string] ->
+        {string, ""}
+
+      [string, rest] ->
+        {string, rest}
+    end
   end
 end
