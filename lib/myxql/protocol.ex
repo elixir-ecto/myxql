@@ -339,6 +339,38 @@ defmodule MyXQL.Protocol do
     decode_resultset(payload, next_data, state, &Values.decode_text_row/2)
   end
 
+  # Handle 10-byte packet (DorisDB/Apache Doris - without num_warnings field)
+  # DorisDB sends: [0x00 status (1 byte) | statement_id (4 bytes) | num_columns (2 bytes) | num_params (2 bytes) | 0x00 reserved (1 byte)]
+  # Total: 10 bytes (missing the 2-byte num_warnings field that MySQL includes after the reserved byte)
+  def decode_com_stmt_prepare_response(
+        <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0x00>>,
+        next_data,
+        :initial
+      ) do
+    # DorisDB sends 10-byte packets without num_warnings field
+    # Default num_warnings to 0 for compatibility
+    result =
+      com_stmt_prepare_ok(
+        statement_id: statement_id,
+        num_columns: num_columns,
+        num_params: num_params,
+        num_warnings: 0
+      )
+
+    cond do
+      num_params > 0 ->
+        {:cont, {result, :params, num_params, num_columns}}
+
+      num_columns > 0 ->
+        {:cont, {result, :columns, num_columns}}
+
+      true ->
+        "" = next_data
+        {:halt, result}
+    end
+  end
+
+  # Handle 12-byte packet (Standard MySQL - with num_warnings field)
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
           num_warnings::uint2()>>,
@@ -366,6 +398,23 @@ defmodule MyXQL.Protocol do
     end
   end
 
+  # Handle 13-byte packet (Newer DorisDB/Apache Doris - with num_warnings and metadata_follows)
+  def decode_com_stmt_prepare_response(
+        <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
+          num_warnings::uint2(), _metadata_follows::uint1()>>,
+        next_data,
+        :initial
+      ) do
+    result = com_stmt_prepare_ok(statement_id: statement_id, num_columns: num_columns, num_params: num_params, num_warnings: num_warnings)
+
+    if num_params > 0 or num_columns > 0 do
+      {:cont, {result, :params, num_params, num_columns}}
+    else
+      "" = next_data
+      {:halt, result}
+    end
+  end
+
   def decode_com_stmt_prepare_response(<<rest::binary>>, "", :initial) do
     {:halt, decode_generic_response(rest)}
   end
@@ -382,12 +431,26 @@ defmodule MyXQL.Protocol do
       column_def() = decode_column_def(payload)
       {:cont, {com_stmt_prepare_ok, :params, num_params - 1, num_columns}}
     else
-      eof_packet() = decode_eof_packet(payload)
+      # Apache Doris 3.1+ may skip EOF packet when num_params = 0 and directly send column defs
+      # Check if this is an EOF packet (0xFE) or a column definition (0x03, "def")
+      case payload do
+        <<0xFE, _::binary>> ->
+          eof_packet() = decode_eof_packet(payload)
 
-      if num_columns > 0 do
-        {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
-      else
-        {:halt, com_stmt_prepare_ok}
+          if num_columns > 0 do
+            {:cont, {com_stmt_prepare_ok, :columns, num_columns}}
+          else
+            {:halt, com_stmt_prepare_ok}
+          end
+
+        <<3, "def", _::binary>> ->
+          # No EOF packet, directly process column definition
+          if num_columns > 0 do
+            column_def() = decode_column_def(payload)
+            {:cont, {com_stmt_prepare_ok, :columns, num_columns - 1}}
+          else
+            {:halt, com_stmt_prepare_ok}
+          end
       end
     end
   end
