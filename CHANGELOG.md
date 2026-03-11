@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1 (2026-03-11)
+
+  * Add `MyXQL.GeometryCodec`.
+
+  * Fix compiler warnings on latest Elixir.
+
 ## v0.8.0 (2025-07-21)
 
   * Require Elixir 1.13+
