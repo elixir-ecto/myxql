@@ -1,8 +1,6 @@
 defmodule MyXQL.Protocol.Flags do
   @moduledoc false
 
-  import Bitwise
-
   # https://dev.mysql.com/doc/internals/en/capability-flags.html
   @capability_flags [
     client_long_password: 0x00000001,
@@ -88,16 +86,16 @@ defmodule MyXQL.Protocol.Flags do
 
   defp has_flag?(all_flags, flags, name) do
     value = Keyword.fetch!(all_flags, name)
-    (flags &&& value) == value
+    Bitwise.band(flags, value) == value
   end
 
   defp put_flags(all_flags, flags, names) do
-    Enum.reduce(names, flags, &(&2 ||| Keyword.fetch!(all_flags, &1)))
+    Enum.reduce(names, flags, &Bitwise.bor(&2, Keyword.fetch!(all_flags, &1)))
   end
 
   defp remove_flag(all_flags, flags, name) do
     value = Keyword.fetch!(all_flags, name)
-    flags &&& ~~~value
+    Bitwise.band(flags, Bitwise.bnot(value))
   end
 
   def list_flags(all_flags, flags) do
