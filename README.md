@@ -133,7 +133,7 @@ You can customize it to use another library via the `:json_library` configuratio
 config :myxql, :json_library, SomeJSONModule
 ```
 
-## Geometry support
+## Geometry Support
 
 MyXQL supports data stored in `geometry` columns with the help of external geometry libraries such as `geo`.
 

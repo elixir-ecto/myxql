@@ -252,7 +252,7 @@ defmodule MyXQL.Protocol.Values do
 
   def encode_binary_value(struct) when is_struct(struct) do
     # see if it is a geometry struct
-    case MyXQL.Protocol.GeometryCodec.do_encode(struct) do
+    case MyXQL.GeometryCodec.do_encode(struct) do
       :unknown ->
         string = json_library().encode!(struct)
         {:mysql_type_var_string, encode_string_lenenc(string)}
@@ -418,7 +418,7 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp decode_geometry(<<srid::uint4(), data::bits>>) do
-    case MyXQL.Protocol.GeometryCodec.do_decode(srid, data) do
+    case MyXQL.GeometryCodec.do_decode(srid, data) do
       :unknown ->
         raise """
         Decoding geometry types requires a geometry library with a MySQL codec. Add a library such

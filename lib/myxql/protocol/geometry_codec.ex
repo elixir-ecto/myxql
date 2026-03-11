@@ -1,4 +1,10 @@
-defmodule MyXQL.Protocol.GeometryCodec do
+defmodule MyXQL.GeometryCodec do
+  @moduledoc """
+  Contract for encoding/decoding geometry types.
+
+  See "Geometry Support" section in the README for more information.
+  """
+
   @type no_srid() :: 0
   @type some_srid() :: pos_integer()
 
@@ -31,7 +37,10 @@ defmodule MyXQL.Protocol.GeometryCodec do
     end
   end
 
-  default_codec = if Code.ensure_loaded?(Geo), do: MyXQL.Protocol.GeometryCodec.Geo, else: nil
+  default_codec =
+    if Code.ensure_loaded?(Geo) do
+      MyXQL.GeometryCodec.Geo
+    end
 
   defp geometry_codec do
     Application.get_env(:myxql, :geometry_codec, unquote(default_codec))

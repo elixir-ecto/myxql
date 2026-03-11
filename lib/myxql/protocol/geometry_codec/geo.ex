@@ -1,6 +1,8 @@
 if Code.ensure_loaded?(Geo) do
-  defmodule MyXQL.Protocol.GeometryCodec.Geo do
-    @behaviour MyXQL.Protocol.GeometryCodec
+  defmodule MyXQL.GeometryCodec.Geo do
+    @moduledoc false
+
+    @behaviour MyXQL.GeometryCodec
 
     supported_structs = [
       Geo.Point,
@@ -18,9 +20,16 @@ if Code.ensure_loaded?(Geo) do
       {srid, wkb}
     end
 
-    def encode(_), do: :unknown
+    def encode(_) do
+      :unknown
+    end
 
-    def decode(0, wkb), do: Geo.WKB.decode!(wkb)
-    def decode(srid, wkb), do: Geo.WKB.decode!(wkb) |> Map.put(:srid, srid)
+    def decode(0, wkb) do
+      Geo.WKB.decode!(wkb)
+    end
+
+    def decode(srid, wkb) do
+      Geo.WKB.decode!(wkb) |> Map.put(:srid, srid)
+    end
   end
 end
