@@ -1,8 +1,12 @@
 # Changelog
 
+## v0.9.0 (2026-05-07)
+
+  * **Require** decimal ~> 3.0. See <https://github.com/ericmj/decimal/security/advisories/GHSA-rhv4-8758-jx7v>.
+
 ## v0.8.2 (2026-05-05)
 
-  * Support Decimal ~> 3.0.
+  * Support decimal ~> 3.0.
 
 ## v0.8.1 (2026-03-11)
 
