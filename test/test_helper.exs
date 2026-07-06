@@ -190,8 +190,12 @@ defmodule TestHelper do
   end
 
   def available_auth_plugins do
+    # MySQL 8.4 ships `mysql_native_password` but disables it by default, so it
+    # is still listed here with plugin_status = 'DISABLED'. Only report plugins
+    # that are actually usable (ACTIVE) so their tests get excluded otherwise.
     sql =
-      "SELECT plugin_name FROM information_schema.plugins WHERE plugin_type = 'authentication'"
+      "SELECT plugin_name FROM information_schema.plugins " <>
+        "WHERE plugin_type = 'authentication' AND plugin_status = 'ACTIVE'"
 
     for %{"plugin_name" => plugin_name} <- mysql!(sql) do
       String.to_atom(plugin_name)
@@ -199,7 +203,19 @@ defmodule TestHelper do
   end
 
   def supports_ssl? do
-    mysql!("SELECT @@have_ssl") == [%{"@@have_ssl" => "YES"}]
+    # MySQL 8.4 removed the `have_ssl` system variable, so fall back to the
+    # performance_schema (available since MySQL 8.0.16) when it is missing.
+    case mysql("SELECT @@have_ssl") do
+      {:ok, result} ->
+        result == [%{"@@have_ssl" => "YES"}]
+
+      {:error, _} ->
+        sql =
+          "SELECT VALUE FROM performance_schema.tls_channel_status " <>
+            "WHERE channel = 'mysql_main' AND property = 'Enabled'"
+
+        match?([%{"VALUE" => "Yes"}], mysql!(sql))
+    end
   end
 
   def supports_public_key_exchange? do
