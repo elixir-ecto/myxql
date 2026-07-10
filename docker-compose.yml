@@ -46,6 +46,13 @@ services:
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=1
     command: "--default-authentication-plugin=sha256_password"
+  mysql-8.4:
+    image: "mysql:8.4"
+    ports:
+      - "8400:3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    command: "--innodb_log_file_size=1G"
   mariadb-10.3:
     image: "mariadb:10.3"
     ports:
