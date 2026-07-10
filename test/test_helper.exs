@@ -190,9 +190,6 @@ defmodule TestHelper do
   end
 
   def available_auth_plugins do
-    # MySQL 8.4 ships `mysql_native_password` but disables it by default, so it
-    # is still listed here with plugin_status = 'DISABLED'. Only report plugins
-    # that are actually usable (ACTIVE) so their tests get excluded otherwise.
     sql =
       "SELECT plugin_name FROM information_schema.plugins " <>
         "WHERE plugin_type = 'authentication' AND plugin_status = 'ACTIVE'"
