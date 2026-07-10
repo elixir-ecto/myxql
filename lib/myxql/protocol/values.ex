@@ -345,7 +345,7 @@ defmodule MyXQL.Protocol.Values do
 
   def decode_binary_row(<<payload::bits>>, column_defs) do
     size = div(length(column_defs) + 7 + 2, 8)
-    <<0x00, null_bitmap::uint(size), values::bits>> = payload
+    <<0x00, null_bitmap::uint(^size), values::bits>> = payload
     null_bitmap = null_bitmap >>> 2
     types = Enum.map(column_defs, &column_def_to_type/1)
     decode_binary_row(values, null_bitmap, types, [])
@@ -661,7 +661,7 @@ defmodule MyXQL.Protocol.Values do
 
   defp decode_bit(binary, size) do
     pad = 8 - rem(size, 8)
-    <<0::size(pad), bitstring::size(size)-bits>> = binary
+    <<0::size(^pad), bitstring::size(^size)-bits>> = binary
     bitstring
   end
 end
