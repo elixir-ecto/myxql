@@ -133,9 +133,16 @@ defmodule MyXQL.Client do
     end
   end
 
-  def com_query(client, statement, result_state \\ :single) do
+  def com_query(client, statement, result_state \\ :single, local_infile \\ nil) do
+    decoder = fn payload, next_data, decoder_state ->
+      case decode_com_query_response(payload, next_data, decoder_state) do
+        {:local_infile, _filename} -> {:local_infile, local_infile, :initial}
+        response -> response
+      end
+    end
+
     with :ok <- send_com(client, {:com_query, statement}) do
-      recv_packets(client, &decode_com_query_response/3, :initial, result_state)
+      recv_packets(client, decoder, :initial, result_state)
     end
   end
 
@@ -246,7 +253,7 @@ defmodule MyXQL.Client do
   end
 
   defp recv_packets(
-         <<size::uint3(), _seq::uint1(), payload::string(size), rest::binary>>,
+         <<size::uint3(), sequence_id::uint1(), payload::string(size), rest::binary>>,
          decoder,
          decoder_state,
          result_state,
@@ -263,6 +270,28 @@ defmodule MyXQL.Client do
         case result_state do
           :single -> {:ok, result}
           {:many, results} -> {:ok, [result | results]}
+        end
+
+      {:local_infile, local_infile, decoder_state} ->
+        case send_local_infile(client, local_infile, sequence_id) do
+          :ok ->
+            recv_packets(rest, decoder, decoder_state, result_state, timeout, client)
+
+          {:local_error, reason} ->
+            case recv_packets(
+                   rest,
+                   decoder,
+                   decoder_state,
+                   result_state,
+                   timeout,
+                   client
+                 ) do
+              {:ok, _result} -> {:error, {:local_infile, reason}}
+              {:error, _reason} = error -> error
+            end
+
+          {:error, _reason} = error ->
+            error
         end
 
       {:error, _} = error ->
@@ -311,6 +340,54 @@ defmodule MyXQL.Client do
         error
     end
   end
+
+  defp send_local_infile(client, nil, sequence_id) do
+    with :ok <- send_packet(client, <<>>, next_sequence_id(sequence_id)) do
+      {:local_error, :not_provided}
+    end
+  end
+
+  defp send_local_infile(client, path, sequence_id) when is_binary(path) do
+    case File.open(path, [:read, :binary, :raw]) do
+      {:ok, file} ->
+        try do
+          send_local_infile_file(client, file, path, next_sequence_id(sequence_id))
+        after
+          File.close(file)
+        end
+
+      {:error, reason} ->
+        with :ok <- send_packet(client, <<>>, next_sequence_id(sequence_id)) do
+          {:local_error, {:file, path, reason}}
+        end
+    end
+  end
+
+  defp send_local_infile(client, local_infile, sequence_id) do
+    with :ok <- send_packet(client, <<>>, next_sequence_id(sequence_id)) do
+      {:local_error, {:invalid, local_infile}}
+    end
+  end
+
+  defp send_local_infile_file(client, file, path, sequence_id) do
+    case IO.binread(file, @default_max_packet_size) do
+      :eof ->
+        send_packet(client, <<>>, sequence_id)
+
+      {:error, reason} ->
+        with :ok <- send_packet(client, <<>>, sequence_id) do
+          {:local_error, {:file, path, reason}}
+        end
+
+      data when is_binary(data) ->
+        with :ok <- send_packet(client, data, sequence_id) do
+          send_local_infile_file(client, file, path, next_sequence_id(sequence_id))
+        end
+    end
+  end
+
+  defp next_sequence_id(255), do: 0
+  defp next_sequence_id(sequence_id), do: sequence_id + 1
 
   @doc false
   def do_connect(config) do
