@@ -173,6 +173,7 @@ defmodule MyXQL.Protocol do
         :client_plugin_auth,
         :client_secure_connection,
         :client_found_rows,
+        :client_local_files,
         :client_multi_results,
         :client_multi_statements,
         # set by servers since 4.0
@@ -329,6 +330,10 @@ defmodule MyXQL.Protocol do
   # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
   def decode_com_query_response(<<0x00, rest::binary>>, "", :initial) do
     {:halt, decode_ok_packet_body(rest)}
+  end
+
+  def decode_com_query_response(<<0xFB, filename::binary>>, "", :initial) do
+    {:local_infile, filename}
   end
 
   def decode_com_query_response(<<0xFF, rest::binary>>, "", :initial) do

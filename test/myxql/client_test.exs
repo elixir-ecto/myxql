@@ -244,6 +244,94 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "LOCAL INFILE" do
+    test "advertises the capability when the server supports it" do
+      server_capability_flags = put_capability_flags([:client_local_files])
+      handshake = initial_handshake(capability_flags: server_capability_flags)
+
+      assert {:ok, client_capability_flags} =
+               Protocol.build_capability_flags(Client.Config.new([]), handshake)
+
+      assert has_capability_flag?(client_capability_flags, :client_local_files)
+    end
+
+    test "sends the explicitly provided file and ignores the server filename" do
+      contents = "1,hello\n2,world\n"
+      path = tmp_file!(contents)
+
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          assert {0, <<0x03, _statement::binary>>} = recv_mysql_packet(sock)
+
+          :ok = send_mysql_packet(sock, 1, <<0xFB, "/etc/passwd">>)
+          assert {2, ^contents} = recv_mysql_packet(sock)
+          assert {3, ""} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 4, <<0, 0, 0, 2, 0, 0, 0>>)
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:ok, ok_packet()} =
+               Client.com_query(client, "LOAD DATA LOCAL INFILE 'data.csv'", :single, path)
+
+      Client.disconnect(client)
+    end
+
+    test "refuses unconfigured and invalid requests without desynchronizing the connection" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          assert {0, <<0x03, _statement::binary>>} = recv_mysql_packet(sock)
+
+          :ok = send_mysql_packet(sock, 1, <<0xFB, "/etc/passwd">>)
+          assert {2, ""} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 3, <<0, 0, 0, 2, 0, 0, 0>>)
+
+          assert {0, <<0x03, _statement::binary>>} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 1, <<0xFB, "/etc/passwd">>)
+          assert {2, ""} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 3, <<0, 0, 0, 2, 0, 0, 0>>)
+
+          assert {0, <<0x03, "SELECT 1">>} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 1, <<0, 0, 0, 2, 0, 0, 0>>)
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:error, {:local_infile, :not_provided}} =
+               Client.com_query(client, "LOAD DATA LOCAL INFILE 'data.csv'")
+
+      assert {:error, {:local_infile, {:invalid, true}}} =
+               Client.com_query(client, "LOAD DATA LOCAL INFILE 'data.csv'", :single, true)
+
+      assert {:ok, ok_packet()} = Client.com_query(client, "SELECT 1")
+      Client.disconnect(client)
+    end
+
+    test "returns a file error without desynchronizing the connection" do
+      path = Path.join(System.tmp_dir!(), "myxql-missing-#{System.unique_integer([:positive])}")
+
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          assert {0, <<0x03, _statement::binary>>} = recv_mysql_packet(sock)
+
+          :ok = send_mysql_packet(sock, 1, <<0xFB, "data.csv">>)
+          assert {2, ""} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 3, <<0, 0, 0, 2, 0, 0, 0>>)
+
+          assert {0, <<0x03, "SELECT 1">>} = recv_mysql_packet(sock)
+          :ok = send_mysql_packet(sock, 1, <<0, 0, 0, 2, 0, 0, 0>>)
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:error, {:local_infile, {:file, ^path, :enoent}}} =
+               Client.com_query(client, "LOAD DATA LOCAL INFILE 'data.csv'", :single, path)
+
+      assert {:ok, ok_packet()} = Client.com_query(client, "SELECT 1")
+      Client.disconnect(client)
+    end
+  end
+
   describe "com_stmt_prepare/2 + com_stmt_execute/2" do
     setup :connect
 
@@ -465,6 +553,33 @@ defmodule MyXQL.ClientTest do
     %{pid: pid, port: port}
   end
 
+  defp recv_mysql_packet(sock) do
+    assert {:ok, <<size::24-little, sequence_id>>} = :gen_tcp.recv(sock, 4, 1_000)
+
+    payload =
+      if size == 0 do
+        <<>>
+      else
+        assert {:ok, payload} = :gen_tcp.recv(sock, size, 1_000)
+        payload
+      end
+
+    {sequence_id, payload}
+  end
+
+  defp send_mysql_packet(sock, sequence_id, payload) do
+    :gen_tcp.send(sock, Protocol.encode_packet(payload, sequence_id, 0xFFFFFF))
+  end
+
+  defp tmp_file!(contents) do
+    path =
+      Path.join(System.tmp_dir!(), "myxql-local-infile-#{System.unique_integer([:positive])}")
+
+    File.write!(path, contents)
+    on_exit(fn -> File.rm(path) end)
+    path
+  end
+
   defp start_cleartext_fake_server() do
     start_fake_server(fn %{accept_socket: sock} ->
       # The initial handshake which the mysql server always sends. Usually, like in this
@@ -511,7 +626,7 @@ defmodule MyXQL.ClientTest do
           # packet sequence
           1,
           # capability flags
-          <<10, 162, 11, 0>>,
+          <<138, 162, 11, 0>>,
           # max packet size
           <<255, 255, 255, 0>>,
           # charset
