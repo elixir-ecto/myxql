@@ -243,8 +243,6 @@ defmodule MyXQL.Protocol do
     decode_err_packet_body(rest)
   end
 
-  # caching_sha2_password: the scramble matched the server-side cache entry, an
-  # OK (or ERR) packet follows.
   def decode_auth_response(<<0x01, 0x03>>) do
     :fast_auth_success
   end

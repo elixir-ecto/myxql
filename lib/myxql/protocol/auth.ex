@@ -11,12 +11,6 @@ defmodule MyXQL.Protocol.Auth do
   end
 
   # https://dev.mysql.com/doc/dev/mysql-server/latest/page_caching_sha2_authentication_exchanges.html
-  #
-  # Note the nonce is appended _after_ the double hash here, whereas
-  # mysql_native_password prepends it. Getting this backwards still connects
-  # against MySQL (the server falls back to the full authentication exchange),
-  # but fails outright once the server has a cached entry for the account, and
-  # against proxies such as ProxySQL that verify the scramble eagerly.
   @spec caching_sha2_password(binary(), binary()) :: binary()
   def caching_sha2_password(password, auth_plugin_data) do
     password_sha = :crypto.hash(:sha256, password)
