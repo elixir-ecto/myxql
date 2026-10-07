@@ -343,12 +343,19 @@ defmodule MyXQL.Protocol do
     decode_resultset(payload, next_data, state, &Values.decode_text_row/2)
   end
 
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html#sect_protocol_com_stmt_prepare_response_ok
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
-          num_warnings::uint2()>>,
+          rest::binary>>,
         next_data,
         :initial
       ) do
+    num_warnings =
+      case rest do
+        <<num_warnings::uint2(), _::binary>> -> num_warnings
+        _ -> 0
+      end
+
     result =
       com_stmt_prepare_ok(
         statement_id: statement_id,
