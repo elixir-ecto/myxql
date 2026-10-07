@@ -88,13 +88,13 @@ defmodule MyXQL.Connection do
   end
 
   @impl true
-  def handle_execute(%TextQuery{statement: statement} = query, [], _opts, state) do
-    Client.com_query(state.client, statement, result_state(query))
+  def handle_execute(%TextQuery{statement: statement} = query, [], opts, state) do
+    Client.com_query(state.client, statement, result_state(query), opts[:local_infile])
     |> result(query, state)
   end
 
-  def handle_execute(%TextQueries{statement: statement} = query, [], _opts, state) do
-    Client.com_query(state.client, statement, result_state(query))
+  def handle_execute(%TextQueries{statement: statement} = query, [], opts, state) do
+    Client.com_query(state.client, statement, result_state(query), opts[:local_infile])
     |> result(query, state)
   end
 
@@ -307,6 +307,26 @@ defmodule MyXQL.Connection do
   defp result({:error, :multiple_results}, _query, _state) do
     raise RuntimeError,
           "returning multiple results is not supported from this function. Use MyXQL.query_many/4 and similar functions."
+  end
+
+  defp result({:error, {:local_infile, :not_provided}}, _query, state) do
+    error =
+      ArgumentError.exception(
+        "the server requested LOCAL INFILE data but the :local_infile query option was not provided"
+      )
+
+    {:error, error, state}
+  end
+
+  defp result({:error, {:local_infile, {:file, path, reason}}}, _query, state) do
+    {:error, File.Error.exception(reason: reason, action: "read file", path: path), state}
+  end
+
+  defp result({:error, {:local_infile, {:invalid, local_infile}}}, _query, state) do
+    error =
+      ArgumentError.exception(":local_infile must be a file path, got: #{inspect(local_infile)}")
+
+    {:error, error, state}
   end
 
   defp result({:error, reason}, _query, state) do
