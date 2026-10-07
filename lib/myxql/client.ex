@@ -195,25 +195,22 @@ defmodule MyXQL.Client do
     send_data(client, data)
   end
 
-  # Like send_recv_packet/4, but transparently consumes the OK/ERR packet that
-  # trails a caching_sha2_password fast auth success. recv_packet/3 discards any
-  # packet following the one it decodes, which would leave that OK in the
-  # socket and desync every subsequent exchange.
+  # After fast auth success (0x01 0x03), the server sends a generic response packet (OK or ERR).
   defp send_recv_auth_packet(client, payload, sequence_id) do
     with :ok <- send_packet(client, payload, sequence_id) do
-      recv_auth_packet(client)
-    end
-  end
+      decoder = fn
+        data, _next_data, :initial ->
+          case decode_auth_response(data) do
+            :fast_auth_success -> {:cont, :fast_auth_success}
+            result -> {:halt, result}
+          end
 
-  defp recv_auth_packet(client) do
-    decoder = fn payload, _next_packet, _state ->
-      case decode_auth_response(payload) do
-        :fast_auth_success -> {:cont, nil}
-        other -> {:halt, other}
+        data, _next_data, :fast_auth_success ->
+          {:halt, decode_generic_response(data)}
       end
-    end
 
-    recv_packets(client, decoder, nil, :single)
+      recv_packets(client, decoder, :initial, :single)
+    end
   end
 
   def send_data(%{sock: {sock_mod, sock}}, data) do
