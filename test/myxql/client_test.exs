@@ -155,6 +155,19 @@ defmodule MyXQL.ClientTest do
       Client.com_quit(client)
     end
 
+    # The first connection populates the server-side cache, so the second one
+    # is answered with fast auth success rather than a full auth exchange.
+    @tag caching_sha2_password: true, public_key_exchange: true
+    test "caching_sha2_password (cached, fast auth)" do
+      opts = [username: "caching_sha2_password", password: "secret"] ++ @opts
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
+
+      assert {:ok, client} = Client.connect(opts)
+      assert {:ok, _} = Client.com_ping(client, 5000)
+      Client.com_quit(client)
+    end
+
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (ssl)" do
       opts = [username: "caching_sha2_password", password: "secret"] ++ @opts_with_ssl
