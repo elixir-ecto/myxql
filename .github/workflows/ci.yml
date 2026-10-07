@@ -19,7 +19,7 @@ jobs:
           - mysql:8.0
           - mariadb:10.3
         pair:
-          - elixir: 1.13
+          - elixir: 1.15
             otp: 25.3
         include:
           - db: mysql:8.0
