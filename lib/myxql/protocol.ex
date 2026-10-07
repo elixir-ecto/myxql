@@ -28,7 +28,7 @@ defmodule MyXQL.Protocol do
 
   defp encode_packet(payload, payload_size, sequence_id, max_packet_size) do
     if payload_size > max_packet_size do
-      <<new_payload::size(max_packet_size)-binary, rest::binary>> = IO.iodata_to_binary(payload)
+      <<new_payload::size(^max_packet_size)-binary, rest::binary>> = IO.iodata_to_binary(payload)
       rest_size = payload_size - max_packet_size
       next_sequence_id = if sequence_id < 255, do: sequence_id + 1, else: 0
 
@@ -121,7 +121,7 @@ defmodule MyXQL.Protocol do
       >> = rest
 
       take = max(13, auth_plugin_data_length - 8)
-      <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
+      <<auth_plugin_data2::binary-size(^take), auth_plugin_name::binary>> = rest
       auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
       auth_plugin_name = decode_string_nul(auth_plugin_name)
       auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
