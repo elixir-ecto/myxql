@@ -117,30 +117,42 @@ defmodule MyXQL.Protocol.ValueTest do
       test "MYSQL_TYPE_TIME - negative time", c do
         message =
           case @protocol do
-            :binary -> ~s|cannot decode "-01:00:00" as time|
-            :text -> ~s|cannot parse "-01:00:00" as time|
+            :binary ->
+              ~s|cannot decode "-01:00:00" as time, negative or >= 24:00:00 values are not supported|
+
+            :text ->
+              ~s|cannot parse "-01:00:00" as time|
           end
 
         assert assert_killed(fn ->
                  assert {:error, %ArgumentError{message: actual}} =
                           query(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
 
-                 assert String.starts_with?(actual, message)
+                 case @protocol do
+                   :binary -> assert actual == message
+                   :text -> assert String.starts_with?(actual, message)
+                 end
                end) =~ "disconnected: ** (ArgumentError) #{message}"
       end
 
       test "MYSQL_TYPE_TIME - more than 24h", c do
         message =
           case @protocol do
-            :binary -> ~s|cannot decode "1d 01:00:00" as time|
-            :text -> ~s|cannot parse "25:00:00" as time|
+            :binary ->
+              ~s|cannot decode "1d 01:00:00" as time, negative or >= 24:00:00 values are not supported|
+
+            :text ->
+              ~s|cannot parse "25:00:00" as time|
           end
 
         assert assert_killed(fn ->
                  assert {:error, %ArgumentError{message: actual}} =
                           query(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
 
-                 assert String.starts_with?(actual, message)
+                 case @protocol do
+                   :binary -> assert actual == message
+                   :text -> assert String.starts_with?(actual, message)
+                 end
                end) =~ "disconnected: ** (ArgumentError) #{message}"
       end
 
