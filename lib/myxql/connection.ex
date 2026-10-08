@@ -309,6 +309,11 @@ defmodule MyXQL.Connection do
           "returning multiple results is not supported from this function. Use MyXQL.query_many/4 and similar functions."
   end
 
+  # Decoding stopped before the end of the resultset. The socket still contains the other packets.
+  defp result({:error, exception}, _query, state) when is_exception(exception) do
+    {:disconnect, exception, state}
+  end
+
   defp result({:error, reason}, _query, state) do
     {:disconnect, error(reason), state}
   end

@@ -114,22 +114,46 @@ defmodule MyXQL.Protocol.ValueTest do
         assert insert_and_get(c, "my_time", ~T[09:10:20.123]) == ~T[09:10:20]
       end
 
-      if @protocol == :binary do
-        test "MYSQL_TYPE_TIME - negative time", c do
-          assert assert_killed(fn ->
-                   assert_raise ArgumentError, ~r"cannot decode \"-01:00:00\" as time", fn ->
-                     query!(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
-                   end
-                 end) =~ "stopped: ** (ArgumentError) cannot decode \"-01:00:00\" as time"
-        end
+      test "MYSQL_TYPE_TIME - negative time", c do
+        message =
+          case @protocol do
+            :binary ->
+              ~s|cannot decode "-01:00:00" as time, negative or >= 24:00:00 values are not supported|
 
-        test "MYSQL_TYPE_TIME - more than 24h", c do
-          assert assert_killed(fn ->
-                   assert_raise ArgumentError, ~r"cannot decode \"1d 01:00:00\" as time", fn ->
-                     query!(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
-                   end
-                 end) =~ "stopped: ** (ArgumentError) cannot decode \"1d 01:00:00\" as time"
-        end
+            :text ->
+              ~s|cannot parse "-01:00:00" as time|
+          end
+
+        assert assert_killed(fn ->
+                 assert {:error, %ArgumentError{message: actual}} =
+                          query(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
+
+                 case @protocol do
+                   :binary -> assert actual == message
+                   :text -> assert String.starts_with?(actual, message)
+                 end
+               end) =~ "disconnected: ** (ArgumentError) #{message}"
+      end
+
+      test "MYSQL_TYPE_TIME - more than 24h", c do
+        message =
+          case @protocol do
+            :binary ->
+              ~s|cannot decode "1d 01:00:00" as time, negative or >= 24:00:00 values are not supported|
+
+            :text ->
+              ~s|cannot parse "25:00:00" as time|
+          end
+
+        assert assert_killed(fn ->
+                 assert {:error, %ArgumentError{message: actual}} =
+                          query(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
+
+                 case @protocol do
+                   :binary -> assert actual == message
+                   :text -> assert String.starts_with?(actual, message)
+                 end
+               end) =~ "disconnected: ** (ArgumentError) #{message}"
       end
 
       @tag timestamp_precision: true
@@ -514,6 +538,11 @@ defmodule MyXQL.Protocol.ValueTest do
   defp get(c, field, id) do
     [value] = get(c, [field], id)
     value
+  end
+
+  defp query(c, statement, params \\ [], opts \\ []) do
+    opts = Keyword.put_new(opts, :query_type, c.protocol)
+    MyXQL.query(c.conn, statement, params, opts)
   end
 
   defp query!(c, statement, params \\ [], opts \\ []) do
