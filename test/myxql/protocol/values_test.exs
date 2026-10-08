@@ -122,8 +122,10 @@ defmodule MyXQL.Protocol.ValueTest do
           end
 
         assert assert_killed(fn ->
-                 assert {:error, %ArgumentError{message: ^message <> _}} =
+                 assert {:error, %ArgumentError{message: actual}} =
                           query(c, "SELECT TIME(SUBTIME('00:00:00', '01:00:00'))")
+
+                 assert String.starts_with?(actual, message)
                end) =~ "disconnected: ** (ArgumentError) #{message}"
       end
 
@@ -135,8 +137,10 @@ defmodule MyXQL.Protocol.ValueTest do
           end
 
         assert assert_killed(fn ->
-                 assert {:error, %ArgumentError{message: ^message <> _}} =
+                 assert {:error, %ArgumentError{message: actual}} =
                           query(c, "SELECT TIME(ADDTIME('23:00:00', '02:00:00'))")
+
+                 assert String.starts_with?(actual, message)
                end) =~ "disconnected: ** (ArgumentError) #{message}"
       end
 
