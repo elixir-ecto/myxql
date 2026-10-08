@@ -106,12 +106,14 @@ defmodule MyXQL.Protocol.Values do
 
   defp decode_text_row(<<values::binary>>, [type | tail], acc) do
     {string, rest} = take_string_lenenc(values)
-    value = decode_text_value(string, type)
-    decode_text_row(rest, tail, [value | acc])
+
+    with {:ok, value} <- decode_text_value(string, type) do
+      decode_text_row(rest, tail, [value | acc])
+    end
   end
 
   defp decode_text_row("", _column_type, acc) do
-    Enum.reverse(acc)
+    {:ok, Enum.reverse(acc)}
   end
 
   def decode_text_value(value, type)
@@ -125,66 +127,77 @@ defmodule MyXQL.Protocol.Values do
              :int4,
              :int8
            ] do
-    String.to_integer(value)
+    {:ok, String.to_integer(value)}
   end
 
   def decode_text_value(value, type) when type in [:float, :double] do
     if String.contains?(value, ".") do
-      String.to_float(value)
+      {:ok, String.to_float(value)}
     else
-      String.to_integer(value) * 1.0
+      {:ok, String.to_integer(value) * 1.0}
     end
   end
 
   # Note: MySQL implements `NUMERIC` as `DECIMAL`s
   def decode_text_value(value, :decimal) do
-    Decimal.new(value)
+    {:ok, Decimal.new(value)}
   end
 
   def decode_text_value("0000-00-00", :date) do
-    :zero_date
+    {:ok, :zero_date}
   end
 
   def decode_text_value(value, :date) do
-    Date.from_iso8601!(value)
+    from_iso8601(Date, value, "date")
   end
 
   def decode_text_value(value, :time) do
-    Time.from_iso8601!(value)
+    from_iso8601(Time, value, "time")
   end
 
   def decode_text_value("0000-00-00 00:00:00", :naive_datetime) do
-    :zero_datetime
+    {:ok, :zero_datetime}
   end
 
   def decode_text_value(value, :naive_datetime) do
-    NaiveDateTime.from_iso8601!(value)
+    from_iso8601(NaiveDateTime, value, "naive datetime")
   end
 
   def decode_text_value("0000-00-00 00:00:00", :datetime) do
-    :zero_datetime
+    {:ok, :zero_datetime}
   end
 
   def decode_text_value(value, :datetime) do
-    value
-    |> NaiveDateTime.from_iso8601!()
-    |> DateTime.from_naive!("Etc/UTC")
+    with {:ok, naive_datetime} <- from_iso8601(NaiveDateTime, value, "datetime") do
+      {:ok, DateTime.from_naive!(naive_datetime, "Etc/UTC")}
+    end
   end
 
   def decode_text_value(value, :binary) do
-    value
+    {:ok, value}
   end
 
   def decode_text_value(value, :json) do
-    json_library().decode!(value)
+    {:ok, json_library().decode!(value)}
   end
 
   def decode_text_value(value, {:bit, size}) do
-    decode_bit(value, size)
+    {:ok, decode_bit(value, size)}
   end
 
   def decode_text_value(value, :geometry) do
-    decode_geometry(value)
+    {:ok, decode_geometry(value)}
+  end
+
+  defp from_iso8601(module, value, name) do
+    case module.from_iso8601(value) do
+      {:ok, term} ->
+        {:ok, term}
+
+      {:error, reason} ->
+        message = "cannot parse #{inspect(value)} as #{name}, reason: #{inspect(reason)}"
+        {:error, %ArgumentError{message: message}}
+    end
   end
 
   # Binary values
@@ -414,7 +427,7 @@ defmodule MyXQL.Protocol.Values do
     do: decode_string_lenenc(r, null_bitmap, t, acc, &decode_geometry/1)
 
   defp decode_binary_row(<<>>, _null_bitmap, [], acc) do
-    Enum.reverse(acc)
+    {:ok, Enum.reverse(acc)}
   end
 
   defp decode_geometry(<<srid::uint4(), data::bits>>) do
@@ -431,6 +444,11 @@ defmodule MyXQL.Protocol.Values do
         decoded
     end
   end
+
+  defp continue_binary_row(<<r::bits>>, null_bitmap, t, acc, {:ok, v}),
+    do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+
+  defp continue_binary_row(<<_::bits>>, _null_bitmap, _t, _acc, {:error, _} = error), do: error
 
   defp decode_int1(<<v::int1(), r::bits>>, null_bitmap, t, acc),
     do: decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
@@ -489,8 +507,8 @@ defmodule MyXQL.Protocol.Values do
          t,
          acc
        ) do
-    v = time(is_negative, days, hours, minutes, seconds, {0, 0})
-    decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+    result = time(is_negative, days, hours, minutes, seconds, {0, 0})
+    continue_binary_row(r, null_bitmap, t, acc, result)
   end
 
   defp decode_time(
@@ -500,8 +518,8 @@ defmodule MyXQL.Protocol.Values do
          t,
          acc
        ) do
-    v = time(is_negative, days, hours, minutes, seconds, {microseconds, 6})
-    decode_binary_row(r, null_bitmap >>> 1, t, [v | acc])
+    result = time(is_negative, days, hours, minutes, seconds, {microseconds, 6})
+    continue_binary_row(r, null_bitmap, t, acc, result)
   end
 
   defp decode_time(<<0, r::bits>>, null_bitmap, t, acc) do
@@ -510,18 +528,20 @@ defmodule MyXQL.Protocol.Values do
   end
 
   defp time(0, 0, hours, minutes, seconds, microsecond) do
-    %Time{hour: hours, minute: minutes, second: seconds, microsecond: microsecond}
+    {:ok, %Time{hour: hours, minute: minutes, second: seconds, microsecond: microsecond}}
   end
 
   defp time(is_negative, days, hours, minutes, seconds, microseconds) do
     sign = if is_negative == 0, do: "", else: "-"
     days = if days == 0, do: "", else: "#{days}d "
-    time = time(0, 0, hours, minutes, seconds, microseconds)
+    {:ok, time} = time(0, 0, hours, minutes, seconds, microseconds)
     string = sign <> days <> to_string(time)
 
-    raise ArgumentError,
-          "cannot decode \"#{string}\" as time" <>
-            ", negative or >= 24:00:00 values are not supported"
+    message =
+      "cannot decode \"#{string}\" as time" <>
+        ", negative or >= 24:00:00 values are not supported"
+
+    {:error, %ArgumentError{message: message}}
   end
 
   defp decode_datetime(

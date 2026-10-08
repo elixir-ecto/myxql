@@ -589,7 +589,8 @@ defmodule MyXQL.Protocol do
   end
 
   defp decode_resultset(payload, _next_data, {:rows, column_defs, num_rows, acc}, row_decoder) do
-    row = row_decoder.(payload, column_defs)
-    {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
+    with {:ok, row} <- row_decoder.(payload, column_defs) do
+      {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
+    end
   end
 end
