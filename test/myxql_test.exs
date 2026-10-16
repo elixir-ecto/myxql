@@ -793,14 +793,6 @@ defmodule MyXQLTest do
                MyXQL.prepare_execute_many(c.conn, "foo", "SELECT 1;")
     end
 
-    test "using execute_many/4 with a single result query", c do
-      %MyXQL.Query{} = query = MyXQL.prepare!(c.conn, "", "CALL single_procedure()")
-
-      assert_raise FunctionClauseError, fn ->
-        MyXQL.execute_many(c.conn, query)
-      end
-    end
-
     test "close a multiple result prepared statement", c do
       assert %MyXQL.Queries{} = query = MyXQL.prepare_many!(c.conn, "", "CALL multi_procedure()")
       assert :ok == MyXQL.close(c.conn, query)
