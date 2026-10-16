@@ -513,7 +513,7 @@ defmodule MyXQL.Protocol.ValueTest do
 
   defp encode_text(value) when is_bitstring(value) do
     size = bit_size(value)
-    <<value::size(size)>> = value
+    <<value::size(^size)>> = value
     "B'#{Integer.to_string(value, 2)}'"
   end
 
