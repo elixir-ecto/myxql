@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
 
-  # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_authentication_methods.html#page_protocol_connection_phase_authentication_methods_old_password_authentication
   @spec mysql_native_password(binary(), binary()) :: binary()
   def mysql_native_password(password, auth_plugin_data) do
     sha_hash(:sha, password, auth_plugin_data)

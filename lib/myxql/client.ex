@@ -113,7 +113,7 @@ defmodule MyXQL.Client do
 
   @default_max_packet_size 16_777_215
 
-  # https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_character_set.html#a_protocol_character_set
   # utf8mb4
   @default_charset_code 45
 
