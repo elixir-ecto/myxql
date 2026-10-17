@@ -7,12 +7,12 @@ defmodule MyXQL.Protocol.Values do
 
   # Text & Binary row value encoding/decoding
   #
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
-  # https://dev.mysql.com/doc/refman/8.0/en/data-types.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/field__types_8h.html
+  # https://dev.mysql.com/doc/refman/en/data-types.html
 
   # TIMESTAMP vs DATETIME
   #
-  # https://dev.mysql.com/doc/refman/8.0/en/datetime.html
+  # https://dev.mysql.com/doc/refman/en/datetime.html
   # MySQL converts TIMESTAMP values from the current time zone to UTC for
   # storage, and back from UTC to the current time zone for retrieval. (This
   # does not occur for other types such as DATETIME.)
@@ -27,7 +27,7 @@ defmodule MyXQL.Protocol.Values do
     mysql_type_long: 0x03,
     mysql_type_float: 0x04,
     mysql_type_double: 0x05,
-    # https://dev.mysql.com/doc/internals/en/null-bitmap.html
+    # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html#sect_protocol_binary_resultset_row_null_bitmap
     mysql_type_null: 0x06,
     mysql_type_timestamp: 0x07,
     mysql_type_longlong: 0x08,
@@ -287,7 +287,7 @@ defmodule MyXQL.Protocol.Values do
   ## Time/DateTime
 
   # MySQL supports negative time and days, we don't.
-  # See: https://dev.mysql.com/doc/internals/en/binary-protocol-value.html#packet-ProtocolBinary::MYSQL_TYPE_TIME
+  # See: https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html#sect_protocol_binary_resultset_row_value_time
 
   defp encode_binary_time(%Time{hour: 0, minute: 0, second: 0, microsecond: {0, 0}}) do
     {:mysql_type_time, <<0>>}
