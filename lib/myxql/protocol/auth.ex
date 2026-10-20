@@ -1,18 +1,21 @@
 defmodule MyXQL.Protocol.Auth do
   @moduledoc false
 
-  # TODO: remove when we require Elixir v1.10+
-  require Bitwise
-
   # https://dev.mysql.com/doc/internals/en/secure-password-authentication.html
   @spec mysql_native_password(binary(), binary()) :: binary()
   def mysql_native_password(password, auth_plugin_data) do
     sha_hash(:sha, password, auth_plugin_data)
   end
 
-  @spec sha256_password(binary(), binary()) :: binary()
-  def sha256_password(password, auth_plugin_data) do
-    sha_hash(:sha256, password, auth_plugin_data)
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_caching_sha2_authentication_exchanges.html
+  @spec caching_sha2_password(binary(), binary()) :: binary()
+  def caching_sha2_password(password, auth_plugin_data) do
+    password_sha = :crypto.hash(:sha256, password)
+
+    bxor_binary(
+      password_sha,
+      :crypto.hash(:sha256, :crypto.hash(:sha256, password_sha) <> auth_plugin_data)
+    )
   end
 
   def encrypt_sha_password(password, public_key, auth_plugin_data) do
@@ -47,7 +50,7 @@ defmodule MyXQL.Protocol.Auth do
         end
 
       auth_plugin_name == "caching_sha2_password" ->
-        sha256_password(config.password, initial_auth_plugin_data)
+        caching_sha2_password(config.password, initial_auth_plugin_data)
     end
   end
 

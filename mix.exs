@@ -8,7 +8,7 @@ defmodule MyXQL.MixProject do
     [
       app: :myxql,
       version: @version,
-      elixir: "~> 1.13",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       name: "MyXQL",
       description: "MySQL 5.5+ driver for Elixir",

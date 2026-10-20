@@ -202,6 +202,24 @@ defmodule MyXQL.Client do
     send_data(client, data)
   end
 
+  # After fast auth success (0x01 0x03), the server sends a generic response packet (OK or ERR).
+  defp send_recv_auth_packet(client, payload, sequence_id) do
+    with :ok <- send_packet(client, payload, sequence_id) do
+      decoder = fn
+        data, _next_data, :initial ->
+          case decode_auth_response(data) do
+            :fast_auth_success -> {:cont, :fast_auth_success}
+            result -> {:halt, result}
+          end
+
+        data, _next_data, :fast_auth_success ->
+          {:halt, decode_generic_response(data)}
+      end
+
+      recv_packets(client, decoder, :initial, :single)
+    end
+  end
+
   def send_data(%{sock: {sock_mod, sock}}, data) do
     sock_mod.send(sock, data)
   end
@@ -536,11 +554,11 @@ defmodule MyXQL.Client do
 
     payload = encode_handshake_response_41(handshake_response)
 
-    case send_recv_packet(client, payload, &decode_auth_response/1, sequence_id) do
+    case send_recv_auth_packet(client, payload, sequence_id) do
       {:ok, auth_switch_request(plugin_name: auth_plugin_name, plugin_data: auth_plugin_data)} ->
         auth_response = Auth.auth_response(config, auth_plugin_name, auth_plugin_data)
 
-        case send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id + 2) do
+        case send_recv_auth_packet(client, auth_response, sequence_id + 2) do
           {:ok, :full_auth} ->
             perform_full_auth(client, config, auth_plugin_name, auth_plugin_data, sequence_id + 2)
 
@@ -582,7 +600,7 @@ defmodule MyXQL.Client do
 
   defp perform_public_key_auth(client, password, public_key, auth_plugin_data, sequence_id) do
     auth_response = Auth.encrypt_sha_password(password, public_key, auth_plugin_data)
-    send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id)
+    send_recv_auth_packet(client, auth_response, sequence_id)
   end
 
   defp perform_full_auth(client, config, "caching_sha2_password", auth_plugin_data, sequence_id) do
@@ -594,7 +612,7 @@ defmodule MyXQL.Client do
         <<2>>
       end
 
-    case send_recv_packet(client, auth_response, &decode_auth_response/1, sequence_id + 2) do
+    case send_recv_auth_packet(client, auth_response, sequence_id + 2) do
       {:ok, auth_more_data(data: public_key)} ->
         perform_public_key_auth(
           client,

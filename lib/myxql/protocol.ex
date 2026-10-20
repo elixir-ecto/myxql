@@ -28,7 +28,7 @@ defmodule MyXQL.Protocol do
 
   defp encode_packet(payload, payload_size, sequence_id, max_packet_size) do
     if payload_size > max_packet_size do
-      <<new_payload::size(max_packet_size)-binary, rest::binary>> = IO.iodata_to_binary(payload)
+      <<new_payload::size(^max_packet_size)-binary, rest::binary>> = IO.iodata_to_binary(payload)
       rest_size = payload_size - max_packet_size
       next_sequence_id = if sequence_id < 255, do: sequence_id + 1, else: 0
 
@@ -121,7 +121,7 @@ defmodule MyXQL.Protocol do
       >> = rest
 
       take = max(13, auth_plugin_data_length - 8)
-      <<auth_plugin_data2::binary-size(take), auth_plugin_name::binary>> = rest
+      <<auth_plugin_data2::binary-size(^take), auth_plugin_name::binary>> = rest
       auth_plugin_data2 = decode_string_nul(auth_plugin_data2)
       auth_plugin_name = decode_string_nul(auth_plugin_name)
       auth_plugin_data = auth_plugin_data1 <> auth_plugin_data2
@@ -244,6 +244,10 @@ defmodule MyXQL.Protocol do
     decode_err_packet_body(rest)
   end
 
+  def decode_auth_response(<<0x01, 0x03>>) do
+    :fast_auth_success
+  end
+
   def decode_auth_response(<<0x01, 0x04>>) do
     :full_auth
   end
@@ -344,12 +348,19 @@ defmodule MyXQL.Protocol do
     decode_resultset(payload, next_data, state, &Values.decode_text_row/2)
   end
 
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html#sect_protocol_com_stmt_prepare_response_ok
   def decode_com_stmt_prepare_response(
         <<0x00, statement_id::uint4(), num_columns::uint2(), num_params::uint2(), 0,
-          num_warnings::uint2()>>,
+          rest::binary>>,
         next_data,
         :initial
       ) do
+    num_warnings =
+      case rest do
+        <<num_warnings::uint2(), _::binary>> -> num_warnings
+        _ -> 0
+      end
+
     result =
       com_stmt_prepare_ok(
         statement_id: statement_id,
@@ -583,7 +594,8 @@ defmodule MyXQL.Protocol do
   end
 
   defp decode_resultset(payload, _next_data, {:rows, column_defs, num_rows, acc}, row_decoder) do
-    row = row_decoder.(payload, column_defs)
-    {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
+    with {:ok, row} <- row_decoder.(payload, column_defs) do
+      {:cont, {:rows, column_defs, num_rows + 1, [row | acc]}}
+    end
   end
 end

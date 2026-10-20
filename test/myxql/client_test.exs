@@ -155,6 +155,19 @@ defmodule MyXQL.ClientTest do
       Client.com_quit(client)
     end
 
+    # The first connection populates the server-side cache, so the second one
+    # is answered with fast auth success rather than a full auth exchange.
+    @tag caching_sha2_password: true, public_key_exchange: true
+    test "caching_sha2_password (cached, fast auth)" do
+      opts = [username: "caching_sha2_password", password: "secret"] ++ @opts
+      assert {:ok, client} = Client.connect(opts)
+      Client.com_quit(client)
+
+      assert {:ok, client} = Client.connect(opts)
+      assert {:ok, _} = Client.com_ping(client, 5000)
+      Client.com_quit(client)
+    end
+
     @tag caching_sha2_password: true, ssl: true
     test "caching_sha2_password (ssl)" do
       opts = [username: "caching_sha2_password", password: "secret"] ++ @opts_with_ssl
@@ -503,6 +516,43 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "com_stmt_prepare/2" do
+    test "without warning_count" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          {:ok, <<_::24, 0, 0x16, "DO 1">>} = :gen_tcp.recv(sock, 0)
+          :ok = :gen_tcp.send(sock, <<10::24-little, 1, 0, 1::32-little, 0::16, 0::16, 0>>)
+          fake_ping(sock)
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:ok, com_stmt_prepare_ok(statement_id: 1, num_params: 0, num_columns: 0)} =
+               Client.com_stmt_prepare(client, "DO 1")
+
+      assert {:ok, ok_packet()} = Client.com_ping(client, 100)
+    end
+
+    test "with metadata_follows" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          {:ok, <<_::24, 0, 0x16, "DO 1">>} = :gen_tcp.recv(sock, 0)
+
+          :ok =
+            :gen_tcp.send(sock, <<13::24-little, 1, 0, 1::32-little, 0::16, 0::16, 0, 0::16, 1>>)
+
+          fake_ping(sock)
+        end)
+
+      {:ok, client} = Client.do_connect(Client.Config.new(port: port))
+
+      assert {:ok, com_stmt_prepare_ok(statement_id: 1, num_params: 0, num_columns: 0)} =
+               Client.com_stmt_prepare(client, "DO 1")
+
+      assert {:ok, ok_packet()} = Client.com_ping(client, 100)
+    end
+  end
+
   describe "com_ping/2" do
     test "handles multiple packets" do
       %{port: port} =
@@ -578,6 +628,11 @@ defmodule MyXQL.ClientTest do
     File.write!(path, contents)
     on_exit(fn -> File.rm(path) end)
     path
+  end
+
+  defp fake_ping(sock) do
+    {:ok, <<1, 0, 0, 0, 0x0E>>} = :gen_tcp.recv(sock, 0)
+    :ok = :gen_tcp.send(sock, <<7::24-little, 1, 0, 0, 0, 2, 0, 0, 0>>)
   end
 
   defp start_cleartext_fake_server() do
