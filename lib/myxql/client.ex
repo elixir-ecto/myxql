@@ -407,6 +407,12 @@ defmodule MyXQL.Client do
           disconnect(client)
           {:error, reason}
       end
+    else
+      # The handshake failed before authentication (e.g. the server closed the connection or
+      # sent an error packet, or the handshake timed out). Close the socket so it doesn't leak.
+      other ->
+        disconnect(client)
+        other
     end
   end
 
