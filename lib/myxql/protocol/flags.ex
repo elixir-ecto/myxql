@@ -1,7 +1,7 @@
 defmodule MyXQL.Protocol.Flags do
   @moduledoc false
 
-  # https://dev.mysql.com/doc/internals/en/capability-flags.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/group__group__cs__capabilities__flags.html
   @capability_flags [
     client_long_password: 0x00000001,
     client_found_rows: 0x00000002,

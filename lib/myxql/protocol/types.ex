@@ -1,8 +1,8 @@
 defmodule MyXQL.Protocol.Types do
   @moduledoc false
-  # https://dev.mysql.com/doc/internals/en/basic-types.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_data_types.html
 
-  # https://dev.mysql.com/doc/internals/en/integer.html#fixed-length-integer
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html#sect_protocol_basic_dt_int_fixed
   defmacro uint(size) do
     quote do
       size(unquote(size)) - unit(8) - little
@@ -20,7 +20,7 @@ defmodule MyXQL.Protocol.Types do
   defmacro int8(), do: quote(do: 64 - little - signed)
   defmacro uint8(), do: quote(do: 64 - little)
 
-  # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html#sect_protocol_basic_dt_int_le
   def encode_int_lenenc(int) when int < 251, do: <<int>>
   def encode_int_lenenc(int) when int < 0xFFFF, do: <<0xFC, int::uint2()>>
   def encode_int_lenenc(int) when int < 0xFFFFFF, do: <<0xFD, int::uint3()>>
@@ -36,14 +36,14 @@ defmodule MyXQL.Protocol.Types do
   def take_int_lenenc(<<0xFD, int::uint3(), rest::binary>>), do: {int, rest}
   def take_int_lenenc(<<0xFE, int::uint8(), rest::binary>>), do: {int, rest}
 
-  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::FixedLengthString
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_strings.html#sect_protocol_basic_dt_string_fix
   defmacro string(size) do
     quote do
       size(unquote(size)) - binary
     end
   end
 
-  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::LengthEncodedString
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_strings.html#sect_protocol_basic_dt_string_le
   def encode_string_lenenc(binary) when is_binary(binary) do
     size = encode_int_lenenc(byte_size(binary))
     <<size::binary, binary::binary>>
@@ -60,7 +60,7 @@ defmodule MyXQL.Protocol.Types do
     {string, rest}
   end
 
-  # https://dev.mysql.com/doc/internals/en/string.html#packet-Protocol::NulTerminatedString
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_strings.html#sect_protocol_basic_dt_string_null
   def decode_string_nul(binary) do
     {string, ""} = take_string_nul(binary)
     string

@@ -7,7 +7,7 @@ defmodule MyXQL.Protocol do
 
   defdelegate error_code_to_name(code), to: MyXQL.Protocol.ServerErrorCodes, as: :code_to_name
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_execute.html
   @cursor_types %{
     cursor_type_no_cursor: 0x00,
     cursor_type_read_only: 0x01,
@@ -18,7 +18,7 @@ defmodule MyXQL.Protocol do
   ###########################################################
   # Basic packets
   #
-  # https://dev.mysql.com/doc/internals/en/mysql-packet.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_packets.html
   ###########################################################
 
   def encode_packet(payload, sequence_id, max_packet_size) do
@@ -92,7 +92,7 @@ defmodule MyXQL.Protocol do
   ##############################################################
   # Connection Phase
   #
-  # https://dev.mysql.com/doc/internals/en/connection-phase.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase.html
   ##############################################################
 
   def decode_initial_handshake(<<10, rest::binary>>) do
@@ -265,41 +265,41 @@ defmodule MyXQL.Protocol do
   #################################################################
   # Text & Binary Protocol
   #
-  # https://dev.mysql.com/doc/internals/en/text-protocol.html
-  # https://dev.mysql.com/doc/internals/en/prepared-statements.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_command_phase_text.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_command_phase_ps.html
   #################################################################
 
-  # https://dev.mysql.com/doc/internals/en/com-quit.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_quit.html
   def encode_com(:com_quit) do
     <<0x01>>
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-ping.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_ping.html
   def encode_com(:com_ping) do
     <<0x0E>>
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-query.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query.html
   def encode_com({:com_query, query}) do
     [0x03, query]
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-prepare.html#packet-COM_STMT_PREPARE
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html
   def encode_com({:com_stmt_prepare, query}) do
     [0x16, query]
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-close.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_close.html
   def encode_com({:com_stmt_close, statement_id}) do
     [0x19, <<statement_id::uint4()>>]
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-reset.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_reset.html
   def encode_com({:com_stmt_reset, statement_id}) do
     [0x1A, <<statement_id::uint4()>>]
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-execute.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_execute.html
   def encode_com({:com_stmt_execute, statement_id, params, cursor_type}) when is_list(params) do
     params = encode_params(params)
     encode_com({:com_stmt_execute, statement_id, params, cursor_type})
@@ -321,7 +321,7 @@ defmodule MyXQL.Protocol do
     >>
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_fetch.html
   def encode_com({:com_stmt_fetch, statement_id, num_rows}) do
     <<
       0x1C,
@@ -330,7 +330,7 @@ defmodule MyXQL.Protocol do
     >>
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-COM_QUERY_Response
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response.html
   def decode_com_query_response(<<0x00, rest::binary>>, "", :initial) do
     {:halt, decode_ok_packet_body(rest)}
   end
@@ -452,7 +452,7 @@ defmodule MyXQL.Protocol do
   defp unsigned_flag(value) when is_integer(value) and value >= 1 <<< 63, do: 0x80
   defp unsigned_flag(_), do: 0x00
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-execute-response.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_execute_response.html
   def decode_com_stmt_execute_response(<<0x00, rest::binary>>, "", :initial) do
     {:halt, decode_ok_packet_body(rest)}
   end
@@ -465,7 +465,7 @@ defmodule MyXQL.Protocol do
     decode_resultset(payload, next_data, state, &Values.decode_binary_row/2)
   end
 
-  # https://dev.mysql.com/doc/internals/en/com-stmt-fetch-response.html
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_fetch.html#sect_protocol_com_stmt_fetch_response
   def decode_com_stmt_fetch_response(<<0xFF, rest::binary>>, "", {:initial, _column_defs}) do
     {:halt, decode_err_packet_body(rest)}
   end
