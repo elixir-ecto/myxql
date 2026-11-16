@@ -247,6 +247,53 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "connect: failed handshake does not leak the socket" do
+    test "server closes the connection" do
+      %{port: port} = start_fake_server(fn %{accept_socket: sock} -> :gen_tcp.close(sock) end)
+
+      assert_no_socket_leak(fn ->
+        assert {:error, _} = Client.connect([port: port] ++ @opts)
+      end)
+    end
+
+    test "server sends an error packet instead of the initial handshake" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          payload = <<0xFF, 1040::little-16, "Too many connections">>
+          :ok = :gen_tcp.send(sock, [<<byte_size(payload)::24-little>>, 0, payload])
+          Process.sleep(:infinity)
+        end)
+
+      assert_no_socket_leak(fn ->
+        assert {:ok, err_packet(message: "Too many connections")} =
+                 Client.connect([port: port] ++ @opts)
+      end)
+    end
+
+    test "handshake timeout" do
+      %{port: port} = start_fake_server(fn _ -> Process.sleep(:infinity) end)
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert_no_socket_leak(fn ->
+          assert {:error, _} = Client.connect([port: port, handshake_timeout: 5] ++ @opts)
+        end)
+      end)
+    end
+  end
+
+  defp assert_no_socket_leak(fun) do
+    before = owned_tcp_ports()
+    fun.()
+    assert owned_tcp_ports() == before
+  end
+
+  defp owned_tcp_ports() do
+    for port <- Port.list(),
+        Port.info(port, :connected) == {:connected, self()},
+        Port.info(port, :name) == {:name, ~c"tcp_inet"},
+        do: port
+  end
+
   describe "com_query/2" do
     setup :connect
 
