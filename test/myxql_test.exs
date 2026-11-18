@@ -137,6 +137,40 @@ defmodule MyXQLTest do
       assert %MyXQL.TextQuery{} = entry.query
     end
 
+    test "text: LOAD DATA LOCAL INFILE uses the explicitly provided file", c do
+      path =
+        Path.join(System.tmp_dir!(), "myxql-local-infile-#{System.unique_integer([:positive])}")
+
+      File.write!(path, "1,hello\n2,world\n")
+      on_exit(fn -> File.rm(path) end)
+
+      MyXQL.query!(c.conn, "SET GLOBAL local_infile = ON", [], query_type: :text)
+
+      MyXQL.query!(
+        c.conn,
+        "CREATE TEMPORARY TABLE local_infile_test (id INTEGER, value VARCHAR(255))",
+        [],
+        query_type: :text
+      )
+
+      assert %MyXQL.Result{num_rows: 2} =
+               MyXQL.query!(
+                 c.conn,
+                 """
+                 LOAD DATA LOCAL INFILE 'ignored-by-client.csv'
+                 INTO TABLE local_infile_test
+                 FIELDS TERMINATED BY ','
+                 LINES TERMINATED BY '\\n'
+                 """,
+                 [],
+                 query_type: :text,
+                 local_infile: path
+               )
+
+      assert %MyXQL.Result{rows: [[1, "hello"], [2, "world"]]} =
+               MyXQL.query!(c.conn, "SELECT id, value FROM local_infile_test ORDER BY id")
+    end
+
     test "non preparable statement", c do
       self = self()
       log = &send(self, &1)

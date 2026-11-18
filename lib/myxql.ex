@@ -31,6 +31,7 @@ defmodule MyXQL do
           option()
           | {:query_type, :binary | :binary_then_text | :text}
           | {:cache_statement, iodata()}
+          | {:local_infile, Path.t()}
 
   @type stream_option() :: option() | {:max_rows, pos_integer()}
 
@@ -229,6 +230,10 @@ defmodule MyXQL do
       given to `prepare/4`, if the cache statement name is reused with a different, the previous
       query is automatically closed
 
+    * `:local_infile` - path to the file sent for a `LOAD DATA LOCAL INFILE` request. This option
+      must be passed explicitly on each query. For security, the filename requested by the server
+      is ignored. This option requires the text protocol (`query_type: :text`).
+
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
   options.
@@ -302,6 +307,10 @@ defmodule MyXQL do
 
     * `:cache_statement` - Caches the query with the given name. If the cache statement
       name is reused with a different statement, the previous query is automatically closed.
+
+    * `:local_infile` - Path to the file sent for a `LOAD DATA LOCAL INFILE` request. This option
+      must be passed explicitly on each query. For security, the filename requested by the server
+      is ignored. This option requires the text protocol (`query_type: :text`).
 
   Options are passed to `DBConnection.execute/4` for text protocol, and
   `DBConnection.prepare_execute/4` for binary protocol. See their documentation for all available
