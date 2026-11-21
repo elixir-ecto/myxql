@@ -247,13 +247,14 @@ defmodule MyXQL.ClientTest do
     end
   end
 
-  describe "connect: failed handshake does not leak the socket" do
+  describe "connect: failed handshake closes the socket" do
     test "server closes the connection" do
       %{port: port} = start_fake_server(fn %{accept_socket: sock} -> :gen_tcp.close(sock) end)
+      trace_ports_opened_by_self()
 
-      assert_no_socket_leak(fn ->
-        assert {:error, _} = Client.connect([port: port] ++ @opts)
-      end)
+      assert {:error, _} = Client.connect([port: port] ++ @opts)
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
     end
 
     test "server sends an error packet instead of the initial handshake" do
@@ -264,34 +265,42 @@ defmodule MyXQL.ClientTest do
           Process.sleep(:infinity)
         end)
 
-      assert_no_socket_leak(fn ->
-        assert {:error, err_packet(message: "Too many connections")} =
-                 Client.connect([port: port] ++ @opts)
-      end)
+      trace_ports_opened_by_self()
+
+      assert {:error, err_packet(message: "Too many connections")} =
+               Client.connect([port: port] ++ @opts)
+
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
     end
 
     test "handshake timeout" do
       %{port: port} = start_fake_server(fn _ -> Process.sleep(:infinity) end)
+      trace_ports_opened_by_self()
 
       ExUnit.CaptureLog.capture_log(fn ->
-        assert_no_socket_leak(fn ->
-          assert {:error, _} = Client.connect([port: port, handshake_timeout: 5] ++ @opts)
-        end)
+        assert {:error, _} = Client.connect([port: port, handshake_timeout: 5] ++ @opts)
       end)
+
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
     end
   end
 
-  defp assert_no_socket_leak(fun) do
-    before = owned_tcp_ports()
-    fun.()
-    assert owned_tcp_ports() == before
+  # A process can't be its own tracer.
+  defp trace_ports_opened_by_self() do
+    test = self()
+    tracer = start_supervised!({Task, fn -> forward_opened_ports(test) end})
+    :erlang.trace(test, true, [:procs, {:tracer, tracer}])
   end
 
-  defp owned_tcp_ports() do
-    for port <- Port.list(),
-        Port.info(port, :connected) == {:connected, self()},
-        Port.info(port, :name) == {:name, ~c"tcp_inet"},
-        do: port
+  defp forward_opened_ports(test) do
+    receive do
+      {:trace, ^test, :link, port} when is_port(port) -> send(test, {:opened_port, port})
+      _ -> :ok
+    end
+
+    forward_opened_ports(test)
   end
 
   describe "com_query/2" do
