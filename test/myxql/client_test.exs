@@ -265,7 +265,7 @@ defmodule MyXQL.ClientTest do
         end)
 
       assert_no_socket_leak(fn ->
-        assert {:ok, err_packet(message: "Too many connections")} =
+        assert {:error, err_packet(message: "Too many connections")} =
                  Client.connect([port: port] ++ @opts)
       end)
     end

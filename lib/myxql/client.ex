@@ -370,8 +370,9 @@ defmodule MyXQL.Client do
         cancel_handshake_timer(timer)
         {:ok, client}
 
-      {:error, reason} ->
+      {:error, reason, client} ->
         cancel_handshake_timer(timer)
+        disconnect(client)
         {:error, reason}
     end
   end
@@ -399,22 +400,17 @@ defmodule MyXQL.Client do
         {:ok, %{}} = ok ->
           ok
 
-        {:ok, err_packet() = err_packet} ->
-          disconnect(client)
-          {:error, err_packet}
-
-        {:error, reason} ->
-          disconnect(client)
-          {:error, reason}
+        error ->
+          handshake_error(error, client)
       end
     else
-      # The handshake failed before authentication (e.g. the server closed the connection or
-      # sent an error packet, or the handshake timed out). Close the socket so it doesn't leak.
-      other ->
-        disconnect(client)
-        other
+      error ->
+        handshake_error(error, client)
     end
   end
+
+  defp handshake_error({:ok, err_packet() = err_packet}, client), do: {:error, err_packet, client}
+  defp handshake_error({:error, reason}, client), do: {:error, reason, client}
 
   defp maybe_set_names(client, %{charset: nil, collation: nil}) do
     {:ok, client}
