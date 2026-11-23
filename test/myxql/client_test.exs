@@ -247,6 +247,62 @@ defmodule MyXQL.ClientTest do
     end
   end
 
+  describe "connect: failed handshake closes the socket" do
+    test "server closes the connection" do
+      %{port: port} = start_fake_server(fn %{accept_socket: sock} -> :gen_tcp.close(sock) end)
+      trace_ports_opened_by_self()
+
+      assert {:error, _} = Client.connect([port: port] ++ @opts)
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
+    end
+
+    test "server sends an error packet instead of the initial handshake" do
+      %{port: port} =
+        start_fake_server(fn %{accept_socket: sock} ->
+          payload = <<0xFF, 1040::little-16, "Too many connections">>
+          :ok = :gen_tcp.send(sock, [<<byte_size(payload)::24-little>>, 0, payload])
+          Process.sleep(:infinity)
+        end)
+
+      trace_ports_opened_by_self()
+
+      assert {:error, err_packet(message: "Too many connections")} =
+               Client.connect([port: port] ++ @opts)
+
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
+    end
+
+    test "handshake timeout" do
+      %{port: port} = start_fake_server(fn _ -> Process.sleep(:infinity) end)
+      trace_ports_opened_by_self()
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert {:error, _} = Client.connect([port: port, handshake_timeout: 5] ++ @opts)
+      end)
+
+      assert_receive {:opened_port, sock}
+      refute Port.info(sock)
+    end
+  end
+
+  # A process can't be its own tracer.
+  defp trace_ports_opened_by_self() do
+    test = self()
+    tracer = start_supervised!({Task, fn -> forward_opened_ports(test) end})
+    :erlang.trace(test, true, [:procs, {:tracer, tracer}])
+  end
+
+  defp forward_opened_ports(test) do
+    receive do
+      {:trace, ^test, :link, port} when is_port(port) -> send(test, {:opened_port, port})
+      _ -> :ok
+    end
+
+    forward_opened_ports(test)
+  end
+
   describe "com_query/2" do
     setup :connect
 
