@@ -680,7 +680,7 @@ defmodule MyXQL.Protocol.Values do
     do: decode_binary_row(r, null_bitmap >>> 1, t, [decode_bit(v, size) | acc])
 
   defp decode_bit(binary, size) do
-    pad = 8 - rem(size, 8)
+    pad = rem(8 - rem(size, 8), 8)
     <<0::size(^pad), bitstring::size(^size)-bits>> = binary
     bitstring
   end
