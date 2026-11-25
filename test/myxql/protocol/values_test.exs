@@ -11,6 +11,20 @@ defmodule MyXQL.Protocol.ValueTest do
     end
   end
 
+  describe "decode_text_value/2 with BIT(n)" do
+    test "n is a multiple of 8" do
+      assert {:ok, <<6::8>>} = MyXQL.Protocol.Values.decode_text_value(<<6>>, {:bit, 8})
+
+      assert {:ok, <<1::8, 2::8>>} =
+               MyXQL.Protocol.Values.decode_text_value(<<1, 2>>, {:bit, 16})
+    end
+
+    test "n is not a multiple of 8" do
+      assert {:ok, <<1::1, 0::1, 1::1>>} =
+               MyXQL.Protocol.Values.decode_text_value(<<5>>, {:bit, 3})
+    end
+  end
+
   for protocol <- [:text, :binary] do
     @protocol protocol
 
